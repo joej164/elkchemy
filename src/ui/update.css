@@ -1,0 +1,36 @@
+.update-control {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px 12px;
+  padding: 8px var(--gutter, 16px);
+  font-size: 0.9rem;
+  color: var(--parchment, #f4ecd8);
+}
+.update-build { opacity: 0.8; }
+.update-live { min-width: 0; }
+.update-status:empty { display: none; }
+.update-btn {
+  min-height: 44px;
+  padding: 0 14px;
+  font: inherit;
+  color: var(--parchment, #f4ecd8);
+  background: transparent;
+  border: 1px solid var(--bark, #6b4a2f);
+  border-radius: 8px;
+  touch-action: manipulation;
+  cursor: pointer;
+}
+.update-btn:disabled { opacity: 0.6; cursor: default; }
+.update-btn-primary {
+  color: var(--ink, #2a2118);
+  background: var(--gold, #f2c14e);
+  border-color: var(--amber, #d39b3a);
+  font-weight: 600;
+}
+.update-btn:focus-visible {
+  outline: 3px solid var(--gold, #f2c14e);
+  outline-offset: 2px;
+}
+.update-btn-primary:focus-visible { outline-color: var(--parchment, #f4ecd8); }
