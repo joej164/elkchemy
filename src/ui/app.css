@@ -56,6 +56,13 @@ body {
 
 .info { width: 100%; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .title-row { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.title-controls { display: flex; align-items: center; gap: 10px; }
+.music-button {
+  min-height: 44px; padding: 6px 12px; border: 2px solid var(--gold); border-radius: 12px;
+  background: transparent; color: var(--gold); font: inherit; font-size: 0.95rem;
+  white-space: nowrap; cursor: pointer; touch-action: manipulation;
+}
+.music-button[aria-pressed="true"] { background: var(--gold); color: var(--forest-1); }
 .level-label { grid-column: 1 / -1; margin: -4px 0 0; font-size: 1rem; color: var(--earth); }
 .info h1 { margin: 0; font-size: 1.8rem; color: var(--gold); letter-spacing: 0.02em; }
 

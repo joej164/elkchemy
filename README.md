@@ -71,6 +71,12 @@ npm run build
 npm run preview
 ```
 
+## Music
+
+The header's Music button starts or mutes quiet, looping background music. It starts off on each page load and downloads no audio until enabled. The approved Woodland Stroll loop plays generally; Songbird Chorus uses Curious Clearing. Each track is fetched and decoded once per page session, not streamed continuously. Music stays enabled across level transitions and pauses while the app is hidden. Returning resumes it if enabled; if playback is blocked, tap Music again. Loading/playback failures leave gameplay usable and show a retry control. Use the device volume for adjustment. Sound effects are not implemented yet.
+
+Chromium checks cover decoding, loop configuration, mute/resume, level switching, simulated visibility changes, failure/retry, and a delayed load completing after mute. Physical iPad/Safari playback, perceived volume, and real background interruptions still need testing.
+
 ## Updates
 
 The footer shows the running build id. "Check for updates" fetches the deployed `/version.json` on demand (never automatically) and compares it with the build id compiled into the app; if it differs, "Update now" reloads the app, which restarts from level 1. There is no service worker, so the app is not available offline.

@@ -1,4 +1,4 @@
-import { useReducer, useState } from 'react';
+import { useReducer, useState, type ReactNode } from 'react';
 import { LEVELS, nextLevelIndex, type Level } from '../levels';
 import type { Item } from '../board';
 import { hasItem } from '../status';
@@ -7,6 +7,8 @@ import { HelpButton } from './HelpButton';
 import { ItemArt, itemLabel } from './ItemArt';
 import { UpdateControl } from './UpdateControl';
 import { isLargeBoard, itemCount, objectiveText, statusMessage } from './messages';
+import { useMusic } from './useMusic';
+import { PUZZLE_MUSIC, WOODLAND_MUSIC } from '../music';
 import {
   canPlaceSupply, canUndo, initUi, nextSupplyItem, reduceUi, supplyRemaining,
   type LastAction,
@@ -31,11 +33,27 @@ function describeAction(a: LastAction | null): string {
 
 export function App({ levels = LEVELS }: { levels?: readonly Level[] }) {
   const [index, setIndex] = useState(0);
+  const music = useMusic(levels[index].definition.goal.kind === 'item' &&
+    levels[index].definition.goal.item.family === 'song' ? PUZZLE_MUSIC : WOODLAND_MUSIC);
+  const musicControl = (
+    <>
+      <button type="button" className="music-button" data-action="music"
+        aria-label={music.enabled ? 'Mute music' : music.error ? 'Retry music' : 'Turn music on'}
+        aria-pressed={music.enabled} aria-busy={music.loading}
+        onClick={music.toggle}>
+        <span aria-hidden="true">♪</span> Music: {music.error ? 'retry' : music.enabled ? 'on' : 'off'}
+      </button>
+      <span className="sr-only" role="status">
+        {music.error ? 'Music could not play. Tap Music to try again.' : music.loading ? 'Loading music.' : ''}
+      </span>
+    </>
+  );
   // Bumped on every Next level / Play again, so the game remounts even when the index repeats.
   const [run, setRun] = useState(0);
   return (
     <main className="app">
-      <Game key={run} index={index} levels={levels} onNext={() => { setIndex(nextLevelIndex(index, levels.length)); setRun((r) => r + 1); }} />
+      <Game key={run} index={index} levels={levels} musicControl={musicControl}
+        onNext={() => { setIndex(nextLevelIndex(index, levels.length)); setRun((r) => r + 1); }} />
       <footer className="app-footer">
         <UpdateControl />
       </footer>
@@ -43,7 +61,7 @@ export function App({ levels = LEVELS }: { levels?: readonly Level[] }) {
   );
 }
 
-function Game({ index, levels, onNext }: { index: number; levels: readonly Level[]; onNext: () => void }) {
+function Game({ index, levels, onNext, musicControl }: { index: number; levels: readonly Level[]; onNext: () => void; musicControl: ReactNode }) {
   const [state, dispatch] = useReducer(reduceUi, levels[index].definition, initUi);
   const goal = state.session.level.goal;
   const next = nextSupplyItem(state);
@@ -61,7 +79,10 @@ function Game({ index, levels, onNext }: { index: number; levels: readonly Level
       <header className="info">
         <div className="title-row">
           <h1>Elkchemy</h1>
-          <HelpButton goal={goal} largeBoard={isLargeBoard(state.session.board)} />
+          <div className="title-controls">
+            {musicControl}
+            <HelpButton goal={goal} largeBoard={isLargeBoard(state.session.board)} />
+          </div>
         </div>
         <p className="level-label">Level {index + 1} of {levels.length} · {levels[index].name}</p>
         <div className="panel goal">

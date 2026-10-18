@@ -4,11 +4,11 @@ Updated October 18, 2026. This is the project backlog, not authorization to impl
 
 ## Current baseline
 
-- Latest deployment: `20261018-194401` on the existing Firebase site, with five normal levels at `/`, including The Faraway Grove's 12×16 board and four simultaneous targets. This uses the ordinary build; the earlier standalone `/sandbox.html` is no longer shipped. The owner explicitly wants iPad tests on this site, without another environment.
+- Latest deployment: `20261018-195510` on the existing Firebase site: five levels plus default-off background music and a mute button. The Faraway Grove still has its 12×16 board and four simultaneous targets. This uses the ordinary build; the earlier standalone `/sandbox.html` is no longer shipped. The owner explicitly wants iPad tests on this site, without another environment.
 
 - The reviewed five-level build passes 276 tests, typecheck, and production build. Codex played through all five levels in Chromium and verified that the deployed HTML, version, JavaScript, and CSS match the build. Production cache headers were checked in an earlier release.
 - The owner completed the first four levels and the earlier scrolling test board on iPad, confirmed that the update button worked, and approved the Home Screen icon. Level 5's four-target UI and its owner/wife playtest remain pending.
-- The owner approved both original synthesized music loops for prototype integration. Playback is not integrated; gameplay remains silent.
+- The owner approved both original synthesized music loops. Background playback and the mute button are now implemented directly by Codex at the owner's request, without Claude delegation. The owner reported the latest playtest went well: freeze gameplay changes pending Alisha's feedback; audio is the only currently authorized addition.
 - No game-state persistence, offline support, generated levels, or remote diagnostics exists yet.
 
 ## Level variety — implemented; further wife/difficulty feedback pending
@@ -25,10 +25,12 @@ Updated October 18, 2026. This is the project backlog, not authorization to impl
 ## Audio — approved for prototype integration
 
 - [x] Owner listened to and approved `public/audio/woodland-stroll.wav` and `public/audio/curious-clearing.wav` for prototype integration. Scores, renderer, and notes are in `artwork/music/`; richer instruments and longer arrangements can be explored later.
-- [ ] Add optional background music after approval. Keep sound off by default and start playback only after an explicit user gesture.
+- [x] Add optional background music after approval: default-off header toggle, quiet Web Audio looping of the woodland track, with Curious Clearing on the Song level. No initialization or audio requests until enabled; decoded tracks reused within the page session. Reload returns to off.
 - [ ] Create and review local supply/merge sounds, a five-merge bonus cue, and win feedback. Current files are music loops only.
-- [ ] Implement mute/audio controls, quiet mixing, reliable looping, and appropriate pause/resume when the app is backgrounded. Verify on iPad Safari and standalone mode.
-- [ ] Integrate the approved, locally bundled audio for eventual offline use; no streaming or external audio services. Both WAV files already ship under `public/audio/`, but nothing references or plays them yet.
+- [x] Implement mute/audio controls and quiet mixing. Eight focused tests cover lazy initialization, looping, mute/unmute, simulated backgrounding, delayed-load cancellation, track changes, failure/retry, and disposal. Chromium confirms actual audio decoding and running/suspended context state, level transition without duplicate contexts, cached track reuse, and continued gameplay after a forced network failure. The control is at least 44px tall in iPad layouts and phone width.
+- [x] Audio release verification: 284 tests, typecheck, and production build pass. The live `20261018-195510` build starts with Music off, decodes and loops the approved woodland WAV when enabled, and suspends its audio context when muted. Subjective listening and actual iPad interruption behavior remain unverified.
+- [ ] Verify audible volume, seamless looping, mute, and real background/interruption recovery on physical iPad Safari and Home Screen mode; headless Chromium cannot establish subjective audio quality.
+- [x] Integrate the approved local WAV files without streaming or external services. Both files ship under `public/audio/` and are loaded on demand. Offline launch/caching remains a separate task.
 - [ ] Music can later draw more strongly on clarinet, ukulele, vintage cinema, and subtle sci-fi textures. Do not replace the current initial direction solely to add the deferred campaign themes.
 
 ## Physical iPad and interaction checks
