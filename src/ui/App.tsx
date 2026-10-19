@@ -4,9 +4,11 @@ import type { Item } from '../board';
 import { generatePuzzle, type GeneratedPuzzle, type PuzzleConfig } from '../generator';
 import type { LevelDefinition } from '../session';
 import { hasItem } from '../status';
-import { Board } from './Board';
+import { nextLocked, type Region } from '../regions';
+import { Board, LockIcon } from './Board';
 import { HelpButton } from './HelpButton';
 import { Home } from './Home';
+import { LevelPicker } from './LevelPicker';
 import { PlaySetup } from './PlaySetup';
 import { PuzzleId } from './PuzzleId';
 import { ReleaseNotes } from './ReleaseNotes';
@@ -16,11 +18,11 @@ import gameLandscapeArt from '../assets/art/woodland-cheering-landscape-v1.webp'
 import gamePortraitArt from '../assets/art/woodland-cheering-portrait-v1.webp';
 import { ItemArt, itemLabel } from './ItemArt';
 import { UpdateControl } from './UpdateControl';
-import { isLargeBoard, itemCount, objectiveText, statusMessage } from './messages';
+import { isLargeBoard, itemCount, objectiveText, statusMessage, unlockNeed } from './messages';
 import { useMusic } from './useMusic';
 import { PUZZLE_MUSIC, WOODLAND_MUSIC } from '../music';
 import {
-  canPlaceSupply, canUndo, initUi, nextSupplyItem, reduceUi, supplyRemaining,
+  canPlaceSupply, canUndo, canUnlock, initUi, nextSupplyItem, reduceUi, supplyRemaining,
   type LastAction,
 } from './controller';
 
@@ -28,12 +30,13 @@ function plural(n: number): string {
   return n === 1 ? '1 item' : `${n} items`;
 }
 
-function describeAction(a: LastAction | null, noun: string): string {
+function describeAction(a: LastAction | null, noun: string, regions?: readonly Region[]): string {
   if (!a) return '';
   switch (a.kind) {
     case 'move': return 'Moved an item.';
     case 'swap': return 'Swapped two items.';
     case 'place': return `Placed ${itemLabel(a.item)} in row ${a.at.row + 1}, column ${a.at.col + 1}.`;
+    case 'unlock': return `Unlocked ${regions?.[a.region]?.name ?? 'an area'}.`;
     case 'undo': return 'Undid the last action.';
     case 'retry': return `${noun} restarted.`;
     case 'merge':
@@ -46,6 +49,7 @@ type Screen =
   | { readonly kind: 'play'; readonly error?: string }
   | { readonly kind: 'notes' }
   | { readonly kind: 'scores' }
+  | { readonly kind: 'pick' }
   | { readonly kind: 'levels' }
   | { readonly kind: 'puzzle'; readonly puzzle: GeneratedPuzzle };
 
@@ -104,7 +108,7 @@ export function App({ levels = LEVELS }: { levels?: readonly Level[] }) {
     <main className={`app${inGame ? ' is-game' : ' is-page'}${scene ? ' is-scene' : ''}${screen.kind === 'scores' ? ' is-wide' : ''}`}>
       {screen.kind === 'home' && (
         <Home musicControl={musicControl} onPlay={() => show({ kind: 'play' })}
-          onLevels={() => show({ kind: 'levels' })} onScores={() => show({ kind: 'scores' })}
+          onLevels={() => show({ kind: 'pick' })} onScores={() => show({ kind: 'scores' })}
           onReleaseNotes={() => show({ kind: 'notes' })}
           levelsNote={index > 0 ? `Levels continue at level ${index + 1} of ${levels.length}, ${levels[index].name}.` : undefined} />
       )}
@@ -114,6 +118,10 @@ export function App({ levels = LEVELS }: { levels?: readonly Level[] }) {
       )}
       {screen.kind === 'notes' && <ReleaseNotes musicControl={musicControl} onHome={toHome} />}
       {screen.kind === 'scores' && <Scores musicControl={musicControl} onHome={toHome} />}
+      {screen.kind === 'pick' && (
+        <LevelPicker levels={levels} current={index} musicControl={musicControl} onHome={toHome}
+          onPick={(i) => { setIndex(i); show({ kind: 'levels' }); window.scrollTo(0, 0); }} />
+      )}
       {screen.kind === 'levels' && (
         <Game key={run} definition={levels[index].definition} musicControl={musicControl} onHome={toHome}
           label={`Level ${index + 1} of ${levels.length} · ${levels[index].name}`}
@@ -148,7 +156,9 @@ interface GameProps {
 export function Game({ definition, label, musicControl, onHome, winLabel, onWin, puzzleId, onNewPuzzle }: GameProps) {
   const [state, dispatch] = useReducer(reduceUi, definition, initUi);
   const puzzle = puzzleId !== undefined;
-  const goal = state.session.level.goal;
+  const { goal, regions } = state.session.level;
+  const nextArea = regions ? nextLocked(state.session) : null;
+  const unlockable = canUnlock(state);
   const single = goal.kind === 'items' ? undefined : goal.item;
   const next = nextSupplyItem(state);
   const left = supplyRemaining(state);
@@ -165,19 +175,21 @@ export function Game({ definition, label, musicControl, onHome, winLabel, onWin,
   };
 
   let hint = '';
-  if (canSupply) hint = 'Lands in a random empty cell';
+  if (regions) {
+    if (!over) hint = nextArea === null ? '' : unlockable ? 'The item stays where it is' : `Needs ${unlockNeed(regions, nextArea)}`;
+  } else if (canSupply) hint = 'Lands in a random empty cell';
   else if (!over) hint = left <= 0 ? 'No supply left' : 'Board is full';
 
   return (
     <>
       {/* Decorative: web copies of artwork/gameplay/woodland-cheering-*-v1.png, behind the unchanged board layout. */}
       <SceneArt className="is-game" landscape={gameLandscapeArt} portrait={gamePortraitArt} alt="" />
-      <header className="info">
+      <header className={`info${regions ? ' has-regions' : ''}`}>
         <div className="title-row">
           <h1>Elkchemy</h1>
           <div className="title-controls">
             {musicControl}
-            <HelpButton goal={goal} largeBoard={pannable} puzzle={puzzle} />
+            <HelpButton goal={goal} largeBoard={pannable} puzzle={puzzle} regions={regions} />
           </div>
         </div>
         <p className="level-label">{label}</p>
@@ -201,12 +213,26 @@ export function Game({ definition, label, musicControl, onHome, winLabel, onWin,
             </div>
           )}
           <p>
-            {objectiveText(goal)}
+            {objectiveText(goal, regions)}
             {goal.kind === 'items' && <><br />{goal.items.filter((t) => hasItem(state.session.board, t)).length} of {goal.items.length} done</>}
             {goal.kind === 'leaveOne' && <><br />On board: {itemCount(state)}</>}
           </p>
         </div>
-        {!puzzle && (
+        {regions && (
+          <div className="panel next-area" data-next-area>
+            <div className="art">
+              {nextArea !== null
+                ? <ItemArt item={regions[nextArea].unlock!.item} />
+                : <span className="art-glyph" aria-hidden="true">✓</span>}
+            </div>
+            <p>
+              {nextArea !== null ? (
+                <><strong>Locked: {regions[nextArea].name}</strong><br />Needs {unlockNeed(regions, nextArea)}</>
+              ) : <strong>All areas open</strong>}
+            </p>
+          </div>
+        )}
+        {!puzzle && !regions && (
           <div className="panel supply-info">
             <div className="art">{next ? <ItemArt item={next} /> : <span className="art-empty" aria-hidden="true" />}</div>
             <p>
@@ -229,7 +255,7 @@ export function Game({ definition, label, musicControl, onHome, winLabel, onWin,
       </div>
 
       <div className="sr-only" aria-live="polite" role="status">
-        {describeAction(state.lastAction, puzzle ? 'Puzzle' : 'Level')} {over ? message : ''}
+        {describeAction(state.lastAction, puzzle ? 'Puzzle' : 'Level', regions)} {over ? message : ''}
       </div>
 
       <section className="controls" aria-label="Controls">
@@ -240,6 +266,13 @@ export function Game({ definition, label, musicControl, onHome, winLabel, onWin,
         ) : state.status === 'won' ? (
           <button type="button" className="btn btn-next" data-action="next-level" onClick={onWin}>
             {winLabel}
+          </button>
+        ) : regions ? (
+          // Stays in place (disabled) once every area is open, so Undo and Retry never shift under a finger.
+          <button type="button" className="btn btn-unlock" data-action="unlock" disabled={!unlockable}
+            aria-describedby="supply-hint" onClick={() => dispatch({ type: 'unlock' })}>
+            <span className="btn-art" aria-hidden="true"><LockIcon open={nextArea === null} /></span>
+            <span>{nextArea !== null ? `Unlock ${regions[nextArea].name}` : 'All areas open'}</span>
           </button>
         ) : (
           <button

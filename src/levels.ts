@@ -134,12 +134,52 @@ export const FARAWAY_LEVEL: LevelDefinition = {
   },
 };
 
+// 7 × 7 exploration map in three regions; items never leave their region, and unlocking consumes nothing.
+//   rows 0-2:            Crystal Hollow (7 × 3), unlocked by Song tier 2 (shown as 3 of 4) in Songbird Glade
+//   rows 3-6, cols 0-3:  Mossy Clearing (4 × 4), open from the start
+//   rows 3-6, cols 4-6:  Songbird Glade (3 × 4), unlocked by Grove tier 2 (shown as 3 of 4) in Mossy Clearing
+// Goal: Crystal tier 3 (shown as 4 of 4) in Crystal Hollow. Every piece belongs to its region's target family.
+// - Clearing: three grove-0 (a pair and a lone one) make a grove-1; dropped on the grove-1 pair it makes the
+//   key. Plain 3-merges, no choices: it teaches Unlock.
+// - Glade: six song-0 (a 2×2 block, plus a pair) and one song-1. Dropping a pair piece onto the block is a
+//   5 → 2 merge, introducing the bonus; two plain 3-merges work as well. Every choice reaches the key.
+// - Hollow: five crystal-0 (two pairs and a lone one), one crystal-1 and two crystal-2. The goal needs one
+//   5 → 2 merge of crystal-0 (gather four, then drop the fifth on them); any 3-merge of crystal-0 leaves two of
+//   each tier, which is reported straight away (no useful merges left), so a single Undo recovers.
+//   c0 c0 .  .  .  c2 .
+//   .  .  .  c1 .  .  c0
+//   c2 .  .  .  c0 c0 .
+//   g0 g0 .  .  s0 s0 .
+//   .  .  .  g1 s0 s0 .
+//   .  g0 .  g1 .  .  s0
+//   .  .  .  .  s1 .  s0
+const HOLLOW_ITEMS: [number, number, Item][] = [
+  [0, 0, c0], [0, 1, c0], [0, 5, c2], [1, 3, c1], [1, 6, c0], [2, 0, c2], [2, 4, c0], [2, 5, c0],
+  [3, 0, g0], [3, 1, g0], [4, 3, g1], [5, 1, g0], [5, 3, g1],
+  [3, 4, s0], [3, 5, s0], [4, 4, s0], [4, 5, s0], [5, 6, s0], [6, 4, s1], [6, 6, s0],
+];
+const hollowBoard: Cell[][] = Array.from({ length: 7 }, () => Array.from({ length: 7 }, (): Cell => null));
+for (const [row, col, item] of HOLLOW_ITEMS) hollowBoard[row][col] = item;
+
+export const HOLLOW_LEVEL: LevelDefinition = {
+  seed: 6,
+  board: hollowBoard,
+  supply: [],
+  regions: [
+    { name: 'Mossy Clearing', row: 3, col: 0, rows: 4, cols: 4 },
+    { name: 'Songbird Glade', row: 3, col: 4, rows: 4, cols: 3, unlock: { item: g2, in: 0 } },
+    { name: 'Crystal Hollow', row: 0, col: 0, rows: 3, cols: 7, unlock: { item: s2, in: 1 } },
+  ],
+  goal: { kind: 'item', item: { family: 'crystal', tier: 3 }, region: 2 },
+};
+
 export const LEVELS: readonly Level[] = [
   { name: 'Sprouting Grove', definition: INTRO_LEVEL },
   { name: 'Songbird Chorus', definition: SONG_LEVEL },
   { name: 'Lone Elk', definition: LEAVE_ONE_LEVEL },
   { name: 'Crystal Fives', definition: CRYSTAL_LEVEL },
   { name: 'The Faraway Grove', definition: FARAWAY_LEVEL },
+  { name: 'The Hidden Hollow', definition: HOLLOW_LEVEL },
 ];
 
 /** The level index to play after `index` in a list of `count` levels: the next one, or 0 to replay after the last. */

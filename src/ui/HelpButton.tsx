@@ -1,10 +1,13 @@
 import { useId, useRef } from 'react';
+import type { Region } from '../regions';
 import type { LevelGoal } from '../session';
 import { helpObjective, LARGE_BOARD_HINT } from './messages';
 import './help.css';
 
-/** `puzzle`: a generated puzzle (no supply, no next level, New puzzle available). */
-export function HelpButton({ goal, largeBoard = false, puzzle = false }: { goal: LevelGoal; largeBoard?: boolean; puzzle?: boolean }) {
+/** `puzzle`: a generated puzzle (no supply, no next level, New puzzle available). `regions`: a region level (no supply). */
+export function HelpButton({ goal, largeBoard = false, puzzle = false, regions }: {
+  goal: LevelGoal; largeBoard?: boolean; puzzle?: boolean; regions?: readonly Region[];
+}) {
   const dialogId = useId();
   const titleId = useId();
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -46,12 +49,17 @@ export function HelpButton({ goal, largeBoard = false, puzzle = false }: { goal:
         <div className="help-content">
           <h2 id={titleId}>How to play</h2>
           <ul>
-            <li>{helpObjective(goal)}{puzzle ? '' : ' Winning unlocks the next level.'}</li>
+            <li>{helpObjective(goal, regions)}{puzzle ? '' : ' Winning unlocks the next level.'}</li>
             <li>Drag an item, or tap it then tap where it should go.</li>
             <li>Drop onto a matching item to merge its connected group. Merge 3 for 1 upgraded item; merge 5 for 2.</li>
             {largeBoard && <li>{LARGE_BOARD_HINT} Center board recenters the view.</li>}
             <li>Dropping onto a different item swaps them; nothing merges on its own.</li>
-            {puzzle ? (
+            {regions ? (
+              <li>
+                Locked areas show the item that opens them. Make it in the area named, then press Unlock; the item stays
+                where it is. Items never leave their own area.
+              </li>
+            ) : puzzle ? (
               <li>Everything you need is already on the board; there is no supply.</li>
             ) : (
               <li>Add supply puts the next item in a random empty cell.</li>
@@ -59,7 +67,7 @@ export function HelpButton({ goal, largeBoard = false, puzzle = false }: { goal:
             {puzzle ? (
               <li>Undo takes back your last action; Retry restarts this puzzle; New puzzle makes a fresh one.</li>
             ) : (
-              <li>Undo takes back your last action; Retry restarts this level.</li>
+              <li>Undo takes back your last action{regions ? ', even an unlock' : ''}; Retry restarts this level.</li>
             )}
           </ul>
           <button

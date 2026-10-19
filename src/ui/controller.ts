@@ -1,6 +1,7 @@
-import { previewMerge, type Item, type Pos, type Tier } from '../board';
+import type { Item, Pos, Tier } from '../board';
+import { inRegion, unlockReady } from '../regions';
 import {
-  applyDrop, chooseSupplyCell, placeSupplyRandom, retry, startSession, undo,
+  applyDrop, canDrop, chooseSupplyCell, isCellOpen, placeSupplyRandom, previewDrop, retry, startSession, undo, unlock,
   type LevelDefinition, type SessionState,
 } from '../session';
 import { evaluateStatus, type GameStatus } from '../status';
@@ -8,6 +9,7 @@ import { evaluateStatus, type GameStatus } from '../status';
 export type LastAction =
   | { readonly kind: 'move' | 'swap' | 'undo' | 'retry' }
   | { readonly kind: 'place'; readonly at: Pos; readonly item: Item }
+  | { readonly kind: 'unlock'; readonly region: number }
   | {
       readonly kind: 'merge';
       readonly consumed: 3 | 5;
@@ -29,6 +31,7 @@ export type UiAction =
   | { readonly type: 'tap'; readonly pos: Pos }
   | { readonly type: 'drop'; readonly from: Pos; readonly to: Pos }
   | { readonly type: 'placeSupply' }
+  | { readonly type: 'unlock' }
   | { readonly type: 'undo' }
   | { readonly type: 'retry' }
   | { readonly type: 'clearSelection' };
@@ -64,13 +67,30 @@ export function canPlaceSupply(state: UiState): boolean {
     state.session.board.some((r) => r.some((c) => c === null));
 }
 
-/** Cells to celebrate: goal items for an item or items goal; for Leave one, the last item once won. */
+/** Region levels: whether Unlock would open the next region now. */
+export function canUnlock(state: UiState): boolean {
+  return state.status === 'playing' && unlockReady(state.session);
+}
+
+/** Whether the item at `pos` can be picked up (tapped to select, or dragged): playing, and not in a locked region. */
+export function canPickUp(state: UiState, pos: Pos): boolean {
+  const { session } = state;
+  return !isOver(state) && inBounds(session, pos) && session.board[pos.row][pos.col] !== null && isCellOpen(session, pos);
+}
+
+/** Whether a drop of the item at `from` onto `to` would be accepted (it may still change nothing). */
+export function canDropAt(state: UiState, from: Pos, to: Pos): boolean {
+  return !isOver(state) && !samePos(from, to) && canDrop(state.session, from, to);
+}
+
+/** Cells to celebrate: goal items for an item or items goal (inside the goal region, if any); for Leave one, the last item once won. */
 export function goalCells(state: UiState): Pos[] {
-  const { goal } = state.session.level;
+  const { goal, regions } = state.session.level;
   if (goal.kind === 'leaveOne' && state.status !== 'won') return [];
+  const area = goal.kind === 'item' && goal.region !== undefined ? regions?.[goal.region] : undefined;
   const cells: Pos[] = [];
   state.session.board.forEach((r, row) => r.forEach((c, col) => {
-    if (!c) return;
+    if (!c || (area && !inRegion(area, { row, col }))) return;
     const targets = goal.kind === 'item' ? [goal.item] : goal.kind === 'items' ? goal.items : null;
     if (targets === null || targets.some((t) => c.family === t.family && c.tier >= t.tier)) cells.push({ row, col });
   }));
@@ -82,23 +102,19 @@ export function canUndo(state: UiState): boolean {
 }
 
 export function previewCells(state: UiState, from: Pos, to: Pos): Pos[] {
-  const { session } = state;
-  if (isOver(state) || !inBounds(session, from) || !inBounds(session, to) || samePos(from, to)) return [];
-  if (session.board[from.row][from.col] === null) return [];
-  return previewMerge(session.board, from, to);
+  return canDropAt(state, from, to) ? previewDrop(state.session, from, to) : [];
 }
 
 function doDrop(state: UiState, from: Pos, to: Pos): UiState {
   const { session } = state;
-  if (isOver(state) || !inBounds(session, from) || !inBounds(session, to) || samePos(from, to)) return state;
-  const src = session.board[from.row][from.col];
-  if (src === null) return state;
+  if (!canDropAt(state, from, to)) return state;
+  const src = session.board[from.row][from.col]!;
 
   let lastAction: LastAction;
   if (session.board[to.row][to.col] === null) {
     lastAction = { kind: 'move' };
   } else {
-    const cells = previewMerge(session.board, from, to);
+    const cells = previewDrop(session, from, to);
     const consumed = cells.length;
     lastAction = consumed === 3 || consumed === 5
       ? {
@@ -120,9 +136,7 @@ export function reduceUi(state: UiState, action: UiAction): UiState {
       const { pos } = action;
       const { session, selected } = state;
       if (isOver(state) || !inBounds(session, pos)) return state;
-      if (selected === null) {
-        return session.board[pos.row][pos.col] === null ? state : { ...state, selected: pos };
-      }
+      if (selected === null) return canPickUp(state, pos) ? { ...state, selected: pos } : state;
       if (samePos(selected, pos)) return { ...state, selected: null };
       // A tap that changes nothing (onto an identical item that cannot merge) still ends the selection.
       const next = doDrop(state, selected, pos);
@@ -135,6 +149,11 @@ export function reduceUi(state: UiState, action: UiAction): UiState {
       const item = nextSupplyItem(state)!;
       const next = placeSupplyRandom(state.session);
       return withSession(state, next, { kind: 'place', at: pick.at, item });
+    }
+    case 'unlock': {
+      if (isOver(state)) return state;
+      const next = unlock(state.session);
+      return next === state.session ? state : withSession(state, next, { kind: 'unlock', region: next.unlocked });
     }
     case 'undo':
       return canUndo(state) ? withSession(state, undo(state.session), { kind: 'undo' }) : state;

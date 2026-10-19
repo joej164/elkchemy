@@ -22,7 +22,11 @@ function validate(board: Board, from: Pos, to: Pos): void {
 
 const same = (a: Pos, b: Pos) => a.row === b.row && a.col === b.col;
 
-export function previewMerge(board: Board, from: Pos, to: Pos): Pos[] {
+/**
+ * The cells a drop from `from` onto `to` would merge, or [] if it would not merge.
+ * `connects` (region levels): the matching group only grows through cells it accepts, so it never crosses a region border.
+ */
+export function previewMerge(board: Board, from: Pos, to: Pos, connects?: (p: Pos) => boolean): Pos[] {
   validate(board, from, to);
   if (same(from, to)) return [];
   const src = board[from.row][from.col]!;
@@ -43,7 +47,7 @@ export function previewMerge(board: Board, from: Pos, to: Pos): Pos[] {
       { row: cur.row, col: cur.col - 1 },
     ];
     for (const n of neighbors) {
-      if (!inBounds(board, n) || visited.has(key(n))) continue;
+      if (!inBounds(board, n) || visited.has(key(n)) || (connects && !connects(n))) continue;
       const item = board[n.row][n.col];
       if (item && item.family === src.family && item.tier === src.tier) {
         visited.add(key(n));
@@ -58,7 +62,7 @@ export function previewMerge(board: Board, from: Pos, to: Pos): Pos[] {
   return [from, ...group.slice(0, count)];
 }
 
-export function drop(board: Board, from: Pos, to: Pos): DropResult {
+export function drop(board: Board, from: Pos, to: Pos, connects?: (p: Pos) => boolean): DropResult {
   validate(board, from, to);
   if (same(from, to)) return { board, kind: 'none', consumed: [] };
 
@@ -72,7 +76,7 @@ export function drop(board: Board, from: Pos, to: Pos): DropResult {
     return { board: rows, kind: 'move', consumed: [] };
   }
 
-  const consumed = previewMerge(board, from, to);
+  const consumed = previewMerge(board, from, to, connects);
   if (consumed.length > 0) {
     for (const p of consumed) rows[p.row][p.col] = null;
     const upgraded: Item = { family: src.family, tier: (src.tier + 1) as Tier };

@@ -4,9 +4,81 @@ Each entry records what changed, how it was verified, and known limitations. **U
 
 Earlier published builds are not backfilled here. The previous build, `20261018-195510`, has five handcrafted levels and optional looping music; its verification is recorded in TODO.md under Current baseline and Audio.
 
-## Unreleased — Gameplay background (October 18, 2026)
+## 20261019-052826 — The Hidden Hollow (region level) and level picker (October 18, 2026)
 
-Not committed or deployed; production remains `20261019-011024`. Backgrounds only; merge, goal and victory animations are separate tasks.
+Published October 18, 2026 with owner authorization in build `20261019-052826`. A gameplay experiment before any generated multi-room puzzles: one handcrafted map whose areas unlock in order. The owner also asked mid-task for a level picker.
+
+Codex release verification: 436 tests, typecheck and a fresh production build passed. Independently completed the 13-action winning path, checked blocked input and unlock Undo, and confirmed Retry restores the exact Clearing viewport at 390×844 and 844×390 while Undo preserves the view and level 5 retains its pan. After deployment, verified live build `20261019-052826`, six picker entries, level 6 startup, the first unlock and Retry relocking both areas. Added the player-facing Hidden Hollow release entry. Physical iPad/Safari and owner playtesting remain pending.
+
+### Changes
+
+- **Level 6, The Hidden Hollow** (`HOLLOW_LEVEL` in `src/levels.ts`), after the original five. A 7×7 map in three rectangular areas: Mossy Clearing (4×4, open), Songbird Glade (3×4) and Crystal Hollow (7×3, across the top). The Glade opens with Grove tier 3 of 4 made in the Clearing; the Hollow with Song tier 3 of 4 made in the Glade. Goal: Crystal tier 4 of 4 in Crystal Hollow. No supply; every piece starts in its area.
+- **Regions** (`src/regions.ts`): a level may list rectangular regions that split its board exactly; region 0 starts open and the rest unlock in list order. The item goal takes an optional `region`. `startSession` rejects anything else with "Unsupported region level: …": a ragged board, a single region, regions out of bounds, overlapping or leaving gaps, a locked first region, a later region without an unlock or unlocking from itself or a later region, supply, or a goal that is not one item in the last region. Levels without regions are unchanged.
+- **Rules enforced by the session**, not only the UI (`src/session.ts`): a drop must stay inside one open region (`canDrop`), so locked pieces cannot move, merge, swap or receive drops, and nothing moves or swaps between areas, even once both are open. Merge groups stop at region borders (`previewMerge`/`drop` take an optional `connects` predicate), so a matching piece across a border is never consumed. `unlock()` opens the next region when its item is present in the named region; it consumes and moves nothing, and is an ordinary undoable move. The session snapshot now carries `unlocked`, so single-step Undo restores board, open regions and status together; Retry restores the exact locked start. A key can never disappear afterwards: merges only raise tiers, and the requirement is "that tier or higher".
+- **Goals and keys count only in their own area, and only once it is open:** a Crystal tier 4 elsewhere, or inside the still-locked Hollow, does not win.
+- **Status for region levels** (`src/status.ts`): won when the goal item is in the open goal region. Lost only when nothing useful can change: no unlock is ready, and no open area holding an unmet target (the next unlock item, or the goal) has three pieces of that family at one tier below the target. Moves, swaps and other families' merges never change those pieces, so such a board can never win. A doomed choice that leaves such merges stays "playing", as in generated puzzles, and an eligible unlock always counts as play. The message is "No useful merges left—Undo or Retry." The rectangular count-based evaluator is not used for region levels.
+- **UI:** each area is outlined over the board gaps. Locked areas are shaded and hatched (not colour alone), with a parchment sign showing a padlock, the area's name and "Needs ⟨item⟩ in ⟨area⟩". Cells are labelled with their area and "locked", and locked cells are `aria-disabled`. Signs and outlines never take input. Dragging a locked cell pans the board like empty ground. Taps, Enter and drops on locked or other-area cells do nothing, and a drag over them shows a dashed red "blocked" outline instead of the drop target. Instead of supply, the info panel shows "Locked: ⟨next area⟩ / Needs …" (then "All areas open"), and the controls show "Unlock ⟨area⟩". That button is disabled until the item is made, then reads "All areas open" so Undo and Retry never shift. The banner gives the next step, plus "Drag empty ground to pan." when the board overflows. Help explains areas and unlocking. On phones the board opens on the Clearing; unlocking scrolls the new area into view, and Retry returns to the Clearing exactly as on entry (both instant). Undo leaves the view where it is. A gold glow plays once on the opened area: 0.8s, no pointer events, fade-only under reduced motion, and input is never delayed. Below 600px wide, the region level's two panels stack full width.
+- **Level picker** (`src/ui/LevelPicker.tsx`): Home → Levels now lists all six levels, and any can be played (nothing is saved, so none are gated). The level the sequence has reached is marked "Up next". Winning still offers Next level, and the home note still says where Levels continues. Picking a level starts at the top of the page.
+
+### Puzzle design and authored solution
+
+Every piece belongs to its area's target family and has a role. Coordinates are (row, column) from the top-left, 0-based, as in `tests/regions.test.ts`. Tiers below are the code's 0-based tiers (grove-0 is shown as tier 1 of 4).
+
+- **Clearing (Grove; teaches Unlock):** grove-0 ×3 (a pair at (3,0)-(3,1) and a lone one at (5,1)) and a grove-1 pair at (4,3)-(5,3). Drop (5,1) on (3,0), a 3-merge. Drop the new grove-1 (3,0) on the pair at (4,3), a 3-merge giving Grove tier 3 of 4. Unlock Songbird Glade. There are no choices here.
+- **Glade (Song; introduces 5 → 2, optional):** song-0 ×6 as a 2×2 block plus a pair, and song-1 ×1. Drop (5,6) on the block, a 5 → 2 merge with outputs at (3,4) and (5,6). Move (6,4) to (5,5). Drop (3,4) on (5,5), a 3-merge giving Song tier 3 of 4. Unlock Crystal Hollow. Two plain 3-merges also work, and every choice reaches the key.
+- **Hollow (Crystal; needs one 5 → 2):** crystal-0 ×5 (two pairs and a lone one), crystal-1 ×1 and crystal-2 ×2. Gather four crystal-0 into a block: (2,4) → (1,0), then (2,5) → (1,1). Drop the fifth, (1,6), on the block, a 5 → 2 merge with outputs at (0,0) and (1,6). Move (0,0) to (1,5). Drop (1,3) on (1,5), a 3-merge giving crystal-2 beside the one at (0,5). Drop (2,0) on (1,5), a 3-merge giving Crystal tier 4 of 4. That is the win.
+- **Rationale:** a short, readable sequence of three areas, 13 actions in all. The Clearing teaches unlocking with no way to fail. The Glade shows the five-for-two bonus where it is optional, and the Hollow is the only place it is required. The only losing choice in the whole level is a 3-merge of crystal-0 in the Hollow. It leaves two of each crystal tier, which is reported at once, so a single Undo recovers and no Retry is needed. An exhaustive check of every reachable state confirms this.
+
+### Verification
+
+- 436 tests (56 new), typecheck, and production build pass (the sandbox is still excluded from `dist/`). The new tests cover:
+  - the level's geometry, inventories and authored solution, replayed step by step through the real session rules;
+  - lock, border and merge-group enforcement, including a group that would have been a 5-merge across a border;
+  - unlock eligibility, order and non-consumption;
+  - Undo and Retry across unlocks, and region-specific goals and keys;
+  - failure before and after unlocks;
+  - every unsupported configuration;
+  - unchanged behaviour of the five original levels and generated puzzles;
+  - UI input through the reducer (taps, drags and Unlock on locked or other-area cells; selection, preview and effects after Undo);
+  - the Levels page and the region level's render and text.
+- **Failure-rule soundness:** an exhaustive search of the level's reachable count states found every unwinnable state reported "lost" and every winnable one "playing" or "won". Each region's state is its piece counts, since any arrangement within a region is reachable, and each state was judged by `evaluateStatus` on a real board. So on this level, failure detection is exact as well as sound. The general argument is in `src/status.ts`.
+- Claude, Playwright Chromium against the production build (`vite preview`):
+  - **Full win of level 6 at 820×1180:**
+    - blocked drags into a locked area and across an open border (blocked outline, no change, Undo untouched);
+    - a locked piece that cannot be dragged, and taps and keyboard Enter on locked cells that do nothing;
+    - a drag 3-merge, a tap-tap 3-merge and Unlock with its glow;
+    - Undo across the unlock, with a Glade item selected beforehand (relocked, nothing selected, no effects), then Unlock again;
+    - a keyboard 5 → 2 merge (arrow keys and Enter);
+    - the Hollow trap ("No useful merges left—Undo or Retry.", board locked) and Undo;
+    - the win ("Play again from level 1", celebration on the goal item), Undo after the win, and Retry to the exact locked start.
+  - **390×844:**
+    - the board opens with the whole Clearing in view (64px tiles);
+    - dragging a locked Hollow piece pans the board without moving it or the page;
+    - tap, pan, tap merges across a pan;
+    - Unlock scrolls the whole Glade into view.
+  - **Retry view, 390×844 and 844×390:**
+    - after unlocking the Glade, and again after unlocking both areas, Retry returned the board to exactly its entry scroll (with the whole Clearing in view at 390×844) and to the locked start;
+    - Retry after panning away without unlocking did the same;
+    - Undo straight after either unlock left the view unchanged;
+    - level 5 (no areas) still keeps its pan on Retry.
+  - **Reduced motion:** the unlock glow uses the fade-only animation with no pointer events, and a merge tapped straight after Unlock applied.
+  - **Picker:** level 1 won through the UI, Next level gave "Level 2 of 6", and the picker then marked level 2 "Up next". Level 4 picked directly. Level 5 still starts centred, and a generated puzzle shows no regions and the same 708px board frame.
+  - **At all seven sizes** (390×844, 844×390, 820×1180, 1180×820, 1024×1366, 1366×1024, 1024×768), on the Levels page and on level 6: no horizontal page overflow; no visible button, input or link under 44px; both signs fit inside their areas. The board fits without panning on every iPad size (73–100px tiles); phones pan at 64px.
+  - No console errors or warnings. Screenshots were inspected at 820×1180, 390×844, 844×390 and 1024×768.
+- **Not verified:** physical iPad/Safari (real touch, VoiceOver reading of signs and cell labels, Home Screen mode). Chromium emulation does not establish them. Not yet playtested by the owner or Alisha.
+
+### Known limitations
+
+- At 844×390 the board viewport (about 234px tall) is shorter than the 4×4 Clearing, so the start shows its middle and the player pans. This is the existing 60vh board size; layout unchanged.
+- On phones the signs on locked areas can be out of view; the info panel and Unlock hint always show the next requirement.
+- The Glade's sign covers part of its locked pieces until it opens.
+- One handcrafted map only; regions must be rectangles, unlock in order, and have no supply. Multi-room generation, supply chests, transferable items, sound effects and campaign work remain deferred.
+- The other handcrafted levels still report a loss as soon as counts make the goal unreachable, so the region level and generated puzzles ("no useful merges") behave differently from them.
+- The in-game Release notes page has no entry for this yet; add one at deployment.
+
+## 20261019-021029 — Gameplay background (October 18, 2026)
+
+Published as build `20261019-021029`; the live `/version.json` was checked on October 18, 2026. Committed as `204e839` ("Checkpoint gameplay backgrounds pending character placement"). Backgrounds only; merge, goal and victory animations are separate tasks. The text below was written before deployment.
 
 ### Changes
 

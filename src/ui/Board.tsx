@@ -1,8 +1,11 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type Dispatch, type KeyboardEvent, type PointerEvent } from 'react';
 import type { Pos } from '../board';
+import { regionAt, type Region } from '../regions';
+import { isCellOpen } from '../session';
 import { ItemArt, itemLabel } from './ItemArt';
+import { unlockNeed } from './messages';
 import { centerScroll, exceedsThreshold, moveFocus, panScroll } from './navigation';
-import { goalCells, previewCells, type UiAction, type UiState } from './controller';
+import { canDropAt, canPickUp, goalCells, previewCells, type UiAction, type UiState } from './controller';
 
 // A click arriving this soon after a drag is the browser's follow-up click, not a tap.
 const SUPPRESS_CLICK_MS = 500;
@@ -28,11 +31,22 @@ function cellAt(root: HTMLElement | null, x: number, y: number): Pos | null {
   return Number.isInteger(row) && Number.isInteger(col) ? { row, col } : null;
 }
 
+/** A padlock, closed or open; decorative (callers give the text). */
+export function LockIcon({ open = false }: { open?: boolean }) {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d={open ? 'M8 11V7a4 4 0 0 1 7.6-1.7' : 'M8 11V7a4 4 0 0 1 8 0v4'} fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" />
+      <rect x="5" y="11" width="14" height="10" rx="2" fill="currentColor" />
+    </svg>
+  );
+}
+
 /** `onOverflowChange` reports whether the board overflows its viewport (so it needs panning), whenever that changes. */
 export function Board({ state, dispatch, onOverflowChange }: {
   state: UiState; dispatch: Dispatch<UiAction>; onOverflowChange?: (overflowing: boolean) => void;
 }) {
   const board = state.session.board;
+  const regions = state.session.level.regions;
   const rows = board.length;
   const cols = board[0].length;
   const over = state.status !== 'playing';
@@ -81,13 +95,28 @@ export function Board({ state, dispatch, onOverflowChange }: {
     v.scrollLeft = centerScroll(v.scrollWidth, v.clientWidth);
     v.scrollTop = centerScroll(v.scrollHeight, v.clientHeight);
   };
+  // Region levels: scroll a region's middle to the viewport's middle (the browser clamps it).
+  const showRegion = (r: Region) => {
+    const v = viewportRef.current;
+    const first = cellRefs.current[r.row * cols + r.col];
+    const last = cellRefs.current[(r.row + r.rows - 1) * cols + r.col + r.cols - 1];
+    if (!v || !first || !last) return;
+    const box = v.getBoundingClientRect();
+    const a = first.getBoundingClientRect();
+    const b = last.getBoundingClientRect();
+    v.scrollLeft += (a.left + b.right) / 2 - (box.left + v.clientLeft + v.clientWidth / 2);
+    v.scrollTop += (a.top + b.bottom) / 2 - (box.top + v.clientTop + v.clientHeight / 2);
+  };
   const measure = () => {
     const v = viewportRef.current;
     if (v) setOverflowing(v.scrollWidth > v.clientWidth + 1 || v.scrollHeight > v.clientHeight + 1);
   };
   useLayoutEffect(() => {
     const v = viewportRef.current;
-    if (v && (v.scrollWidth > v.clientWidth + 1 || v.scrollHeight > v.clientHeight + 1)) centerBoard();
+    // A region level starts on its first region (the clearing); other boards start centred.
+    if (v && (v.scrollWidth > v.clientWidth + 1 || v.scrollHeight > v.clientHeight + 1)) {
+      if (regions) showRegion(regions[0]); else centerBoard();
+    }
     measure();
     if (typeof ResizeObserver === 'undefined' || !v) return;
     const ro = new ResizeObserver(measure);
@@ -96,6 +125,13 @@ export function Board({ state, dispatch, onOverflowChange }: {
     return () => ro.disconnect();
   }, []);
   useLayoutEffect(() => { onOverflowChange?.(overflowing); }, [overflowing, onOverflowChange]);
+  // Unlocking brings the newly opened region into view, and Retry returns to the first region as on entry
+  // (instantly, so input is never delayed). Undo leaves the view where it is.
+  const unlocked = state.lastAction?.kind === 'unlock' ? state.lastAction.region : null;
+  const shown = state.lastAction?.kind === 'retry' ? 0 : unlocked;
+  useLayoutEffect(() => {
+    if (shown !== null && regions && overflowing) showRegion(regions[shown]);
+  }, [state.actionSeq]);
 
   const preview = useMemo(() => {
     if (drag) {
@@ -115,7 +151,8 @@ export function Board({ state, dispatch, onOverflowChange }: {
     interrupted.current = null;
     const cell = (e.target as HTMLElement).closest<HTMLElement>('[data-cell]');
     const pos = cell ? { row: Number(cell.dataset.row), col: Number(cell.dataset.col) } : null;
-    const item = !over && pos && board[pos.row]?.[pos.col];
+    // Locked cells and empty ground pan; only items that can be picked up drag.
+    const item = !!pos && canPickUp(state, pos);
     const v = e.currentTarget;
     pending.current = {
       kind: item ? 'item' : 'pan', origin: item ? pos : null, x: e.clientX, y: e.clientY,
@@ -211,16 +248,22 @@ export function Board({ state, dispatch, onOverflowChange }: {
           rowCells.map((item, c) => {
             const pos = { row: r, col: c };
             const cls = ['cell'];
+            const region = regions?.[regionAt(regions, pos)];
+            const locked = !isCellOpen(state.session, pos);
             if (item) cls.push('has-item');
+            if (locked) cls.push('is-locked');
             if (same(state.selected, pos)) cls.push('is-selected');
             if (preview.some((q) => q.row === r && q.col === c)) cls.push('is-merge-preview');
-            if (drag && drag.hover && same(drag.hover, pos) && !same(drag.hover, drag.origin)) cls.push('is-drop-target');
+            if (drag && drag.hover && same(drag.hover, pos) && !same(drag.hover, drag.origin)) {
+              cls.push(canDropAt(state, drag.origin, pos) ? 'is-drop-target' : 'is-drop-blocked');
+            }
             if (same(origin, pos)) cls.push('is-drag-origin');
             const isGoal = has(goals, pos);
             if (isGoal) cls.push('is-goal-item');
             const isOutput = !!merge && has(merge.outputs, pos);
             const isConsumed = !!merge && !isOutput && has(merge.cells, pos);
             const label = item ? itemLabel(item) : 'empty';
+            const place = region ? `, ${region.name}${locked ? ', locked' : ''}` : '';
             return (
               <button
                 key={`${r}-${c}`}
@@ -230,9 +273,9 @@ export function Board({ state, dispatch, onOverflowChange }: {
                 data-cell
                 data-row={r}
                 data-col={c}
-                aria-label={`Row ${r + 1}, column ${c + 1}: ${label}`}
+                aria-label={`Row ${r + 1}, column ${c + 1}${place}: ${label}`}
                 aria-pressed={same(state.selected, pos)}
-                aria-disabled={over ? true : undefined}
+                aria-disabled={over || locked ? true : undefined}
                 tabIndex={same(focused, pos) ? 0 : -1}
                 onPointerEnter={(e) => { if (e.pointerType === 'mouse') setMouseHover(pos); }}
                 onPointerLeave={(e) => { if (e.pointerType === 'mouse') setMouseHover((h) => (same(h, pos) ? null : h)); }}
@@ -267,6 +310,25 @@ export function Board({ state, dispatch, onOverflowChange }: {
             );
           }),
         )}
+        {/* Region outlines over the gaps; a locked region is shaded with a sign saying what opens it. Never takes input. */}
+        {regions?.map((r, i) => {
+          const locked = i > state.session.unlocked;
+          return (
+            <div key={r.name} className={`region${locked ? ' is-locked' : ''}`} data-region={i}
+              style={{ gridRow: `${r.row + 1} / span ${r.rows}`, gridColumn: `${r.col + 1} / span ${r.cols}` }}>
+              {locked && r.unlock && (
+                <p className="region-sign">
+                  <span className="region-name"><LockIcon /> {r.name}</span>
+                  <span className="region-need">
+                    <span className="region-need-art" aria-hidden="true"><ItemArt item={r.unlock.item} /></span>
+                    Needs {unlockNeed(regions, i)}
+                  </span>
+                </p>
+              )}
+              {unlocked === i && <span key={`unlock-${seq}`} data-fx="unlock" aria-hidden="true" />}
+            </div>
+          );
+        })}
       </div>
       </div>
       {overflowing && (

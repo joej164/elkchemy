@@ -2,8 +2,10 @@ import { describe, expect, it } from 'vitest';
 import type { Item } from '../src/board';
 import { LEVELS } from '../src/levels';
 import type { LevelDefinition } from '../src/session';
-import { initUi, type UiState } from '../src/ui/controller';
-import { helpObjective, itemCount, objectiveText, playingMessage, statusMessage } from '../src/ui/messages';
+import { initUi, reduceUi, type UiAction, type UiState } from '../src/ui/controller';
+import {
+  helpObjective, itemCount, LARGE_BOARD_HINT, objectiveText, playingMessage, REGION_STUCK_MESSAGE, statusMessage, unlockNeed,
+} from '../src/ui/messages';
 
 const GROVE = LEVELS[0].definition;
 const LEAVE = LEVELS[2].definition;
@@ -117,5 +119,45 @@ describe('generated puzzle messages', () => {
     expect(statusMessage(stuck, true)).toBe('No merges left\u2014Undo, Retry, or New Puzzle.');
     // Handcrafted levels keep their own loss messages.
     expect(statusMessage(withStatus(CRYSTAL, 'lost'))).not.toMatch(/No merges left/);
+  });
+});
+
+describe('region level text (The Hidden Hollow)', () => {
+  const HOLLOW = LEVELS[5].definition;
+  const regions = HOLLOW.regions!;
+  const p = (row: number, col: number) => ({ row, col });
+  const after = (...actions: UiAction[]) => actions.reduce(reduceUi, initUi(HOLLOW));
+  const makeKey: UiAction[] = [
+    { type: 'drop', from: p(5, 1), to: p(3, 0) }, { type: 'drop', from: p(3, 0), to: p(4, 3) },
+  ];
+
+  it('names the goal region in the objective and help', () => {
+    expect(objectiveText(HOLLOW.goal, regions)).toBe('Goal: make Crystal, tier 4 of 4 in Crystal Hollow');
+    expect(helpObjective(HOLLOW.goal, regions)).toBe('Goal: make Crystal, tier 4 of 4 in Crystal Hollow.');
+    expect(unlockNeed(regions, 1)).toBe('Grove, tier 3 of 4 in Mossy Clearing');
+    expect(unlockNeed(regions, 2)).toBe('Song, tier 3 of 4 in Songbird Glade');
+  });
+
+  it('the banner gives the next step, then the goal, with a short pan hint when the board overflows', () => {
+    expect(statusMessage(initUi(HOLLOW), false)).toBe('Make Grove, tier 3 of 4 in Mossy Clearing to unlock Songbird Glade.');
+    expect(statusMessage(initUi(HOLLOW), true))
+      .toBe('Make Grove, tier 3 of 4 in Mossy Clearing to unlock Songbird Glade. Drag empty ground to pan.');
+    expect(statusMessage(after(...makeKey), false)).toBe('Songbird Glade is ready. Press Unlock Songbird Glade.');
+    expect(statusMessage(after(...makeKey, { type: 'unlock' }), false))
+      .toBe('Make Song, tier 3 of 4 in Songbird Glade to unlock Crystal Hollow.');
+    const allOpen = { ...initUi(HOLLOW), session: { ...initUi(HOLLOW).session, unlocked: 2 } };
+    expect(statusMessage(allOpen, false)).toBe('Merge items to make Crystal, tier 4 of 4 in Crystal Hollow.');
+  });
+
+  it('win and stuck messages', () => {
+    expect(statusMessage(withStatus(HOLLOW, 'won'))).toBe('Goal complete! You made Crystal, tier 4 of 4 in Crystal Hollow.');
+    expect(statusMessage(withStatus(HOLLOW, 'lost'))).toBe(REGION_STUCK_MESSAGE);
+    expect(REGION_STUCK_MESSAGE).not.toMatch(/New Puzzle/);
+  });
+
+  it('levels without regions keep their text', () => {
+    expect(objectiveText(GROVE.goal, undefined)).toBe('Goal: make Grove, tier 3 of 4');
+    expect(statusMessage(initUi(FARAWAY), true)).toBe(LARGE_BOARD_HINT);
+    expect(LARGE_BOARD_HINT).toBe('Drag empty ground to pan. For far moves, tap an item, pan, then tap where it goes.');
   });
 });

@@ -6,6 +6,15 @@ export interface ReleaseNote { readonly title: string; readonly date: string; re
 
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    title: 'The Hidden Hollow',
+    date: 'October 18, 2026',
+    notes: [
+      'A new woodland puzzle with three areas. Make the requested items to unlock the next area, then complete the final crystal goal.',
+      'Choose any of the six handcrafted puzzles from the Levels page.',
+      'Undo can reverse an unlock. Retry restarts the puzzle and returns the view to the starting clearing.',
+    ],
+  },
+  {
     title: 'Woodland scenes',
     date: 'October 18, 2026',
     notes: [

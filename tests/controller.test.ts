@@ -1,10 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import { previewMerge, type Item, type Pos } from '../src/board';
-import { INTRO_LEVEL, LEAVE_ONE_LEVEL, LEVELS } from '../src/levels';
+import { HOLLOW_LEVEL, INTRO_LEVEL, LEAVE_ONE_LEVEL, LEVELS } from '../src/levels';
 import { EIGHT_GROVE_LEVEL } from './fixtures';
 import { chooseSupplyCell, startSession } from '../src/session';
 import {
-  canPlaceSupply, canUndo, goalCells, initUi, nextSupplyItem, previewCells, reduceUi, supplyRemaining,
+  canDropAt, canPickUp, canPlaceSupply, canUndo, canUnlock, goalCells, initUi, nextSupplyItem, previewCells, reduceUi, supplyRemaining,
   type UiAction, type UiState,
 } from '../src/ui/controller';
 
@@ -405,5 +405,111 @@ describe('immutability', () => {
     }
     expect(s).toEqual(before);
     expect(level).toEqual(EIGHT_GROVE_LEVEL);
+  });
+});
+
+describe('region level input (The Hidden Hollow)', () => {
+  const unlockAction: UiAction = { type: 'unlock' };
+  const start = () => initUi(HOLLOW_LEVEL);
+  // Clearing: two 3-merges make the Glade's key. Glade: a 5-merge, a move, a 3-merge. Hollow: two gathering
+  // moves, a 5-merge, a move and two 3-merges.
+  const CLEARING: UiAction[] = [drop(p(5, 1), p(3, 0)), drop(p(3, 0), p(4, 3))];
+  const GLADE: UiAction[] = [drop(p(5, 6), p(3, 4)), drop(p(6, 4), p(5, 5)), drop(p(3, 4), p(5, 5))];
+  const HOLLOW: UiAction[] = [
+    drop(p(2, 4), p(1, 0)), drop(p(2, 5), p(1, 1)), drop(p(1, 6), p(0, 0)),
+    drop(p(0, 0), p(1, 5)), drop(p(1, 3), p(1, 5)), drop(p(2, 0), p(1, 5)),
+  ];
+  const tapTo = (from: Pos, to: Pos): UiAction[] => [tap(from), tap(to)];
+
+  it('locked items cannot be selected, dragged or previewed; taps on them do nothing', () => {
+    const s = start();
+    expect(canPickUp(s, p(3, 4))).toBe(false);   // Glade
+    expect(canPickUp(s, p(0, 0))).toBe(false);   // Hollow
+    expect(canPickUp(s, p(3, 0))).toBe(true);
+    expect(reduceUi(s, tap(p(3, 4)))).toBe(s);
+    expect(reduceUi(s, drop(p(5, 6), p(3, 4)))).toBe(s);
+    expect(previewCells(s, p(5, 6), p(3, 4))).toEqual([]);
+    expect(canDropAt(s, p(5, 6), p(3, 4))).toBe(false);
+  });
+
+  it('a selected item tapped onto a locked or other-region cell stays put and the selection ends', () => {
+    let s = run(start(), tap(p(3, 0)));
+    expect(s.selected).toEqual(p(3, 0));
+    const session = s.session;
+    s = reduceUi(s, tap(p(3, 6)));                // empty, locked Glade cell
+    expect(s.selected).toBeNull();
+    expect(s.session).toBe(session);
+    s = run(s, ...CLEARING, unlockAction, tap(p(4, 3)), tap(p(3, 6))); // Glade open: still a different region
+    expect(s.selected).toBeNull();
+    expect(s.session.board[4][3]).toEqual({ family: 'grove', tier: 2 });
+    expect(s.session.board[3][6]).toBeNull();
+    expect(canDropAt(s, p(4, 3), p(3, 6))).toBe(false);
+    expect(canDropAt(s, p(3, 4), p(3, 6))).toBe(true);
+  });
+
+  it('Unlock is a real action: refused until ready, then recorded, clearing the selection', () => {
+    let s = start();
+    expect(canUnlock(s)).toBe(false);
+    expect(reduceUi(s, unlockAction)).toBe(s);
+    s = run(s, ...CLEARING, tap(p(4, 3)));
+    expect(canUnlock(s)).toBe(true);
+    expect(s.selected).toEqual(p(4, 3));
+    const before = s;
+    s = reduceUi(s, unlockAction);
+    expect(s.session.unlocked).toBe(1);
+    expect(s.selected).toBeNull();
+    expect(s.lastAction).toEqual({ kind: 'unlock', region: 1 });
+    expect(s.actionSeq).toBe(before.actionSeq + 1);
+    expect(s.session.board).toBe(before.session.board);
+    expect(canUndo(s)).toBe(true);
+    expect(canPickUp(s, p(3, 4))).toBe(true);
+  });
+
+  it('Undo across an unlock relocks it and leaves nothing selected, previewed or celebrating', () => {
+    let s = run(start(), ...CLEARING, unlockAction, tap(p(3, 4)));
+    expect(s.selected).toEqual(p(3, 4));
+    s = reduceUi(s, { type: 'undo' });
+    expect(s.session.unlocked).toBe(0);
+    expect(s.selected).toBeNull();
+    expect(s.lastAction).toEqual({ kind: 'undo' });
+    expect(canPickUp(s, p(3, 4))).toBe(false);
+    expect(previewCells(s, p(5, 6), p(3, 4))).toEqual([]);
+    expect(goalCells(s)).toEqual([]);
+    expect(canUnlock(s)).toBe(true);
+  });
+
+  it('Retry from any point restores the exact locked start', () => {
+    const s = run(start(), ...CLEARING, unlockAction, ...GLADE, unlockAction, tap(p(0, 0)), { type: 'retry' });
+    expect(s.session).toEqual(startSession(HOLLOW_LEVEL));
+    expect(s.selected).toBeNull();
+    expect(s.status).toBe('playing');
+  });
+
+  it('wins through taps and drags with both unlocks, celebrating only the Hollow\'s goal item', () => {
+    const tapped = [...CLEARING, ...GLADE, ...HOLLOW].map((a) => (a.type === 'drop' ? tapTo(a.from, a.to) : [a]));
+    const steps = [...tapped.slice(0, 2), [unlockAction], ...tapped.slice(2, 5), [unlockAction], ...tapped.slice(5)];
+    let s = start();
+    steps.forEach((group, i) => {
+      s = run(s, ...group);
+      expect(s.status).toBe(i === steps.length - 1 ? 'won' : 'playing');
+    });
+    expect(goalCells(s)).toEqual([p(1, 5)]);
+    // Drags reach the same win.
+    const dragged = run(start(), ...CLEARING, unlockAction, ...GLADE, unlockAction, ...HOLLOW);
+    expect(dragged.session.board).toEqual(s.session.board);
+    expect(dragged.status).toBe('won');
+    // Once won, the board takes no input.
+    expect(canPickUp(s, p(4, 3))).toBe(false);
+    expect(reduceUi(s, unlockAction)).toBe(s);
+  });
+
+  it('the Hollow trap locks the board until Undo', () => {
+    let s = run(start(), ...CLEARING, unlockAction, ...GLADE, unlockAction, drop(p(1, 6), p(0, 0)));
+    expect(s.status).toBe('lost');
+    expect(canPickUp(s, p(2, 4))).toBe(false);
+    expect(reduceUi(s, tap(p(2, 4)))).toBe(s);
+    s = reduceUi(s, { type: 'undo' });
+    expect(s.status).toBe('playing');
+    expect(s.session.unlocked).toBe(2);
   });
 });

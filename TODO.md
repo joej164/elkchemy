@@ -23,8 +23,9 @@ These resolve older conflicting entries below.
 
 ## Current baseline
 
-- Unreleased (local, not committed or deployed): gameplay background behind levels and generated puzzles; board layout unchanged, but the cheering characters are largely behind the controls (open decision under Gameplay presentation). See [docs/release-notes.md](docs/release-notes.md).
-- Latest deployment `20261019-011024`: woodland Home and Alisha Play artwork (full-scene backgrounds with HTML controls; Chromium-checked at phone and iPad sizes). See [docs/release-notes.md](docs/release-notes.md).
+- Latest deployment `20261019-052826`: level 6, The Hidden Hollow, the first connected-region level (three areas unlocked in order), and a Levels page that can start any level. See Connected regions below and [docs/release-notes.md](docs/release-notes.md).
+- Previous deployment `20261019-021029` (live `/version.json` checked October 18, 2026): gameplay background behind levels and generated puzzles; board layout unchanged, but the cheering characters are largely behind the controls (open decision under Gameplay presentation).
+- Previous deployment `20261019-011024`: woodland Home and Alisha Play artwork (full-scene backgrounds with HTML controls; Chromium-checked at phone and iPad sizes). See [docs/release-notes.md](docs/release-notes.md).
 - Published in `20261019-011024`: Music / Scores page with clarinet and ukulele arrangements of both loops. See [docs/release-notes.md](docs/release-notes.md).
 - Previous deployment `20261018-235203`: home screen with the elk artwork, Play / Levels / Release notes; "No merges left" for generated puzzles; Undo fix; compact Puzzle ID with Copy. See [docs/release-notes.md](docs/release-notes.md).
 - Published build `20261018-232855`: the generated-puzzle milestone (start menu, two seeded puzzle modes, Retry/New puzzle). Changes and verification: [docs/release-notes.md](docs/release-notes.md); open work: Generated puzzles below.
@@ -59,7 +60,7 @@ What was built, how it was verified, and its limitations: [docs/release-notes.md
 ## Gameplay presentation — approved follow-up, small chunks
 
 - [x] Create the accepted woodland gameplay direction with the elk and Alisha cheering at the edge; prepare `src/assets/art/woodland-cheering-landscape-v1.webp` (314212 bytes), preserving the PNG and canonical reference. Implementation research is in `artwork/gameplay/README.md`.
-- [x] Integrate the gameplay background (unreleased): `woodland-cheering-landscape-v1` / `-portrait-v1` behind handcrafted levels and generated puzzles, by orientation, with Home and Play art unchanged. Chromium against the production build at seven phone/iPad sizes: board position, size, tiles, pan state and page height identical to the pre-change build; no horizontal overflow; all buttons and inputs at least 44px; measured text contrast at least 6.2:1; characters never cropped. Details: [docs/release-notes.md](docs/release-notes.md).
+- [x] Integrate the gameplay background (published in `20261019-021029`): `woodland-cheering-landscape-v1` / `-portrait-v1` behind handcrafted levels and generated puzzles, by orientation, with Home and Play art unchanged. Chromium against the production build at seven phone/iPad sizes: board position, size, tiles, pan state and page height identical to the pre-change build; no horizontal overflow; all buttons and inputs at least 44px; measured text contrast at least 6.2:1; characters never cropped. Details: [docs/release-notes.md](docs/release-notes.md).
 - [ ] Owner decision: the cheering characters sit where the game's controls are, so most of them are hidden at most sizes (visible: 9–27% on phone portrait, 22–35% at 820×1180, 33–71% on landscape iPads, 59–79% at 844×390). Options: accept as decoration; new art with the characters where the layouts leave room (for example under the board on landscape iPads, or a small cameo near the title); or a deliberate game-layout change. Not changed in this chunk.
 - [ ] Check the gameplay background on the physical iPad (Safari and Home Screen mode, both orientations): readability, the fixed background while the page scrolls, and sharpness on the 12.9-inch iPad Pro.
 - [ ] Extend existing merge effects with nonblocking travel and a distinct five-piece flourish; preserve both five-merge outputs, cancellation and reduced-motion behavior.
@@ -121,7 +122,7 @@ What was built, how it was verified, and its limitations: [docs/release-notes.md
 - [ ] Physical iPad/Safari: touch panning vs item drag, `touch-action` blocking page scroll only on the board, pointer capture/cancel under real touch, follow-up click suppression, and comfort of 64px tiles. Chromium mouse events are not Safari touch verification.
 - [ ] Decide whether dragging an item near the viewport edge should auto-scroll. Not built: distant moves currently use tap, pan, tap (or several drags).
 - [x] Codex fixes: a gesture interrupted by a session change (keyboard Add supply/Undo/Retry mid-drag or mid-pan) suppresses only its own follow-up click; the next tap works. Center board moved below the viewport (44px tall); on the sandbox in portrait the page now scrolls slightly. Playwright-checked in Chromium.
-- [ ] Start in a 4x4 clearing and unlock regions of the larger board: now follows the generated puzzles (owner decision 1); see Connected regions below. No pinch zoom or momentum yet.
+- [x] Start in a 4x4 clearing and unlock regions of the larger board: level 6, The Hidden Hollow (published `20261019-052826`); see Connected regions below. No pinch zoom or momentum yet.
 
 ## Large-board navigation — Codex review fixes verified
 
@@ -132,7 +133,7 @@ The 12-column × 16-row dev sandbox is implemented at `/sandbox.html` and exclud
 - [x] Ignore `.playwright-mcp/` screenshots/logs without deleting unrelated test artifacts.
 - [x] Owner completed the large-board test on iPad and reported that scrolling and moving worked well (October 18). This confirms basic navigation through a completed game, not every cancellation/accessibility edge case. Testing used https://elkchemy.web.app/sandbox.html on the existing Firebase site.
 - [ ] Investigate if it recurs: owner saw an apparently larger tile in the lower-right area and merged it away before a screenshot. Codex did not reproduce it in Chromium; all cells measured 64×64px in portrait/landscape. Cause remains unknown.
-- [ ] After the generated puzzles (owner decision 1), implement the agreed larger handcrafted level with an initial 4×4 clearing, two unlockable regions, visible non-consuming unlock requirements, and a final woodland objective. Extend win/loss reasoning to account for locked resources and unlock prerequisites before integrating it. See Connected regions below.
+- [x] Implemented the agreed larger handcrafted level (published `20261019-052826`): a 4×4 clearing, two unlockable regions, visible non-consuming unlock requirements, and a final objective in the last region. Win/loss reasoning for locked resources and prerequisites is region-aware. See Connected regions below.
 - Edge auto-scroll is deferred for the first navigation test; use tap-pan-tap for distant moves, then decide from physical iPad feedback whether to add it. The earlier plan to defer procedural generation until the unlocking level was playtested is superseded by owner decision 1.
 
 ## Replayable puzzles and larger boards
@@ -145,9 +146,19 @@ The 12-column × 16-row dev sandbox is implemented at `/sandbox.html` and exclud
 - [x] Larger scrolling boards: see Large-board navigation above.
 - [ ] Later candidates from the vision, not committed: five-star tiers (new art and rules), more goals than families, more puzzle types and special mechanics, cross-family recipes, full hints. Better teaching of the five-for-two merge comes first.
 
-## Connected regions — later gameplay experiment, after generated puzzles
+## Connected regions — first experiment published 20261019-052826, playtest pending
 
-From [docs/game-vision.md](docs/game-vision.md); investigate and prototype before relying on it for the campaign. Includes the agreed larger handcrafted level above.
+From [docs/game-vision.md](docs/game-vision.md); investigate and prototype before relying on it for the campaign. Changes, authored solution, design rationale, verification and limitations: [docs/release-notes.md](docs/release-notes.md) (build `20261019-052826` — The Hidden Hollow).
+
+- [x] Level 6, The Hidden Hollow: a 7×7 map split into Mossy Clearing (4×4, open), Songbird Glade (3×4) and Crystal Hollow (7×3). Each area's sign shows its unlock item before it opens. An explicit, undoable Unlock button consumes nothing. Goal: Crystal tier 4 of 4 in the Hollow. Data model: rectangular `regions` on the level definition (`src/regions.ts`); unsupported configurations throw.
+- [x] Settled boundary applied as "items never leave their region": the session refuses moves, swaps and merges across region borders and into locked regions, merge groups stop at borders, and goals and keys count only in their own open region. Transferable ownership was not added.
+- [x] Region-level status: no early loss. "No useful merges left—Undo or Retry." appears only when no unlock is ready and no open area can still merge toward its target. It is exhaustively checked to be exact on this level.
+- [x] Owner request (October 18): a Levels page lists every level and can start any of them; none are gated, since nothing is saved.
+- [ ] Owner and Alisha playtest of The Hidden Hollow: whether unlocking is understandable without a tutorial, whether the Hollow's required 5 → 2 merge (the only losing choice) is fair, and whether the map is worth extending.
+- [ ] Physical iPad/Safari: touch panning from locked areas, sign readability, VoiceOver reading of signs and cell labels, Home Screen mode.
+- [ ] Add a player-facing entry to the in-game Release notes when this ships (covering the new level and the Levels page).
+- [ ] Optional, only if wanted: at 844×390 the 234px-tall board viewport cannot show the whole 4×4 Clearing at once; a phone-landscape layout change would be separate work.
+- [ ] Decide from playtesting whether to build more region levels, generated multi-room puzzles, or neither. Not built: non-rectangular areas, out-of-order unlocks, supply in region levels, transferable items, elk movement, unlock sounds.
 
 - [ ] Larger maps of smaller connected rooms, paths, and clearings (not necessarily rectangles), opened by merged runes, keys, tunnels, machines, or bridges. Bombs opening barriers were an example, not a committed recipe.
 - [ ] Settled resource boundary: items may only be consumed or used toward objectives within their room of origin; movement between rooms (if any) and merging must not bypass that. Whether keys are consumed is a per-mechanic detail.

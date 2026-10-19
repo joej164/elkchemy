@@ -3,6 +3,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import type { LevelGoal } from '../src/session';
 import { HelpButton } from '../src/ui/HelpButton';
 import { App, Game, puzzleLabel } from '../src/ui/App';
+import { LevelPicker } from '../src/ui/LevelPicker';
 import { PlaySetup } from '../src/ui/PlaySetup';
 import { RELEASE_NOTES, ReleaseNotes } from '../src/ui/ReleaseNotes';
 import { SONGS, Scores } from '../src/ui/Scores';
@@ -151,6 +152,44 @@ describe('HelpButton', () => {
     expect(game).toContain('Retry restarts this puzzle; New puzzle makes a fresh one.');
     expect(game).toContain('woodland-cheering-landscape-v1.webp');
     expect(puzzleLabel({ mode: 'goals', tier: 2, goals: 2 })).toBe('Merge to goals · Tier 3 of 4 · 2 goals');
+  });
+
+  it('the Levels page lists every level, any of which can be picked, marking the one up next', () => {
+    const page = renderToStaticMarkup(<LevelPicker levels={LEVELS} current={2} onPick={() => {}} onHome={() => {}} musicControl={null} />);
+    expect(page).toContain('<h1>Levels</h1>');
+    expect(page).toContain('data-action="home"');
+    expect((page.match(/data-action="pick-level"/g) ?? []).length).toBe(LEVELS.length);
+    LEVELS.forEach((l, i) => {
+      expect(page).toContain(l.name);
+      expect(page).toContain(`data-level="${i + 1}"`);
+      expect(page).toContain(`Level ${i + 1}: `);
+    });
+    expect((page.match(/aria-current="step"/g) ?? []).length).toBe(1);
+    expect(page).toMatch(/aria-current="step"[^>]*>(?:(?!<\/button>).)*Lone Elk(?:(?!<\/button>).)*Up next/);
+    expect(page).not.toContain('disabled');
+  });
+
+  it('the region level shows its goal region, the next lock and an Unlock button instead of supply', () => {
+    const level = LEVELS[5];
+    const game = renderToStaticMarkup(<Game definition={level.definition} label={`Level 6 of 6 · ${level.name}`}
+      musicControl={null} onHome={() => {}} winLabel="Play again from level 1" onWin={() => {}} />);
+    expect(game).toContain('Level 6 of 6 · The Hidden Hollow');
+    expect(game).toContain('Goal: make Crystal, tier 4 of 4 in Crystal Hollow');
+    expect(game).toContain('<strong>Locked: Songbird Glade</strong><br/>Needs Grove, tier 3 of 4 in Mossy Clearing');
+    expect(game).toMatch(/<button type="button" class="btn btn-unlock" data-action="unlock" disabled=""[^>]*>/);
+    expect(game).toContain('<span>Unlock Songbird Glade</span>');
+    expect(game).not.toMatch(/data-action="supply"|Add supply|Next supply|Supply left/);
+    // Both locked regions carry a readable sign; every region is outlined.
+    expect((game.match(/class="region(?: is-locked)?"/g) ?? []).length).toBe(3);
+    expect((game.match(/class="region is-locked"/g) ?? []).length).toBe(2);
+    expect(game).toContain('Needs Song, tier 3 of 4 in Songbird Glade');
+    // Locked cells say so and are disabled; open cells name their region.
+    expect(game).toContain('aria-label="Row 1, column 1, Crystal Hollow, locked: Crystal, tier 1 of 4"');
+    expect(game).toMatch(/aria-label="Row 4, column 5, Songbird Glade, locked: Song, tier 1 of 4" aria-pressed="false" aria-disabled="true"/);
+    expect(game).toMatch(/aria-label="Row 4, column 1, Mossy Clearing: Grove, tier 1 of 4" aria-pressed="false" tabindex/);
+    expect(game).toContain('press Unlock; the item stays');
+    expect(game).toContain('Undo takes back your last action, even an unlock');
+    expect(game).toContain('Make Grove, tier 3 of 4 in Mossy Clearing to unlock Songbird Glade.');
   });
 
   it('uses no external assets', () => {

@@ -1,4 +1,5 @@
 import { MAX_TIER, type Board, type Family, type Item } from './board';
+import { hasItemIn, isOpen, nextLocked, unlockReady, type Region } from './regions';
 import type { SessionState } from './session';
 
 // Supported assumption: the board is rectangular and
@@ -145,15 +146,62 @@ export function canArrangeMerge(state: SessionState): boolean {
 export function isGoalMet(state: SessionState): boolean {
   const { board, level, supplyIndex } = state;
   const { goal } = level;
-  if (goal.kind === 'item') return hasItem(board, goal.item);
+  if (goal.kind === 'item') {
+    if (goal.region === undefined) return hasItem(board, goal.item);
+    return isOpen(state, goal.region) && hasItemIn(board, level.regions![goal.region], goal.item);
+  }
   if (goal.kind === 'items') return goal.items.every((t) => hasItem(board, t));
   const items = board.flat().filter((c): c is Item => c !== null);
   if (supplyIndex < level.supply.length || items.length !== 1) return false;
   return !goal.item || (items[0].family === goal.item.family && items[0].tier === goal.item.tier);
 }
 
+// Region levels (validated by startSession: rectangular regions splitting a rectangular board, no supply, the goal
+// in the last region). Items never leave their region, so each target is judged only on its own region's items:
+// the next region's unlock item in the region it names, and the goal in the last region once that is open.
+// Locked regions' items are never counted as usable before their region opens.
+//
+// 'lost' only once nothing useful can change: no unlock is ready, and no open region holding an unmet target has
+// three items of the target's family at one tier below it. Drops reach any cell of a region and any region holding
+// three items has two neighbouring cells, so such a merge could always be arranged; moves, swaps and other families'
+// merges never change a target's items, so a board without one is frozen and can never win. A choice that dooms
+// the goal while such merges remain stays 'playing', as in generated puzzles (no early loss).
+function regionTargets(state: SessionState): { region: Region; item: Item }[] {
+  const { level, board } = state;
+  const regions = level.regions!;
+  const targets: { region: Region; item: Item }[] = [];
+  const n = nextLocked(state);
+  if (n !== null) {
+    const { item, in: from } = regions[n].unlock!;
+    if (!hasItemIn(board, regions[from], item)) targets.push({ region: regions[from], item });
+  }
+  const { goal } = level;
+  if (goal.kind === 'item' && goal.region !== undefined && isOpen(state, goal.region)) {
+    targets.push({ region: regions[goal.region], item: goal.item });
+  }
+  return targets;
+}
+
+function canMergeToward(board: Board, r: Region, target: Item): boolean {
+  const counts = Array.from({ length: MAX_TIER + 1 }, () => 0);
+  for (let row = r.row; row < r.row + r.rows; row++) {
+    for (let col = r.col; col < r.col + r.cols; col++) {
+      const c = board[row][col];
+      if (c && c.family === target.family && c.tier < target.tier && ++counts[c.tier] >= 3) return true;
+    }
+  }
+  return false;
+}
+
+function evaluateRegions(state: SessionState): GameStatus {
+  if (isGoalMet(state)) return 'won';
+  if (unlockReady(state)) return 'playing';
+  return regionTargets(state).some((t) => canMergeToward(state.board, t.region, t.item)) ? 'playing' : 'lost';
+}
+
 export function evaluateStatus(state: SessionState): GameStatus {
   const { goal } = state.level;
+  if (state.level.regions) return evaluateRegions(state);
   // Generated puzzles: no early loss from counting, even after a fatal choice; 'lost' only once no merges are left.
   if (state.level.earlyLoss === false) {
     if (isGoalMet(state)) return 'won';

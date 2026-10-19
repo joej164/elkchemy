@@ -1,14 +1,16 @@
-import { drop, type Board, type Item, type Pos } from './board';
+import { drop, previewMerge, type Board, type Item, type Pos } from './board';
+import { isOpen, regionAt, unlockReady, validateRegions, type Region } from './regions';
 
 /**
- * `item`: make `item` (its family at its tier or higher) anywhere on the board.
+ * `item`: make `item` (its family at its tier or higher) anywhere on the board; with `region` (region levels),
+ *   inside that region once it is open.
  * `items`: have every target in `items` (each its family at its tier or higher) on the board at
  *   once. A target counts as complete while such an item is present; targets need distinct families.
  * `leaveOne`: place all supply and finish with exactly one item on the board; with `item`, that
  *   last item must be exactly `item` (its family at exactly its tier).
  */
 export type LevelGoal =
-  | { readonly kind: 'item'; readonly item: Item }
+  | { readonly kind: 'item'; readonly item: Item; readonly region?: number }
   | { readonly kind: 'items'; readonly items: readonly Item[] }
   | { readonly kind: 'leaveOne'; readonly item?: Item };
 
@@ -22,6 +24,11 @@ export interface LevelDefinition {
    * false: report 'lost' only once no merge can be arranged at all (generated puzzles).
    */
   readonly earlyLoss?: boolean;
+  /**
+   * Region levels (see regions.ts): rectangular areas unlocked in order; items never leave their region.
+   * Their status always uses the region rule in status.ts, whatever `earlyLoss` says.
+   */
+  readonly regions?: readonly Region[];
 }
 
 export interface SessionSnapshot {
@@ -29,6 +36,8 @@ export interface SessionSnapshot {
   readonly supplyIndex: number;
   readonly rngState: number;
   readonly moves: number;
+  /** Regions unlocked so far: regions 0..unlocked are open (always 0 for levels without regions). */
+  readonly unlocked: number;
 }
 
 export interface SessionState extends SessionSnapshot {
@@ -44,11 +53,41 @@ function inBounds(board: Board, p: Pos): boolean {
 }
 
 function snapshot(s: SessionState): SessionSnapshot {
-  return { board: s.board, supplyIndex: s.supplyIndex, rngState: s.rngState, moves: s.moves };
+  return { board: s.board, supplyIndex: s.supplyIndex, rngState: s.rngState, moves: s.moves, unlocked: s.unlocked };
 }
 
+/** Throws for unsupported region levels (see validateRegions). */
 export function startSession(level: LevelDefinition): SessionState {
-  return { level, board: level.board, supplyIndex: 0, rngState: level.seed, moves: 0, undo: null };
+  validateRegions(level);
+  return { level, board: level.board, supplyIndex: 0, rngState: level.seed, moves: 0, unlocked: 0, undo: null };
+}
+
+/** Whether a drop from `from` to `to` is allowed at all: an item to a cell, and in region levels, inside one open region. */
+export function canDrop(state: SessionState, from: Pos, to: Pos): boolean {
+  const { board, level } = state;
+  if (!inBounds(board, from) || !inBounds(board, to) || board[from.row][from.col] === null) return false;
+  if (!level.regions) return true;
+  const r = regionAt(level.regions, from);
+  return r === regionAt(level.regions, to) && isOpen(state, r);
+}
+
+/** Whether the cell can be played: always, except inside a locked region. */
+export function isCellOpen(state: SessionState, p: Pos): boolean {
+  return !state.level.regions || isOpen(state, regionAt(state.level.regions, p));
+}
+
+/** Region levels: merge groups only grow inside the source's region. */
+function connects(state: SessionState, from: Pos): ((p: Pos) => boolean) | undefined {
+  const { regions } = state.level;
+  if (!regions) return undefined;
+  const r = regionAt(regions, from);
+  return (p) => regionAt(regions, p) === r;
+}
+
+/** The cells an allowed drop would merge (see previewMerge), or [] if it would not merge or is not allowed. */
+export function previewDrop(state: SessionState, from: Pos, to: Pos): Pos[] {
+  if (!canDrop(state, from, to) || (from.row === to.row && from.col === to.col)) return [];
+  return previewMerge(state.board, from, to, connects(state, from));
 }
 
 /**
@@ -57,15 +96,20 @@ export function startSession(level: LevelDefinition): SessionState {
  */
 export function applyDrop(state: SessionState, from: Pos, to: Pos): SessionState {
   const { board } = state;
-  if (!inBounds(board, from) || !inBounds(board, to)) return state;
-  const src = board[from.row][from.col];
-  if (src === null) return state;
+  if (!canDrop(state, from, to)) return state;
+  const src = board[from.row][from.col]!;
   if (from.row === to.row && from.col === to.col) return state;
-  const result = drop(board, from, to);
+  const result = drop(board, from, to, connects(state, from));
   if (result.kind === 'none') return state;
   const tgt = board[to.row][to.col];
   if (result.kind === 'swap' && tgt && tgt.family === src.family && tgt.tier === src.tier) return state;
   return { ...state, board: result.board, moves: state.moves + 1, undo: snapshot(state) };
+}
+
+/** Region levels: opens the next region once its unlock item is present. One undoable move; the item stays put. */
+export function unlock(state: SessionState): SessionState {
+  if (!unlockReady(state)) return state;
+  return { ...state, unlocked: state.unlocked + 1, moves: state.moves + 1, undo: snapshot(state) };
 }
 
 export function placeSupply(state: SessionState, at: Pos): SessionState {
@@ -113,8 +157,8 @@ export function placeSupplyRandom(state: SessionState): SessionState {
 
 export function undo(state: SessionState): SessionState {
   if (state.undo === null) return state;
-  const { board, supplyIndex, rngState, moves } = state.undo;
-  return { level: state.level, board, supplyIndex, rngState, moves, undo: null };
+  const { board, supplyIndex, rngState, moves, unlocked } = state.undo;
+  return { level: state.level, board, supplyIndex, rngState, moves, unlocked, undo: null };
 }
 
 export function retry(state: SessionState): SessionState {

@@ -1,6 +1,6 @@
 # Elkchemy
 
-Elkchemy is a woodland merge puzzle. The app opens on a home screen, a painted woodland scene with the elk, and four choices: Play (generated puzzles), Levels (five handcrafted levels), Music / Scores (clarinet and ukulele arrangements of the game music), and Release notes (a short player-facing history of what changed; the internal record is [docs/release-notes.md](docs/release-notes.md)). Every other screen has a Home button.
+Elkchemy is a woodland merge puzzle. The app opens on a home screen, a painted woodland scene with the elk, and four choices: Play (generated puzzles), Levels (six handcrafted levels, any of which can be started), Music / Scores (clarinet and ukulele arrangements of the game music), and Release notes (a short player-facing history of what changed; the internal record is [docs/release-notes.md](docs/release-notes.md)). Every other screen has a Home button.
 
 ## Generated puzzles
 
@@ -17,15 +17,21 @@ Each puzzle shows a reproduction ID such as `v1-goals-t4-g2-1nqrzv7`: generator 
 
 ## Handcrafted levels
 
-Five levels, played in order (`src/levels.ts`):
+Six levels (`src/levels.ts`). Levels on the home screen lists them all; tap any to play it. The one the sequence has reached is marked "Up next".
 
 1. Sprouting Grove: make Grove, tier 3 of 4 (forgiving intro).
 2. Songbird Chorus: make Song, tier 3 of 4; plain 3-merges suffice.
 3. Lone Elk: place all supply and leave exactly one item (elk only; a 5-merge strands a leftover).
 4. Crystal Fives: make Crystal, tier 4 of 4 with exactly enough crystals; it needs two 5-merges, and any 3-merge of tier-1 or tier-2 crystals makes it unreachable.
 5. The Faraway Grove: a 12x16 scrolling board; have Grove, Song, Elk and Crystal, each tier 4 of 4, on the board at once. Each target shows its own completion; plain 3-merges suffice, with spare supply. Pan by dragging empty ground; for far moves, tap an item, pan, then tap its destination.
+6. The Hidden Hollow: a 7x7 map in three areas.
+   - **Start:** you begin in Mossy Clearing; Songbird Glade and Crystal Hollow are locked, shaded, and signed with what opens them.
+   - **Unlocking:** make Grove tier 3 of 4 in the Clearing, press Unlock Songbird Glade, then make Song tier 3 of 4 in the Glade and unlock Crystal Hollow. Unlocking uses up nothing.
+   - **Goal:** Crystal tier 4 of 4 in the Hollow, which needs one 5→2 merge.
+   - **Areas:** items never leave their own area, and only an area's own items count toward its unlock or goal.
+   - **Failure:** only when no unlock is ready and no merge toward the current target is left: "No useful merges left—Undo or Retry."
 
-Winning offers Next level (after the last level: play again from level 1). Progress is kept in memory only: Home and back resumes at the current level, and reloading starts at level 1.
+Winning offers Next level (after the last level: play again from level 1). Progress is kept in memory only: the Levels page and the home screen note show where the sequence is up to, and reloading starts at level 1.
 
 ## Rules and controls
 
@@ -33,17 +39,18 @@ Winning offers Next level (after the last level: play again from level 1). Progr
 - Dropping onto a different item swaps them. Merges only happen on drop.
 - Levels only: press "Add supply" to place the next item in a random empty cell. Placement is seeded, so Undo then Add supply again lands in the same place, and Retry replays the same sequence.
 - Undo reverses the last action; Retry restarts the current level or puzzle.
-- Level status is exact within the supported resource bounds (`src/status.ts`): single-item and distinct-family multi-item goals use resource counts; Leave one uses an exact per-tier merge check and needs two free cells beyond all items and supply. Handcrafted levels report a loss as soon as the goal becomes unreachable; generated puzzles report one only when no merges are left.
+- Level status is exact within the supported resource bounds (`src/status.ts`): single-item and distinct-family multi-item goals use resource counts; Leave one uses an exact per-tier merge check and needs two free cells beyond all items and supply. Handcrafted levels 1–5 report a loss as soon as the goal becomes unreachable; generated puzzles report one only when no merges are left.
+- Region levels (`src/regions.ts`): rectangular areas that split the board exactly and unlock in order, each when its item (that tier or higher) is in a named earlier area. The session enforces them: no drops into or out of locked areas or across area borders, merge groups stop at borders, and Unlock is an ordinary undoable move. They have no supply, and the goal is one item in the last area. Their status counts each area's own items and reports a loss only when nothing useful can change. Other region configurations are rejected with an "Unsupported region level" error.
 - Tap "?" next to the title for a short how-to-play dialog.
 - Boards larger than the screen scroll inside a framed viewport with finger-sized (64px) tiles. Drag an item to move it; drag empty ground to pan; a tap never pans or drops. Center board recenters; arrow keys scroll the focused cell into view. Levels 1–4 are 4x4 and fit without scrolling; level 5 scrolls. Generated boards up to 8x8 fit iPad screens in Chromium checks (except slight scrolling at 1024x768 landscape). Whenever a board overflows its frame, the status banner and Help show how to pan.
 
 ## Large-board navigation test
 
-Level 5, The Faraway Grove, is the playable 12x16 scrolling board at the normal app address, https://elkchemy.web.app/ (Levels on the home screen). It ships through the ordinary build and requires all four families at tier 4 simultaneously. Unlocking is not implemented yet.
+Level 5, The Faraway Grove, is the playable 12x16 scrolling board at the normal app address, https://elkchemy.web.app/ (Levels on the home screen). It ships through the ordinary build and requires all four families at tier 4 simultaneously. Unlocking areas is level 6, The Hidden Hollow (a 7x7 map that pans on phones and fits on iPads).
 
 For local navigation experiments, `npm run dev` also serves `/sandbox.html`, a separate test board with items in distant corners (it also opens on the home screen; choose Levels). That standalone test page is excluded from the ordinary production build; its earlier temporary Firebase deployment has been replaced by the five-level app.
 
-Built with React, TypeScript and Vite. Game rules live in `src/board.ts`, `src/session.ts` and `src/status.ts`; puzzle generation in `src/generator.ts`; the UI is in `src/ui/`.
+Built with React, TypeScript and Vite. Game rules live in `src/board.ts`, `src/session.ts`, `src/regions.ts` and `src/status.ts`; puzzle generation in `src/generator.ts`; the UI is in `src/ui/`.
 
 Open work, verification gaps, and the deferred campaign story are tracked in [TODO.md](TODO.md). The broader game vision is in [docs/game-vision.md](docs/game-vision.md); completed work, verification, and known limitations (including the generated-puzzle release `20261018-232855`) are in [docs/release-notes.md](docs/release-notes.md).
 
