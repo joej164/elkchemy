@@ -4,9 +4,32 @@ Each entry records what changed, how it was verified, and known limitations. **U
 
 Earlier published builds are not backfilled here. The previous build, `20261018-195510`, has five handcrafted levels and optional looping music; its verification is recorded in TODO.md under Current baseline and Audio.
 
-## Unreleased — Rune Gates: bare padlock on completed tiles, and a backpack that opens on collection (October 19, 2026)
+## Unreleased — Cell art placed by insets, so items and the backpack fit their cells on iPad (October 19, 2026)
 
-Not committed or deployed. Requested by the owner after reviewing build `20261019-161758`, where the fixed tree, bird and tier-3 crystal still looked bigger than their tiles. Implemented by Claude; awaiting Codex review and owner review.
+Not committed or deployed. Implemented by Claude; awaiting Codex review.
+
+- **Owner's physical iPad report** on `20261019-162807`, in both portrait and landscape: on The Rune Gates, ordinary item art looked larger than its cell, as did the open backpack, but an item moved onto a marked pressure or stone tile looked the correct size. The owner likes the closed → open bag; that behaviour and its artwork are kept.
+- **Cause.** Two sizing paths were compared:
+  - Ordinary cell art (and the backpack) was in normal flow inside the cell's `<button>`, sized `width/height: 100%` of the button's content box. That box's height comes only from the grid row and `aspect-ratio`, so the art depended on how the browser resolves percentage sizes inside a button.
+  - Marked-tile art was absolutely positioned with insets (since `47bf582`), which gives it a definite size from the cell's own box.
+
+  Same artwork, and the owner saw only the percentage path drawn too large, so iPad Safari evidently resolves it differently from Chromium. Chromium draws both correctly: before and after, ordinary art measured 6px inside the cell. The exact WebKit mechanism wasn't reproduced, because WebKit isn't installed for Playwright here. Grid tracks were not the cause: cells always measured exactly their track.
+- **Fix** (`src/ui/app.css`, one rule):
+  - all cell art now uses the inset path, `.cell-art { position: absolute; inset: 4px }`, where 4px equals the cell padding, so ordinary art keeps the same box as before;
+  - marked tiles override only the inset, to 11px.
+
+  No artwork, locks, layout or mechanics changed, and nothing is clipped.
+- **Checks** (Claude): typecheck, 452 tests and production build pass. One Playwright Chromium pass against the production build, at 820×1180 and 1180×820 (iPad portrait and landscape) and 390×844 (phone):
+  - Measured relative to the cell: an ordinary item (the elk), the marked grove and stone crystal, and the closed and open backpack. Each `.cell-art` box and SVG matched and lay inside the cell: 6px in for ordinary art and the bag, 13px in on marked tiles.
+  - Close-up screenshots looked right.
+  - The bag was closed on reveal; collecting it opened it and won; Undo closed it; Retry hid it.
+  - Level 1 and The Hidden Hollow measured unchanged (art 6px inside the cell), and level 1 looked unchanged.
+  - No page overflow and no console errors.
+- **Not verified:** physical iPad/Safari. The fix uses the sizing path the owner's iPad already drew correctly, but it needs the owner's check on the device.
+
+## 20261019-162807 — Rune Gates: bare padlock on completed tiles, and a backpack that opens on collection (October 19, 2026)
+
+Published October 19, 2026 in build `20261019-162807`, from commit `47bf582`. Requested by the owner after reviewing build `20261019-161758`, where the fixed tree, bird and tier-3 crystal still looked bigger than their tiles. Implemented by Claude. On the physical iPad the owner liked the closed → open bag, but ordinary item art and the open bag still overran their cells (see the Unreleased entry above).
 
 - **Completed tiles.** In Chromium the cells were never larger than their 64px (phone) or 92px (iPad) grid tracks, and the art was already smaller than on plain tiles; what reached the tile's frame was the dark round lock badge with its gold border. Now:
   - the badge is gone: a bare 14px padlock (dark brown, no background, border, halo or padding) is tucked inside the ring's top-right corner;

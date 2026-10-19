@@ -151,7 +151,10 @@ body {
   background: var(--earth-sunken);
   box-shadow: inset 0 3px 6px rgba(0, 0, 0, 0.3);
 }
-.cell-art { display: block; width: 100%; height: 100%; }
+/* Cell art is placed by insets from the cell's own box (4px matches its padding), never sized as a percentage of the
+   button's content: that height comes only from the grid and aspect-ratio, and iPad Safari drew such art larger than
+   its cell, while inset art (marked tiles) fit. */
+.cell-art { position: absolute; inset: 4px; }
 .cell svg, .drag-ghost svg {
   display: block; width: 100%; height: 100%;
   pointer-events: none; -webkit-user-drag: none; user-select: none;
@@ -262,9 +265,8 @@ body {
 .passage:not(.is-open) svg { filter: drop-shadow(0 0 6px rgb(143 227 255 / 0.8)); }
 /* Marked tiles: a ring (bronze for a pressure plate, slate for the stone) and the item they need, faint while empty,
    then as a corner badge; once the gate has opened and the item is fixed, a small bare padlock in the corner instead.
-   The item sits at an explicit inset inside the ring (its inner edge is 6px in), not sized from the button's padding,
-   so it never looks larger than its tile. */
-.cell.is-plate .cell-art { position: absolute; inset: 11px; width: auto; height: auto; }
+   The item sits further in, inside the ring (its inner edge is 6px in). */
+.cell.is-plate .cell-art { inset: 11px; }
 .cell.is-plate::before {
   content: ""; position: absolute; inset: 3px; border-radius: 7px; pointer-events: none;
   border: 3px solid #b08a4a; background: rgb(176 138 74 / 0.18);
