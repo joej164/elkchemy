@@ -1,5 +1,5 @@
 import { drop, previewMerge, type Board, type Item, type Pos } from './board';
-import { isFixed, isOpen, nextLocked, platesMet, regionAt, unlockReady, validateRegions, type Region } from './regions';
+import { isFixed, isOpen, nextLocked, platesMet, regionAt, roomOf, unlockReady, validateRegions, type Region } from './regions';
 
 /**
  * `item`: make `item` (its family at its tier or higher) anywhere on the board; with `region` (region levels),
@@ -9,12 +9,15 @@ import { isFixed, isOpen, nextLocked, platesMet, regionAt, unlockReady, validate
  * `leaveOne`: place all supply and finish with exactly one item on the board; with `item`, that
  *   last item must be exactly `item` (its family at exactly its tier).
  * `treasure` (room levels): collect the treasure at `at`, hidden in the last room until it opens, by tapping it.
+ *   `prize` is what it is: a disc-golf backpack (the default) or a clarinet case.
  */
 export type LevelGoal =
   | { readonly kind: 'item'; readonly item: Item; readonly region?: number }
   | { readonly kind: 'items'; readonly items: readonly Item[] }
   | { readonly kind: 'leaveOne'; readonly item?: Item }
-  | { readonly kind: 'treasure'; readonly at: Pos };
+  | { readonly kind: 'treasure'; readonly at: Pos; readonly prize?: Prize };
+
+export type Prize = 'backpack' | 'clarinet';
 
 export interface LevelDefinition {
   readonly seed: number;
@@ -27,7 +30,7 @@ export interface LevelDefinition {
    */
   readonly earlyLoss?: boolean;
   /**
-   * Region levels (see regions.ts): rectangular areas unlocked in order; items never leave their region.
+   * Region levels (see regions.ts): rectangular areas unlocked in order; items never leave their room.
    * Their status always uses the region rule in status.ts, whatever `earlyLoss` says.
    */
   readonly regions?: readonly Region[];
@@ -69,15 +72,18 @@ export function startSession(level: LevelDefinition): SessionState {
 }
 
 /**
- * Whether a drop from `from` to `to` is allowed at all: an item to a cell, and in region levels, inside one open region
- * and touching no fixed item (room levels).
+ * Whether a drop from `from` to `to` is allowed at all: an item to a cell, and in region levels, between open regions
+ * of one room (usually one region; see Region.joins) and touching no fixed item (room levels).
  */
 export function canDrop(state: SessionState, from: Pos, to: Pos): boolean {
   const { board, level } = state;
   if (!inBounds(board, from) || !inBounds(board, to) || board[from.row][from.col] === null) return false;
-  if (!level.regions) return true;
-  const r = regionAt(level.regions, from);
-  return r === regionAt(level.regions, to) && isOpen(state, r) && !isFixed(state, from) && !isFixed(state, to);
+  const { regions } = level;
+  if (!regions) return true;
+  const a = regionAt(regions, from);
+  const b = regionAt(regions, to);
+  return isOpen(state, a) && isOpen(state, b) && roomOf(regions, a) === roomOf(regions, b) &&
+    !isFixed(state, from) && !isFixed(state, to);
 }
 
 /** Whether the cell can be played: always, except inside a locked region. */
@@ -85,12 +91,18 @@ export function isCellOpen(state: SessionState, p: Pos): boolean {
   return !state.level.regions || isOpen(state, regionAt(state.level.regions, p));
 }
 
-/** Region levels: merge groups only grow inside the source's region, and never take a fixed item (room levels). */
+/**
+ * Region levels: merge groups only grow through the open regions of the source's room, and never take a fixed item
+ * (room levels).
+ */
 function connects(state: SessionState, from: Pos): ((p: Pos) => boolean) | undefined {
   const { regions } = state.level;
   if (!regions) return undefined;
-  const r = regionAt(regions, from);
-  return (p) => regionAt(regions, p) === r && !isFixed(state, p);
+  const room = roomOf(regions, regionAt(regions, from));
+  return (p) => {
+    const i = regionAt(regions, p);
+    return isOpen(state, i) && roomOf(regions, i) === room && !isFixed(state, p);
+  };
 }
 
 /** The cells an allowed drop would merge (see previewMerge), or [] if it would not merge or is not allowed. */

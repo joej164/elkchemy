@@ -1,5 +1,5 @@
-import { nextLocked, unlockReady, type Region } from '../regions';
-import type { LevelGoal } from '../session';
+import { isOpen, nextLocked, unlockReady, type Region } from '../regions';
+import type { LevelGoal, Prize } from '../session';
 import { FAMILY_NAMES, itemLabel } from './ItemArt';
 import type { UiState } from './controller';
 
@@ -16,8 +16,27 @@ export function isLargeBoard(board: readonly (readonly unknown[])[]): boolean {
   return board.length > 8 || board.some((r) => r.length > 8);
 }
 
-/** Room levels: the treasure the last room hides. */
-export const TREASURE_NAME = 'disc-golf backpack';
+/**
+ * Room levels: the treasure the last room hides. `verb`: what a tap on it does; `opened`: its cell's state once tapped;
+ * `done`: the announcement of that tap; `won`: the win message.
+ */
+export interface PrizeText { readonly name: string; readonly verb: string; readonly opened: string; readonly done: string; readonly won: string }
+export const PRIZES: Record<Prize, PrizeText> = {
+  backpack: {
+    name: 'disc-golf backpack', verb: 'collect', opened: 'open, collected',
+    done: 'Collected the disc-golf backpack.', won: 'Goal complete! You found the disc-golf backpack.',
+  },
+  clarinet: {
+    name: 'clarinet case', verb: 'open', opened: 'open, an assembled clarinet inside',
+    done: 'Opened the clarinet case: an assembled clarinet is inside.',
+    won: 'Goal complete! You opened the clarinet case and found an assembled clarinet.',
+  },
+};
+
+/** The text for a room level's treasure (the backpack unless the goal names another prize). */
+export function prizeText(goal: LevelGoal): PrizeText {
+  return PRIZES[goal.kind === 'treasure' && goal.prize ? goal.prize : 'backpack'];
+}
 
 /** Region levels: where the goal must be made (or, in room levels, found), as " in <region>". */
 function goalPlace(goal: LevelGoal, regions?: readonly Region[]): string {
@@ -26,7 +45,7 @@ function goalPlace(goal: LevelGoal, regions?: readonly Region[]): string {
 }
 
 export function objectiveText(goal: LevelGoal, regions?: readonly Region[]): string {
-  if (goal.kind === 'treasure') return `Goal: find the ${TREASURE_NAME}${goalPlace(goal, regions)}`;
+  if (goal.kind === 'treasure') return `Goal: find the ${prizeText(goal).name}${goalPlace(goal, regions)}`;
   if (goal.kind === 'item') return `Goal: make ${itemLabel(goal.item)}${goalPlace(goal, regions)}`;
   if (goal.kind === 'items') return `Goal: make ${allOf(goal.items.length)}`;
   if (goal.item) return `Goal: merge down to one ${itemLabel(goal.item)}`;
@@ -35,7 +54,10 @@ export function objectiveText(goal: LevelGoal, regions?: readonly Region[]): str
 
 /** Objective sentence for the help dialog. */
 export function helpObjective(goal: LevelGoal, regions?: readonly Region[]): string {
-  if (goal.kind === 'treasure') return `Goal: open the rune gates and collect the ${TREASURE_NAME}${goalPlace(goal, regions)}.`;
+  if (goal.kind === 'treasure') {
+    const { verb, name } = prizeText(goal);
+    return `Goal: open the rune gates and ${verb} the ${name}${goalPlace(goal, regions)}.`;
+  }
   if (goal.kind === 'item') return `Goal: make ${itemLabel(goal.item)}${goalPlace(goal, regions)}.`;
   if (goal.kind === 'items') return `Goal: have ${allOf(goal.items.length)} goal items on the board at once.`;
   if (goal.item) return `Goal: merge everything down to exactly one item: ${itemLabel(goal.item)}.`;
@@ -65,16 +87,32 @@ export function unlockNeed(regions: readonly Region[], index: number): string {
   return `${list} on the pressure ${items.length > 1 ? 'plates' : 'plate'} in ${room}`;
 }
 
+/**
+ * Room levels: the help dialog's rule for gates and rooms, naming any alcove that is part of another room. The stone's
+ * rule appears only where there is a stone.
+ */
+export function roomsHelp(regions: readonly Region[]): string {
+  const stone = regions.some((r) => !!r.unlock && 'kind' in r.unlock && r.unlock.kind === 'stone');
+  const shared = regions.map((r) => r.joins === undefined ? ''
+    : ` ${r.name} is part of ${regions[r.joins].name}'s room: once its gate opens, items move, swap and merge between the two.`);
+  return 'Each rune gate opens by itself on the move that puts exactly the items shown on its room\'s marked tiles' +
+    `${stone ? '; a stone must hold the only item left in its room' : ''}.${shared.join('')} Items never leave their own room.`;
+}
+
 /** Region levels: the next step, from the next unlock to the goal. */
 function regionStep(state: UiState): string {
   const { session } = state;
   const { regions, goal } = session.level;
   const n = nextLocked(session);
   if (goal.kind === 'treasure') {
-    if (n === null) return `${regions![regions!.length - 1].name} is open. Tap the ${TREASURE_NAME} to collect it.`;
+    const { name, verb } = prizeText(goal);
+    if (n === null) return `${regions![regions!.length - 1].name} is open. Tap the ${name} to ${verb} it.`;
     const u = regions![n].unlock!;
     const how = 'kind' in u && u.kind === 'stone' ? 'Merge down to' : 'Put';
-    return `${how} ${unlockNeed(regions!, n)} to open the rune gate to ${regions![n].name}.`;
+    // An open alcove that is part of another room: say its items can be used there.
+    const shared = regions!.filter((r, i) => r.joins !== undefined && isOpen(session, i))
+      .map((r) => ` Items move and merge between ${regions![r.joins!].name} and ${r.name}.`).join('');
+    return `${how} ${unlockNeed(regions!, n)} to open the rune gate to ${regions![n].name}.${shared}`;
   }
   if (n === null) return `Merge items to make ${goal.kind === 'item' ? itemLabel(goal.item) : 'the goal'}${goalPlace(goal, regions)}.`;
   const name = regions![n].name;
@@ -87,7 +125,7 @@ export function playingMessage(goal: LevelGoal, hasSupply = true): string {
   const more = hasSupply ? ' Add supply when you need more.' : '';
   if (goal.kind === 'item') return `Merge items to make ${itemLabel(goal.item)}.${more}`;
   if (goal.kind === 'items') return `Merge items to make ${allOf(goal.items.length)}.${more}`;
-  if (goal.kind === 'treasure') return `Find the ${TREASURE_NAME}.`;
+  if (goal.kind === 'treasure') return `Find the ${prizeText(goal).name}.`;
   if (goal.item) return `Merge everything down to one ${itemLabel(goal.item)}.`;
   return 'Merge everything down to one item. All supply must be placed.';
 }
@@ -104,7 +142,7 @@ export function statusMessage(state: UiState, pannable = isLargeBoard(state.sess
     return pannable ? LARGE_BOARD_HINT : playingMessage(goal, state.session.level.supply.length > 0);
   }
   if (state.status === 'won') {
-    if (goal.kind === 'treasure') return `Goal complete! You found the ${TREASURE_NAME}.`;
+    if (goal.kind === 'treasure') return prizeText(goal).won;
     if (goal.kind === 'items') return `Goal complete! You made ${allOf(goal.items.length)}.`;
     if (goal.kind === 'item') return `Goal complete! You made ${itemLabel(goal.item)}${goalPlace(goal, regions)}.`;
     const last = state.session.board.flat().find((c) => c !== null);

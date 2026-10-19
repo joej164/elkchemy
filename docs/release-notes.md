@@ -4,9 +4,94 @@ Each entry records what changed, how it was verified, and known limitations. **U
 
 Earlier published builds are not backfilled here. The previous build, `20261018-195510`, has five handcrafted levels and optional looping music; its verification is recorded in TODO.md under Current baseline and Audio.
 
-## Unreleased — Cell art placed by insets, so items and the backpack fit their cells on iPad (October 19, 2026)
+## 20261019-171209 — Level 8, The Hidden Cache (October 19, 2026)
 
-Not committed or deployed. Implemented by Claude; awaiting Codex review.
+Release build `20261019-171209`. Owner-approved design; implemented by Claude and reviewed by Codex. Owner authorized commit → push → deploy on October 19, 2026. Physical-iPad playtesting follows publication.
+
+### Changes
+
+- **Map** (`CACHE_LEVEL`, `src/levels.ts`): a 7×7 board in terrain. Columns A–G and rows 1–7; tiers below are player-facing.
+  - **Fern Clearing** (A1–D4, open): three Grove tier 1 and two Crystal tier 1. The crystal pair can't merge on its own, a sign that something is missing.
+  - **Hidden Alcove** (F1–G3): one Crystal tier 1 and two Crystal tier 2, behind a rune gate at E2. It opens by itself when the plate at D1 holds exactly Grove tier 2.
+  - **Lantern Nook** (B6–C7): a separate room behind a rune gate at C5, holding a closed clarinet case at B7. It opens by itself when the plate at C4 holds exactly Crystal tier 3.
+  - Both are pressure plates (other items may stay in the room), not the stone's no-leftovers rule. Each opening is a checkpoint, as in The Rune Gates: the plate item is fixed, Undo is cleared, and later moves get a fresh single Undo.
+- **Winning sequence:** C2 → B1 merge; B1 → D1 opens the alcove; F1 → A3 merge; A3 → F3 merge; F3 → C4 opens the nook; tap B7. In code coordinates (row, column from 0): (1,2)→(0,1), (0,1)→(0,3), (0,5)→(2,0), (2,0)→(2,5), (2,5)→(3,2), tap (6,1).
+- **Room ownership, separate from opening** (`src/regions.ts`, `src/session.ts`):
+  - A region may `joins` an earlier region: it is part of that region's room. A drop may move, swap or merge between open regions of one room; merge groups grow only through open regions of the source's room and never take a fixed item.
+  - Every other region is still its own room. Nothing moves, swaps or merges between separate rooms, including the nook and every earlier level, even with all gates open.
+  - Opening still follows each region's own unlock and list order.
+  - Validation allows `joins` and `hidden` only on later regions of room levels. A joined region must name an earlier region that joins nothing. A stone can't be in a room with a joined part, since it counts only its own region's items.
+  - Terrain and passages stay scenery. Placement inside a room is unrestricted, with no pathfinding.
+- **Hidden until opened** (`hidden` on a region; `src/ui/Board.tsx`, `src/ui/app.css`):
+  - Until it opens, the alcove's six cells are placeholders under a solid rock silhouette showing only its outline and a small name plate. Its rune gate stays visible.
+  - The hidden cells aren't buttons: no labels, focus, taps or drops, and arrow keys skip them like terrain. A drag starting on the silhouette pans.
+  - If Retry hides the cell holding the board's tab stop, the tab stop returns to the first cell.
+  - Opening reveals the alcove's tiles and items at once, with no collection step. On boards that pan, the opened area is scrolled into view, and Retry restores the starting view (both existing behaviour).
+  - The nook keeps the level-7 look: darkened, tiles visible, case hidden until it opens.
+- **Treasure:** the treasure goal takes an optional `prize`; the default is the disc-golf backpack. Level 8 has a clarinet case:
+  - closed (latched, with a gold note) until tapped or activated with Enter or Space;
+  - then open, showing one assembled clarinet: mouthpiece and reed, barrel, two keyed joints and a bell, resting across the case lining.
+  - It is drawn in code in the same SVG style as the backpack. The cell and goal panel follow the session's `collected` state. Undo closes it with the nook still open; Retry hides it again. Level 7's backpack and all of its text are unchanged.
+- **Text:**
+  - Goal: "Goal: find the clarinet case in Lantern Nook".
+  - Banner, once the alcove is open: "… Items move and merge between Fern Clearing and Hidden Alcove."
+  - Help: "Hidden Alcove is part of Fern Clearing's room: once its gate opens, items move, swap and merge between the two." The stone sentence appears only on levels with a stone.
+  - The live region announces "Its items join Fern Clearing's" when the alcove opens, and "Opened the clarinet case: an assembled clarinet is inside."
+  - Cell labels: "clarinet case, closed, tap to open", then "open, an assembled clarinet inside".
+- **Levels and notes:** level 8 is on the Levels page and in normal progression, after level 7; winning it offers "Play again from level 1". Level 7 → level 8 is covered by the `nextLevelIndex` test but wasn't clicked through in the browser. The in-game Release notes gain a "The Hidden Cache" entry.
+- **Not built:** supply buttons, chests, random contents, new puzzle modes, a room-aware loss rule, or distinct door artwork (the alcove door reuses the rune gate).
+- **Names** (Fern Clearing, Hidden Alcove, Lantern Nook) were chosen by Claude; the owner may rename them.
+
+### Verification (Claude)
+
+- **Automated:** 470 tests (18 new), typecheck and production build pass.
+  - `tests/cache.test.ts` (15):
+    - layout, inventories and validation;
+    - the full winning sequence through session rules, with each step's exact item;
+    - the hidden alcove taking no drops, giving none and refusing collection before it opens;
+    - exact-tier and wrong-plate refusals, and opening on a plain move or a swap;
+    - both checkpoints, with fixed items, cleared Undo, and a fresh Undo that keeps the gate open;
+    - moves and swaps both ways between clearing and alcove;
+    - the nook blocking transfers, swaps and merges from both areas;
+    - case collect, Undo and Retry;
+    - a synthetic level where a joined alcove touches its clearing: a merge group spans the border only once it is open;
+    - taps on the hidden alcove doing nothing, a tap-only win, and the text, including unchanged Rune Gates help.
+  - Rendering, two tests in `tests/helpButton.test.tsx`: the hidden alcove leaks no cell, label or item; reveal; the case closed, open, after Undo and after Retry.
+  - Art, one test in `tests/itemArt.test.tsx`: both prizes, closed and open, as one safe SVG each.
+  - Three level-count assertions were updated.
+  - Mutation checks: dropping the open-region check from merge groups failed the adjacent-alcove test; restoring the old same-region drop rule failed 8 of the 15 new tests.
+- **Playwright Chromium against the production build** (`vite preview`):
+  - **820×1180, mouse drags:**
+    - a drag onto the hidden alcove, a tap on it, and select-then-tap did nothing;
+    - step 1 merged;
+    - step 2, a plain move, opened the alcove with its unlock glow, disabled Undo and fixed the grove, which then wouldn't drag;
+    - an alcove → clearing move, a clearing → alcove tap-tap swap and an alcove → clearing drag swap each worked, and each was undone with the alcove still open;
+    - the step-3 drag previewed a merge spanning both areas;
+    - steps 3–5 gave the stated items and opened the nook, disabling Undo;
+    - the case was closed in the room and goal panel; a tap opened both and won ("Play again from level 1");
+    - Undo closed it with both gates open; Enter, and Space, opened it again;
+    - after focusing an alcove cell, Retry restored the start (six hidden cells, closed gates, no padlocks, no case) and moved the tab stop to A1;
+    - ArrowRight from D2 stayed put while the alcove was hidden.
+  - **390×844, taps:** full win. Opening scrolled the whole alcove, then the whole nook, into view. Dragging terrain, and the hidden silhouette, panned the board without moving the page. Retry, with or without moves, returned to the exact start view. The name plate fit inside the silhouette (wrapping to two lines).
+  - **844×390:** full win. Each opened area fit fully in view. Dragging empty ground panned. Retry returned to the start view (the Clearing only partly fits there, as on levels 6 and 7).
+  - **1180×820, taps:** full win with the whole map in view, 85px tiles.
+  - **1024×768, keyboard only:** full win with arrows and Enter. Once open, arrows crossed the terrain into the alcove and through the nook's passage, and focus showed on the case.
+  - **Sizing at 820×1180:** ordinary items, alcove items and the case (closed and open) were 6px inside their cells; items on both plates were 13px inside. Each SVG matched its box. Close-ups of the closed and open case and the open board were inspected.
+  - **Level 7:** the backpack was closed on reveal, opened and won, closed again after Undo and hidden after Retry, with unchanged text. Level 6 still rendered 49 cells, 2 gates and locked labels, and its art was 6px in.
+  - At every size checked: no horizontal page overflow, no control outside the board under 44px, and no console errors or warnings.
+- **Not verified:** physical iPad/Safari (touch, VoiceOver, Home Screen mode); Chromium emulation does not establish them. Also unverified: 1024×1366 and 1366×1024, and playtesting.
+
+Codex independently verified 470 tests, typecheck, production build and diff checks; Chromium wins at 1024×1366, 1366×1024 and 390×844, level 7 → Next level → level 8, checkpoints, shared resources, case activation, Undo and Retry. No page overflow or console warnings/errors. Physical iPad/Safari and VoiceOver remain unverified.
+
+### Known limitations
+
+- On phones the alcove starts outside the board view; its rune gate and the next-gate panel name it, and opening it scrolls it into view.
+- Tapping the hidden silhouette doesn't clear a selection, like tapping terrain.
+- Room levels still never report a loss. Exact inventories make this level impossible to strand; real choices across rooms would need a room-aware loss rule.
+
+## 20261019-163932 — Cell art placed by insets, so items and the backpack fit their cells on iPad (October 19, 2026)
+
+Published as build `20261019-163932` from commit `d271347`. **Owner report:** the production build is `20261019-163932`, and on the physical iPad the sizing fix works. **Claude's check:** on October 19, 2026, the live `/version.json` reported `20261019-163932`. Nothing else about the deployment was rechecked. Implemented by Claude.
 
 - **Owner's physical iPad report** on `20261019-162807`, in both portrait and landscape: on The Rune Gates, ordinary item art looked larger than its cell, as did the open backpack, but an item moved onto a marked pressure or stone tile looked the correct size. The owner likes the closed → open bag; that behaviour and its artwork are kept.
 - **Cause.** Two sizing paths were compared:
@@ -25,11 +110,11 @@ Not committed or deployed. Implemented by Claude; awaiting Codex review.
   - The bag was closed on reveal; collecting it opened it and won; Undo closed it; Retry hid it.
   - Level 1 and The Hidden Hollow measured unchanged (art 6px inside the cell), and level 1 looked unchanged.
   - No page overflow and no console errors.
-- **Not verified:** physical iPad/Safari. The fix uses the sizing path the owner's iPad already drew correctly, but it needs the owner's check on the device.
+- **Not verified by Claude:** physical iPad/Safari. The owner has since reported, on build `20261019-163932`, that the fix works on the physical iPad.
 
 ## 20261019-162807 — Rune Gates: bare padlock on completed tiles, and a backpack that opens on collection (October 19, 2026)
 
-Published October 19, 2026 in build `20261019-162807`, from commit `47bf582`. Requested by the owner after reviewing build `20261019-161758`, where the fixed tree, bird and tier-3 crystal still looked bigger than their tiles. Implemented by Claude. On the physical iPad the owner liked the closed → open bag, but ordinary item art and the open bag still overran their cells (see the Unreleased entry above).
+Published October 19, 2026 in build `20261019-162807`, from commit `47bf582`. Requested by the owner after reviewing build `20261019-161758`, where the fixed tree, bird and tier-3 crystal still looked bigger than their tiles. Implemented by Claude. On the physical iPad the owner liked the closed → open bag, but ordinary item art and the open bag still overran their cells (fixed in `20261019-163932` above).
 
 - **Completed tiles.** In Chromium the cells were never larger than their 64px (phone) or 92px (iPad) grid tracks, and the art was already smaller than on plain tiles; what reached the tile's frame was the dark round lock badge with its gold border. Now:
   - the badge is gone: a bare 14px padlock (dark brown, no background, border, halo or padding) is tucked inside the ring's top-right corner;
@@ -46,7 +131,7 @@ Published October 19, 2026 in build `20261019-162807`, from commit `47bf582`. Re
 
 ## 20261019-161758 — Rune Gates tile and backpack visual pass, and its in-game release note (October 19, 2026)
 
-Published October 19, 2026 in build `20261019-161758`, from commit `b95a4b1`. The owner reviewed the published art and requested these changes; Claude implemented them, and Codex reviewed the CSS and backpack changes and found no blocking code issue. On review, the owner found the completed tiles still looked oversized (see the Unreleased entry above).
+Published October 19, 2026 in build `20261019-161758`, from commit `b95a4b1`. The owner reviewed the published art and requested these changes; Claude implemented them, and Codex reviewed the CSS and backpack changes and found no blocking code issue. On review, the owner found the completed tiles still looked oversized (see `20261019-162807` above).
 
 - **Completed tiles fit their square.** The item on a pressure plate or the stone, and its corner badge (the needed item, then a padlock), now sit inside the tile's bronze or slate ring instead of spilling over it. The ring, its colours and the empty-tile ghost are unchanged.
 - **Open backpack.** The treasure is redrawn open, with its lid folded back, three discs standing inside and two lying beside it.

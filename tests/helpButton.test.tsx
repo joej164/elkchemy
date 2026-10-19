@@ -243,6 +243,59 @@ describe('HelpButton', () => {
     expect(board(run(won, { type: 'retry' }))).not.toContain('data-backpack');
   });
 
+  it('the Hidden Cache shows its alcove only by outline and name until its gate opens, and names the clarinet case', () => {
+    const level = LEVELS[7];
+    const game = renderToStaticMarkup(<Game definition={level.definition} label={`Level 8 of 8 · ${level.name}`}
+      musicControl={null} onHome={() => {}} winLabel="Play again from level 1" onWin={() => {}} />);
+    expect(game).toContain('Level 8 of 8 · The Hidden Cache');
+    expect(game).toContain('Goal: find the clarinet case in Lantern Nook');
+    expect(game).toContain('<strong>Rune gate: Hidden Alcove</strong><br/>Needs Grove, tier 2 of 4 on the pressure plate in Fern Clearing');
+    expect(game).toContain('data-clarinet="closed"');                    // the goal panel: closed until opened
+    expect(game).not.toMatch(/data-backpack|data-clarinet="open"|data-action="unlock"|class="gate/);
+    expect(game).toContain('<div class="passage is-across" data-passage="1" role="img" aria-label="Rune gate to Hidden Alcove, closed">');
+    expect(game).toContain('<div class="passage" data-passage="2" role="img" aria-label="Rune gate to Lantern Nook, closed">');
+    expect(game).toContain('Hidden Alcove is part of Fern Clearing&#x27;s room: once its gate opens, items move, swap and merge');
+    expect(game).not.toContain('a stone must hold');
+    // Hidden: six placeholders, no alcove cell, label or item; the clearing's crystals and the nook's cells still show.
+    expect((game.match(/class="hidden-cell"/g) ?? []).length).toBe(6);
+    expect(game).toMatch(/class="region is-locked is-room is-hidden" data-region="1"[^>]*><span class="hidden-name">.*?Hidden Alcove<\/span>/);
+    expect(game).not.toMatch(/data-row="[0-2]" data-col="[56]"/);
+    expect(game).not.toMatch(/column \d, Hidden Alcove/);
+    expect((game.match(/: Crystal, tier 1 of 4"/g) ?? []).length).toBe(2);
+    expect(game).not.toContain('Crystal, tier 2 of 4');
+    expect(game).toContain('aria-label="Row 7, column 2, Lantern Nook, locked: empty"');
+  });
+
+  it('the Hidden Cache reveals its alcove on opening; the clarinet case is hidden, closed, then open; Undo and Retry', () => {
+    const run = (s: UiState, ...actions: UiAction[]) => actions.reduce(reduceUi, s);
+    const drop = ([fr, fc]: number[], [tr, tc]: number[]): UiAction => ({ type: 'drop', from: { row: fr, col: fc }, to: { row: tr, col: tc } });
+    const board = (s: UiState) => renderToStaticMarkup(<Board state={s} dispatch={() => {}} />);
+    const start = initUi(LEVELS[7].definition);
+    const alcove = run(start, drop([1, 2], [0, 1]), drop([0, 1], [0, 3]));
+    const open = board(alcove);
+    expect(open).not.toMatch(/hidden-cell|is-hidden/);
+    expect(open).toContain('aria-label="Row 1, column 6, Hidden Alcove: Crystal, tier 1 of 4"');
+    expect((open.match(/Hidden Alcove: Crystal, tier 2 of 4"/g) ?? []).length).toBe(2);
+    expect(open).toContain('aria-label="Row 1, column 4, Fern Clearing, pressure plate for Grove, tier 2 of 4, fixed: Grove, tier 2 of 4"');
+    expect(open).not.toContain('data-clarinet');
+    const revealed = run(alcove, drop([0, 5], [2, 0]), drop([2, 0], [2, 5]), drop([2, 5], [3, 2]));
+    const closed = board(revealed);
+    expect(closed).toContain('data-clarinet="closed"');
+    expect(closed).toContain('aria-label="Row 7, column 2, Lantern Nook: clarinet case, closed, tap to open"');
+    expect((closed.match(/class="fixed-lock"/g) ?? []).length).toBe(2);
+    const won = run(revealed, { type: 'tap', pos: { row: 6, col: 1 } });
+    expect(won.status).toBe('won');
+    expect(board(won)).toContain('data-clarinet="open"');
+    expect(board(won)).toContain('clarinet case, open, an assembled clarinet inside');
+    const undone = run(won, { type: 'undo' });
+    expect(undone.session.unlocked).toBe(2);
+    expect(board(undone)).toContain('data-clarinet="closed"');
+    const retried = board(run(won, { type: 'retry' }));
+    expect(retried).not.toContain('data-clarinet');
+    expect((retried.match(/class="hidden-cell"/g) ?? []).length).toBe(6);
+    expect(retried).not.toContain('fixed-lock');
+  });
+
   it('a ready gate glows, says so, and is the only gate offered', () => {
     // The Clearing's key already made: the Glade's gate is ready; the Hollow's is not (it is not next).
     const board = LEVELS[5].definition.board.map((r) => [...r]);

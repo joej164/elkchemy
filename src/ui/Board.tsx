@@ -2,8 +2,8 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperti
 import type { Item, Pos } from '../board';
 import { isFixed, regionAt, type PlateUnlock, type Region } from '../regions';
 import { isCellOpen } from '../session';
-import { BackpackArt, ItemArt, itemLabel } from './ItemArt';
-import { TREASURE_NAME, unlockNeed } from './messages';
+import { ItemArt, itemLabel, PrizeArt } from './ItemArt';
+import { prizeText, unlockNeed } from './messages';
 import { centerScroll, exceedsThreshold, moveFocus, panScroll } from './navigation';
 import {
   canDropAt, canPickUp, canUnlock, goalCells, openedRegion, previewCells, treasureShown, type UiAction, type UiState,
@@ -76,13 +76,19 @@ export function Board({ state, dispatch, onOverflowChange }: {
   const over = state.status !== 'playing';
   const [drag, setDrag] = useState<Drag | null>(null);
   const [mouseHover, setMouseHover] = useState<Pos | null>(null);
-  // The roving tab stop starts on the first cell; room levels' terrain is not a cell, so it starts on the first room cell.
-  const [focused, setFocused] = useState<Pos>(() => {
-    for (let row = 0; row < rows; row++) {
-      for (let col = 0; col < cols; col++) if (!regions || regionAt(regions, { row, col }) !== -1) return { row, col };
-    }
+  // Room levels: terrain is not a cell, and neither is a hidden region until it opens.
+  const isCell = (p: Pos) => {
+    if (!regions) return true;
+    const i = regionAt(regions, p);
+    return i !== -1 && !(regions[i].hidden && i > state.session.unlocked);
+  };
+  const firstCell = (): Pos => {
+    for (let row = 0; row < rows; row++) for (let col = 0; col < cols; col++) if (isCell({ row, col })) return { row, col };
     return { row: 0, col: 0 };
-  });
+  };
+  // The roving tab stop starts on the first cell, and returns there if Retry hides the cell it was on.
+  const [focused, setFocused] = useState<Pos>(firstCell);
+  const tabStop = isCell(focused) ? focused : firstCell();
   const [kbFocus, setKbFocus] = useState<Pos | null>(null);
   const pending = useRef<Pending | null>(null);
   const suppressClickUntil = useRef(0);
@@ -277,6 +283,7 @@ export function Board({ state, dispatch, onOverflowChange }: {
     regions?.findIndex((r) => !!r.unlock && 'passage' in r.unlock && same(r.unlock.passage, pos)) ?? -1;
   const { goal } = state.session.level;
   const roomLevel = goal.kind === 'treasure';
+  const prize = prizeText(goal);
   const merge = state.lastAction?.kind === 'merge' ? state.lastAction : null;
   const seq = state.actionSeq;
   const has = (list: readonly Pos[], p: Pos) => list.some((q) => same(q, p));
@@ -308,6 +315,8 @@ export function Board({ state, dispatch, onOverflowChange }: {
             const pos = { row: r, col: c };
             const cls = ['cell'];
             const region = regions?.[regionAt(regions, pos)];
+            // A hidden region's cells are placeholders under its outline until it opens: no item, label or focus.
+            if (region && !isCell(pos)) return <div key={`${r}-${c}`} className="hidden-cell" aria-hidden="true" />;
             if (regions && !region) {
               // Room levels: terrain, or a passage with its rune gate. Never a cell, never focused.
               const gate = passageAt(pos);
@@ -344,7 +353,7 @@ export function Board({ state, dispatch, onOverflowChange }: {
             const isOutput = !!merge && has(merge.outputs, pos);
             const isConsumed = !!merge && !isOutput && has(merge.cells, pos);
             const label = treasure
-              ? `${TREASURE_NAME}${state.session.collected ? ', open, collected' : ', closed, tap to collect'}`
+              ? `${prize.name}, ${state.session.collected ? prize.opened : `closed, tap to ${prize.verb}`}`
               : item ? itemLabel(item) : 'empty';
             const mark = plate ? `, ${plate.kind === 'stone' ? 'stone' : 'pressure plate'} for ${itemLabel(plate.item)}${fixed ? ', fixed' : ''}` : '';
             const place = region ? `, ${region.name}${locked ? ', locked' : ''}${mark}` : '';
@@ -360,7 +369,7 @@ export function Board({ state, dispatch, onOverflowChange }: {
                 aria-label={`Row ${r + 1}, column ${c + 1}${place}: ${label}`}
                 aria-pressed={same(state.selected, pos)}
                 aria-disabled={over || locked || fixed ? true : undefined}
-                tabIndex={same(focused, pos) ? 0 : -1}
+                tabIndex={same(tabStop, pos) ? 0 : -1}
                 onPointerEnter={(e) => { if (e.pointerType === 'mouse') setMouseHover(pos); }}
                 onPointerLeave={(e) => { if (e.pointerType === 'mouse') setMouseHover((h) => (same(h, pos) ? null : h)); }}
                 onFocus={() => { setFocused(pos); setKbFocus(pos); }}
@@ -377,7 +386,9 @@ export function Board({ state, dispatch, onOverflowChange }: {
                     : <span className="plate-mark" aria-hidden="true"><ItemArt item={plate.item} /></span>
                 )}
                 {item && <span className="cell-art"><ItemArt item={item} /></span>}
-                {treasure && <span className="cell-art"><BackpackArt open={state.session.collected} /></span>}
+                {treasure && goal.kind === 'treasure' && (
+                  <span className="cell-art"><PrizeArt prize={goal.prize} open={state.session.collected} /></span>
+                )}
                 {merge && isConsumed && (
                   <span key={`consumed-${seq}`} data-fx="consumed" aria-hidden="true"><ItemArt item={merge.input} /></span>
                 )}
@@ -407,11 +418,15 @@ export function Board({ state, dispatch, onOverflowChange }: {
           const locked = i > state.session.unlocked;
           const ready = locked && canUnlock(state, i);
           const need = r.unlock ? unlockNeed(regions, i) : '';
-          // Room levels have no wooden gate: a locked room is only darkened, and its rune gate stands in its passage.
+          // Room levels have no wooden gate: a locked room is only darkened, and its rune gate stands in its passage. A
+          // hidden one is drawn solid, showing only its outline and name.
           const key = r.unlock && 'item' in r.unlock ? r.unlock : null;
+          const hidden = locked && !!r.hidden;
           return (
-            <div key={r.name} className={`region${locked ? ' is-locked' : ''}${roomLevel ? ' is-room' : ''}`} data-region={i}
+            <div key={r.name} className={`region${locked ? ' is-locked' : ''}${roomLevel ? ' is-room' : ''}${hidden ? ' is-hidden' : ''}`}
+              data-region={i}
               style={{ gridRow: `${r.row + 1} / span ${r.rows}`, gridColumn: `${r.col + 1} / span ${r.cols}` }}>
+              {hidden && <span className="hidden-name"><LockIcon /> {r.name}</span>}
               {locked && key && (
                 <button type="button" className={`gate${ready ? ' is-ready' : ''}`} data-gate={i}
                   aria-disabled={ready ? undefined : true}

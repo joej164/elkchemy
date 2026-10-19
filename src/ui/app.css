@@ -280,6 +280,23 @@ body {
 .cell.is-plate-met .plate-mark { border-color: var(--moss); box-shadow: inset 0 0 0 2px var(--gold); }
 .cell.is-fixed { cursor: default; }
 .fixed-lock { position: absolute; top: 9px; right: 9px; z-index: 1; width: 14px; height: 14px; color: var(--bark-dark); }
+/* A hidden region (The Hidden Cache's alcove): solid rock over placeholder cells until its gate opens, so neither its
+   tiles nor its items show; only its outline and a small name plate. */
+.region.is-room.is-hidden {
+  border-style: solid;
+  background:
+    radial-gradient(ellipse 42% 22% at 30% 18%, #5d6157 0 70%, transparent 72%),
+    radial-gradient(ellipse 40% 20% at 72% 50%, #53584d 0 70%, transparent 72%),
+    radial-gradient(ellipse 44% 22% at 32% 84%, #585c52 0 70%, transparent 72%),
+    #353a32;
+  box-shadow: inset 0 0 12px rgb(0 0 0 / 0.55);
+}
+.hidden-name {
+  display: inline-flex; align-items: center; gap: 4px; max-width: 100%; padding: 3px 8px; border-radius: 8px;
+  border: 2px solid var(--bark-dark); background: var(--parchment); color: var(--bark-dark);
+  font-size: 0.85rem; font-weight: 700; line-height: 1.2; text-align: center;
+}
+.hidden-name svg { width: 14px; height: 14px; flex: none; }
 .cell.has-treasure { background: radial-gradient(circle, #fff3c4, var(--earth) 70%); }
 .cell.has-treasure .cell-art { filter: drop-shadow(0 0 6px rgb(242 193 78 / 0.95)); }
 

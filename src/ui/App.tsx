@@ -2,7 +2,7 @@ import { useReducer, useState, type ReactNode } from 'react';
 import { LEVELS, nextLevelIndex, type Level } from '../levels';
 import type { Item } from '../board';
 import { generatePuzzle, type GeneratedPuzzle, type PuzzleConfig } from '../generator';
-import type { LevelDefinition } from '../session';
+import type { LevelDefinition, LevelGoal } from '../session';
 import { hasItem } from '../status';
 import { nextLocked, type Region } from '../regions';
 import { Board, LockIcon, RuneGate } from './Board';
@@ -16,9 +16,9 @@ import { Scores } from './Scores';
 import { SceneArt } from './SceneArt';
 import gameLandscapeArt from '../assets/art/woodland-cheering-landscape-v1.webp';
 import gamePortraitArt from '../assets/art/woodland-cheering-portrait-v1.webp';
-import { BackpackArt, ItemArt, itemLabel } from './ItemArt';
+import { ItemArt, itemLabel, PrizeArt } from './ItemArt';
 import { UpdateControl } from './UpdateControl';
-import { isLargeBoard, itemCount, objectiveText, statusMessage, TREASURE_NAME, unlockNeed } from './messages';
+import { isLargeBoard, itemCount, objectiveText, prizeText, statusMessage, unlockNeed } from './messages';
 import { useMusic } from './useMusic';
 import { PUZZLE_MUSIC, WOODLAND_MUSIC } from '../music';
 import {
@@ -30,17 +30,19 @@ function plural(n: number): string {
   return n === 1 ? '1 item' : `${n} items`;
 }
 
-function describeAction(a: LastAction | null, noun: string, regions?: readonly Region[]): string {
+function describeAction(a: LastAction | null, noun: string, goal: LevelGoal, regions?: readonly Region[]): string {
   if (!a) return '';
-  // Room levels: a drop that opened a gate says so.
+  // Room levels: a drop that opened a gate says so, and whose room an opened alcove belongs to.
   const opened = a.kind !== 'unlock' && openedRegion(a);
-  const gate = opened ? ` The rune gate to ${regions?.[opened]?.name ?? 'the next room'} opened.` : '';
+  const area = opened ? regions?.[opened] : undefined;
+  const joined = area?.joins !== undefined ? ` Its items join ${regions![area.joins].name}'s.` : '';
+  const gate = opened ? ` The rune gate to ${area?.name ?? 'the next room'} opened.${joined}` : '';
   switch (a.kind) {
     case 'move': return `Moved an item.${gate}`;
     case 'swap': return `Swapped two items.${gate}`;
     case 'place': return `Placed ${itemLabel(a.item)} in row ${a.at.row + 1}, column ${a.at.col + 1}.`;
     case 'unlock': return `Unlocked ${regions?.[a.region]?.name ?? 'an area'}.`;
-    case 'collect': return `Collected the ${TREASURE_NAME}.`;
+    case 'collect': return prizeText(goal).done;
     case 'undo': return 'Undid the last action.';
     case 'retry': return `${noun} restarted.`;
     case 'merge':
@@ -217,7 +219,8 @@ export function Game({ definition, label, musicControl, onHome, winLabel, onWin,
             </div>
           ) : (
             <div className="art">
-              {rooms ? <BackpackArt open={state.session.collected} /> : single ? <ItemArt item={single} /> : <span className="art-glyph" aria-hidden="true">1</span>}
+              {goal.kind === 'treasure' ? <PrizeArt prize={goal.prize} open={state.session.collected} />
+                : single ? <ItemArt item={single} /> : <span className="art-glyph" aria-hidden="true">1</span>}
             </div>
           )}
           <p>
@@ -263,7 +266,7 @@ export function Game({ definition, label, musicControl, onHome, winLabel, onWin,
       </div>
 
       <div className="sr-only" aria-live="polite" role="status">
-        {describeAction(state.lastAction, puzzle ? 'Puzzle' : 'Level', regions)} {over ? message : ''}
+        {describeAction(state.lastAction, puzzle ? 'Puzzle' : 'Level', goal, regions)} {over ? message : ''}
       </div>
 
       <section className="controls" aria-label="Controls">

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { ItemArt, itemLabel } from '../src/ui/ItemArt';
+import { ItemArt, itemLabel, PrizeArt } from '../src/ui/ItemArt';
 import type { Family, Item, Tier } from '../src/board';
 
 const families: Family[] = ['grove', 'song', 'crystal', 'elk'];
@@ -43,5 +43,20 @@ describe('ItemArt', () => {
 
   it('passes className through', () => {
     expect(html({ family: 'elk', tier: 0 }, 'my-art')).toContain('class="my-art"');
+  });
+});
+
+describe('PrizeArt', () => {
+  it('draws each treasure closed and open as one safe svg, the backpack by default', () => {
+    const art = (prize: 'backpack' | 'clarinet' | undefined, open: boolean) => renderToStaticMarkup(<PrizeArt prize={prize} open={open} />);
+    expect(art(undefined, false)).toContain('data-backpack="closed"');
+    expect(art('backpack', true)).toContain('data-backpack="open"');
+    expect(art('clarinet', false)).toContain('data-clarinet="closed"');
+    expect(art('clarinet', true)).toContain('data-clarinet="open"');
+    for (const m of [art('clarinet', false), art('clarinet', true)]) {
+      expect(m.match(/<svg/g)).toHaveLength(1);
+      expect(m).toContain('aria-hidden="true"');
+      for (const bad of ['<image', '<text', 'http', 'href=', 'url(']) expect(m).not.toContain(bad);
+    }
   });
 });

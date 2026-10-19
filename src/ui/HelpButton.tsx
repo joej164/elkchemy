@@ -1,7 +1,7 @@
 import { useId, useRef } from 'react';
 import type { Region } from '../regions';
 import type { LevelGoal } from '../session';
-import { helpObjective, LARGE_BOARD_HINT } from './messages';
+import { helpObjective, LARGE_BOARD_HINT, roomsHelp } from './messages';
 import './help.css';
 
 /** `puzzle`: a generated puzzle (no supply, no next level, New puzzle available). `regions`: a region level (no supply). */
@@ -56,10 +56,7 @@ export function HelpButton({ goal, largeBoard = false, puzzle = false, regions }
             {largeBoard && <li>{LARGE_BOARD_HINT} Center board recenters the view.</li>}
             <li>Dropping onto a different item swaps them; nothing merges on its own.</li>
             {rooms ? (
-              <li>
-                Each rune gate opens by itself on the move that puts exactly the items shown on its room's marked tiles;
-                a stone must hold the only item left in its room. Items never leave their own room.
-              </li>
+              <li>{roomsHelp(regions ?? [])}</li>
             ) : regions ? (
               <li>
                 Each locked area's gate shows the item that opens it. Make it in the area named, then tap the gate or press

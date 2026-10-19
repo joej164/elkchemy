@@ -23,8 +23,9 @@ These resolve older conflicting entries below.
 
 ## Current baseline
 
-- Unreleased (uncommitted, not deployed): cell art placed by insets, so ordinary items and the backpack fit their cells on iPad. See Connected regions below and [docs/release-notes.md](docs/release-notes.md).
-- Latest deployment `20261019-162807` (commit `47bf582`): a bare padlock on completed Rune Gates tiles, and a closed backpack that opens on collection.
+- Level 8 release build `20261019-171209`: The Hidden Cache, a clearing whose hidden alcove shares its items, and a clarinet case to open. Codex reviewed; owner authorized commit → push → deploy. Physical-iPad playtesting follows publication. See Connected regions below and [docs/release-notes.md](docs/release-notes.md).
+- Previous deployment `20261019-163932` (commit `d271347`): cell art placed by insets, so ordinary items and the backpack fit their cells. The owner reports the build and confirms the fix on the physical iPad; Claude checked only that the live `/version.json` reports it.
+- Previous deployment `20261019-162807` (commit `47bf582`): a bare padlock on completed Rune Gates tiles, and a closed backpack that opens on collection.
 - Previous deployment `20261019-161758` (commit `b95a4b1`): the Rune Gates tile and backpack visual pass, and the level's in-game Release notes entry.
 - Previous deployment `20261019-132651` (commit `99bbd6d`): level 7, The Rune Gates (experimental), and four Hidden Hollow gate fixes. See Connected regions below and [docs/release-notes.md](docs/release-notes.md).
 - Previous deployment `20261019-055257`: tappable wooden gates on The Hidden Hollow's locked areas. See Connected regions below and [docs/release-notes.md](docs/release-notes.md).
@@ -178,18 +179,26 @@ From [docs/game-vision.md](docs/game-vision.md); investigate and prototype befor
 - [x] In-game Release notes entry for The Rune Gates (`src/ui/ReleaseNotes.tsx`, dated October 19, 2026; published `20261019-161758`).
 - [x] Owner review of `20261019-161758`: the completed tiles still looked bigger than their tiles. Owner-requested corrections (published `20261019-162807`): the lock badge replaced by a bare 14px padlock in the corner, item art at an explicit inset inside the ring, and the backpack shown closed until collected, then open with its discs. Chromium-checked at 390×844 and 820×1180; details in [docs/release-notes.md](docs/release-notes.md).
 - [x] Owner review of `20261019-162807` on the physical iPad, portrait and landscape: likes the closed → open bag. Ordinary item art and the open bag still looked larger than their cells, while items on marked tiles were the right size.
-- [x] Fix (unreleased): all cell art is placed by insets, like marked tiles, instead of percentage sizes inside the cell button; Chromium-checked at iPad portrait, landscape and phone sizes. Cause and checks: [docs/release-notes.md](docs/release-notes.md).
-- [ ] With owner authorization, in this order: commit → push → deploy the fix.
-- [ ] Owner check on the iPad that ordinary items and the open bag now fit their cells (Safari's rendering is unchecked here; WebKit isn't installed for Playwright).
+- [x] Fix (published `20261019-163932`, commit `d271347`): all cell art is placed by insets, like marked tiles, instead of percentage sizes inside the cell button; Chromium-checked at iPad portrait, landscape and phone sizes. Cause and checks: [docs/release-notes.md](docs/release-notes.md).
+- [x] Committed, pushed and deployed with owner authorization as `20261019-163932`.
+- [x] Owner confirmed on the physical iPad that the sizing fix works (owner report; Claude has no Safari check).
+- [x] Level 8, The Hidden Cache (owner-approved design; release build `20261019-171209`). A clearing, a hidden alcove behind a rune gate, and a separate final room. Pressure plates open each gate with exact items, as checkpoints.
+  - The alcove `joins` the clearing's room: once open, items move, swap and merge between them; it stays `hidden` (no tiles, items or labels) until then. Separate rooms stay separate.
+  - The final room holds a clarinet case that opens to an assembled clarinet and wins.
+  - 470 tests, typecheck and build pass; Chromium-checked at 390×844, 844×390, 820×1180, 1180×820 and 1024×768. Details: [docs/release-notes.md](docs/release-notes.md).
+- [x] Codex review of level 8; independent checks recorded in release notes.
+- Owner authorized level 8 release in this order: commit → push → deploy (`20261019-171209`).
+- [ ] Owner and Alisha playtest of The Hidden Cache: whether the unmergeable crystal pair signals the missing alcove resources, whether the hidden alcove reads as part of the clearing, and the clarinet case art.
+- [ ] Physical iPad/Safari for The Hidden Cache: touch across the clearing and alcove, the hidden silhouette, case activation, VoiceOver labels.
 - [ ] Alisha playtest of The Rune Gates: whether plates, the stone and checkpoints are clear without instructions.
 - [ ] Physical iPad/Safari for The Rune Gates: touch on plates and the backpack, panning from terrain, VoiceOver labels; Chromium was checked at 820×1180 and 390×844 only.
 - Option for future levels, not an implementation request (owner, October 19, 2026): longer paths between rooms.
 - [ ] If rooms with real choices are wanted, design a room-aware loss rule first; room levels currently never report a loss.
-- [ ] Decide from playtesting whether to build more region levels, generated multi-room puzzles, or neither. Not built: non-rectangular areas, out-of-order unlocks, supply in region levels, transferable items, elk movement, unlock sounds.
+- [ ] Decide from playtesting whether to build more region levels, generated multi-room puzzles, or neither. Not built: non-rectangular areas, out-of-order unlocks, supply in region levels, transfers between separate rooms (The Hidden Cache's alcove is part of its clearing's room, not a transfer), elk movement, unlock sounds.
 
 - [ ] Larger maps of smaller connected rooms, paths, and clearings (not necessarily rectangles), opened by merged runes, keys, tunnels, machines, or bridges. Bombs opening barriers were an example, not a committed recipe.
 - [ ] Settled resource boundary: items may only be consumed or used toward objectives within their room of origin; movement between rooms (if any) and merging must not bypass that. Whether keys are consumed is a per-mechanic detail.
-- [ ] Resupply as a world object (for example a chest in an unlocked cave) rather than an always-available button. The whole puzzle needs at least one winning sequence; wrong choices may still fail. Do not require every gate to be independently solvable in every state.
+- [ ] Resupply as a world object (for example a chest in an unlocked cave) rather than an always-available button. The Hidden Cache tries a simpler form: authored resources behind an alcove door, revealed on opening, with no chest or random contents. The whole puzzle needs at least one winning sequence; wrong choices may still fail. Do not require every gate to be independently solvable in every state.
 - [ ] Optional: the elk walks through cleared routes automatically and waits at the next obstacle; cutscenes between sections.
 
 ## Diagnostics and feedback — proposed, not yet implemented

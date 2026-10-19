@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import type { Item, Family } from '../board';
+import type { Prize } from '../session';
 
 export const FAMILY_NAMES: Record<Family, string> = { grove: 'Grove', song: 'Song', crystal: 'Crystal', elk: 'Elk' };
 
@@ -181,6 +182,54 @@ export function BackpackArt({ open }: { open: boolean }) {
       )}
     </svg>
   );
+}
+
+/**
+ * The Hidden Cache's treasure: a clarinet case. Closed (until opened): latched shut, handle up, a gold note on the lid.
+ * Open: the lid raised on its blue lining, and a whole, assembled clarinet (mouthpiece, barrel, two joints with keys,
+ * bell) resting across it. Decorative (callers give the text).
+ */
+export function ClarinetCaseArt({ open }: { open: boolean }) {
+  return (
+    <svg viewBox="0 0 100 100" width="100%" height="100%" aria-hidden="true" focusable="false" data-clarinet={open ? 'open' : 'closed'}>
+      {open ? (
+        <>
+          <path d="M10 48 L15 16 Q16 12 20 12 H80 Q84 12 85 16 L90 48 Z" fill="#4a2f24" {...S} />
+          <path d="M16 46 L20 18 H80 L84 46 Z" fill="#3f63b8" />
+          <rect x="7" y="46" width="86" height="40" rx="8" fill="#4a2f24" {...S} />
+          <rect x="12" y="50" width="76" height="31" rx="5" fill="#2c4a96" />
+          <g transform="rotate(-26 50 54)">
+            <path d="M5 51.5 L17 49.5 V58.5 L5 56.5 Z" fill="#1e1e24" {...S} strokeWidth={1.5} />
+            <path d="M4.5 51.8 L4.5 56.2" stroke="#e6d3a3" strokeWidth={2} />
+            <rect x="11" y="49" width="3" height="10" rx="1" fill="#d9dde3" {...S} strokeWidth={1} />
+            <rect x="17" y="47.5" width="11" height="13" rx="3" fill="#1e1e24" {...S} strokeWidth={1.5} />
+            <rect x="28" y="49" width="58" height="10" fill="#1e1e24" {...S} strokeWidth={1.5} />
+            <path d="M86 49 L93 44 Q97 43 97 46 V62 Q97 65 93 64 L86 59 Z" fill="#1e1e24" {...S} strokeWidth={1.5} />
+            {[17, 28, 56, 86].map((x) => <rect key={x} x={x - 1} y="48.2" width="2.4" height="11.6" fill="#d9dde3" />)}
+            <path d="M31 50.8 H53 M59 50.8 H83" stroke="#d9dde3" strokeWidth={1.4} />
+            {[34, 40, 46, 62, 68, 74, 80].map((x) => (
+              <circle key={x} cx={x} cy="54.6" r="2" fill="#d9dde3" stroke={DARK} strokeWidth={0.8} />
+            ))}
+          </g>
+        </>
+      ) : (
+        <>
+          <path d="M40 38 V31 Q40 26 45 26 H55 Q60 26 60 31 V38" fill="none" stroke={DARK} strokeWidth={4} strokeLinecap="round" />
+          <rect x="7" y="36" width="86" height="40" rx="10" fill="#4a2f24" {...S} />
+          <rect x="12" y="39" width="76" height="8" rx="4" fill="#6b4636" />
+          <path d="M8 52 H92" stroke="#2a1a14" strokeWidth={2} />
+          {[22, 70].map((x) => <rect key={x} x={x} y="47" width="8" height="10" rx="2" fill="#f2c14e" {...S} strokeWidth={1.5} />)}
+          <ellipse cx="48" cy="67" rx="4.5" ry="3.2" fill="#f2c14e" />
+          <path d="M52 67 V57 L58 59.5" fill="none" stroke="#f2c14e" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" />
+        </>
+      )}
+    </svg>
+  );
+}
+
+/** A room level's treasure, closed until `open`. */
+export function PrizeArt({ prize = 'backpack', open }: { prize?: Prize; open: boolean }) {
+  return prize === 'clarinet' ? <ClarinetCaseArt open={open} /> : <BackpackArt open={open} />;
 }
 
 export function ItemArt({ item, className }: { item: Item; className?: string }) {
