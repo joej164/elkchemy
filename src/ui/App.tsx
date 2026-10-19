@@ -2,10 +2,10 @@ import { useReducer, useState, type ReactNode } from 'react';
 import { LEVELS, nextLevelIndex, type Level } from '../levels';
 import type { Item } from '../board';
 import { generatePuzzle, type GeneratedPuzzle, type PuzzleConfig } from '../generator';
-import type { LevelDefinition, LevelGoal } from '../session';
+import type { LevelDefinition, LevelGoal, SessionState } from '../session';
 import { hasItem } from '../status';
-import { nextLocked, type Region } from '../regions';
-import { Board, LockIcon, RuneGate } from './Board';
+import { availableTasks, isOpen, nextLocked, sealedRegion, type Region, type Task, type TaskUnlock } from '../regions';
+import { Board, LockIcon, RuneGate, SymbolIcon } from './Board';
 import { HelpButton } from './HelpButton';
 import { Home } from './Home';
 import { LevelPicker } from './LevelPicker';
@@ -18,7 +18,9 @@ import gameLandscapeArt from '../assets/art/woodland-cheering-landscape-v1.webp'
 import gamePortraitArt from '../assets/art/woodland-cheering-portrait-v1.webp';
 import { ItemArt, itemLabel, PrizeArt } from './ItemArt';
 import { UpdateControl } from './UpdateControl';
-import { isConcealed, isLargeBoard, itemCount, objectiveText, plateItems, prizeText, statusMessage, unlockNeed } from './messages';
+import {
+  branchPlates, isConcealed, isLargeBoard, itemCount, objectiveText, plateItems, prizeText, progressText, statusMessage, taskNeed, unlockNeed,
+} from './messages';
 import { useMusic } from './useMusic';
 import { PUZZLE_MUSIC, WOODLAND_MUSIC } from '../music';
 import {
@@ -30,13 +32,16 @@ function plural(n: number): string {
   return n === 1 ? '1 item' : `${n} items`;
 }
 
-function describeAction(a: LastAction | null, noun: string, goal: LevelGoal, regions?: readonly Region[]): string {
+/** The live announcement of the last action. `tasks` (levels with tasks): what its checkpoint did is said instead. */
+export function describeAction(a: LastAction | null, noun: string, goal: LevelGoal, regions?: readonly Region[], tasks?: readonly Task[]): string {
   if (!a) return '';
   // Room levels: a drop that opened a gate says so; one that revealed a concealed part of a room says that instead.
   const opened = a.kind !== 'unlock' && openedRegion(a);
   const area = opened ? regions?.[opened] : undefined;
   const host = area?.joins !== undefined ? regions![area.joins].name : '';
-  const gate = !opened ? ''
+  const progress = 'progress' in a ? a.progress : undefined;
+  const gate = progress ? progressText(progress.tasks, progress.regions, goal, regions!, tasks!)
+    : !opened ? ''
     : area && isConcealed(area) ? ` More of ${host} was revealed, with more items to use.`
     : ` The rune gate to ${area?.name ?? 'the next room'} opened.${host ? ` Its items join ${host}'s.` : ''}`;
   switch (a.kind) {
@@ -113,7 +118,8 @@ export function App({ levels = LEVELS }: { levels?: readonly Level[] }) {
   const scene = screen.kind === 'home' || screen.kind === 'play';
 
   return (
-    <main className={`app${inGame ? ' is-game' : ' is-page'}${scene ? ' is-scene' : ''}${screen.kind === 'scores' ? ' is-wide' : ''}`}>
+    <main className={`app${inGame ? ' is-game' : ' is-page'}${scene ? ' is-scene' : ''}${screen.kind === 'scores' ? ' is-wide' : ''}${
+      screen.kind === 'pick' ? ' is-levels' : ''}${active?.tasks ? ' has-checklist' : ''}`}>
       {screen.kind === 'home' && (
         <Home musicControl={musicControl} onPlay={() => show({ kind: 'play' })}
           onLevels={() => show({ kind: 'pick' })} onScores={() => show({ kind: 'scores' })}
@@ -148,6 +154,63 @@ export function App({ levels = LEVELS }: { levels?: readonly Level[] }) {
   );
 }
 
+/**
+ * Levels with tasks: until the first gate opens, what opens it (as for other room levels); then a checklist of the rooms
+ * the sealed region needs, each with its symbol (lit once done) and what it asks for now, and the sealed region itself.
+ */
+export function TaskPanel({ session }: { session: SessionState }) {
+  const regions = session.level.regions!;
+  const tasks = session.level.tasks!;
+  if (!regions.some((_, i) => i > 0 && isOpen(session, i))) {
+    const t = availableTasks(session)[0];
+    const names = regions.flatMap((r, i) => (i > 0 && (r.unlock as TaskUnlock).tasks.includes(t) ? [r.name] : []));
+    return (
+      <div className="panel next-area" data-next-area>
+        <div className="art"><RuneGate /></div>
+        <p><strong>Rune {names.length > 1 ? 'gates' : 'gate'}: {names.join(', ')}</strong><br />Needs {taskNeed(regions, tasks[t])}</p>
+      </div>
+    );
+  }
+  const sealed = sealedRegion(regions);
+  const needs = (regions[sealed].unlock as TaskUnlock).tasks;
+  const open = isOpen(session, sealed);
+  const lit = needs.filter((t) => session.done.includes(t)).length;
+  return (
+    <div className="panel next-area is-checklist" data-next-area>
+      <ul className="checklist" aria-label={`Progress to ${regions[sealed].name}`}>
+        {needs.map((t) => {
+          const done = session.done.includes(t);
+          const reachable = isOpen(session, tasks[t].in);
+          const plates = branchPlates(session, t);
+          return (
+            <li key={t} className={done ? 'is-done' : undefined} data-task={t}>
+              <span className="check-symbol" aria-hidden="true"><SymbolIcon symbol={tasks[t].symbol!} lit={done} /></span>
+              <span className="check-name">{regions[tasks[t].in].name}</span>
+              <span className="check-state">
+                {done ? <span className="check-mark" aria-hidden="true">✓</span>
+                  : !reachable ? <span className="check-lock" aria-hidden="true"><LockIcon /></span>
+                  : plates.map((pl) => (
+                    <span key={`${pl.row},${pl.col}`} className="check-need" aria-hidden="true">
+                      <span className="check-item"><ItemArt item={pl.item} /></span>tier {pl.item.tier + 1} of 4
+                    </span>
+                  ))}
+                <span className="sr-only">: {done ? 'complete' : !reachable ? 'gate closed' : `needs ${plateItems(plates)}`}</span>
+              </span>
+            </li>
+          );
+        })}
+        <li className={open ? 'is-done' : undefined} data-task="sealed">
+          <span className="check-symbol check-lock" aria-hidden="true"><LockIcon open={open} /></span>
+          <span className="check-name">{regions[sealed].name}</span>
+          <span className="check-state">
+            {open ? 'Open' : `${lit} of ${needs.length}`}<span className="sr-only">{open ? '' : ' symbols lit, sealed'}</span>
+          </span>
+        </li>
+      </ul>
+    </div>
+  );
+}
+
 interface GameProps {
   definition: LevelDefinition;
   label: string;
@@ -164,12 +227,12 @@ interface GameProps {
 export function Game({ definition, label, musicControl, onHome, winLabel, onWin, puzzleId, onNewPuzzle }: GameProps) {
   const [state, dispatch] = useReducer(reduceUi, definition, initUi);
   const puzzle = puzzleId !== undefined;
-  const { goal, regions } = state.session.level;
+  const { goal, regions, tasks } = state.session.level;
   const nextArea = regions ? nextLocked(state.session) : null;
   const nextUnlock = nextArea !== null ? regions![nextArea].unlock : undefined;
   const concealedPlates = nextArea !== null && isConcealed(regions![nextArea]) && nextUnlock && 'plates' in nextUnlock
     ? nextUnlock.plates : null;
-  const plateRoom = nextUnlock ? regions![nextUnlock.in].name : '';
+  const plateRoom = nextUnlock && !('tasks' in nextUnlock) ? regions![nextUnlock.in].name : '';
   const unlockable = canUnlock(state);
   // Room levels: gates open by themselves, so there is no Unlock button; the goal is the treasure.
   const rooms = goal.kind === 'treasure';
@@ -188,9 +251,12 @@ export function Game({ definition, label, musicControl, onHome, winLabel, onWin,
       window.confirm(`Leave this ${puzzle ? 'puzzle' : 'level'}? Your current attempt will be discarded.`)) go();
   };
 
+  const homeButton = <button type="button" className="btn btn-quiet" data-action="home" onClick={() => leave(onHome)}>Home</button>;
+
   let hint = '';
+  // Levels with tasks (level 9) draw no hint row at all, to keep their controls on screen; Help explains the gates.
   if (rooms) {
-    if (!over && nextArea !== null) hint = 'Gates open by themselves and stay open';
+    if (!over && !tasks && nextArea !== null) hint = 'Gates open by themselves and stay open';
   } else if (regions) {
     if (!over) hint = nextArea === null ? '' : unlockable ? 'The item stays where it is' : `Needs ${unlockNeed(regions, nextArea)}`;
   } else if (canSupply) hint = 'Lands in a random empty cell';
@@ -205,7 +271,8 @@ export function Game({ definition, label, musicControl, onHome, winLabel, onWin,
           <h1>Elkchemy</h1>
           <div className="title-controls">
             {musicControl}
-            <HelpButton goal={goal} largeBoard={pannable} puzzle={puzzle} regions={regions} unlocked={state.session.unlocked} />
+            <HelpButton goal={goal} largeBoard={pannable} puzzle={puzzle} regions={regions} tasks={tasks}
+              unlocked={tasks ? (i: number) => isOpen(state.session, i) : state.session.unlocked} />
           </div>
         </div>
         <p className="level-label">{label}</p>
@@ -235,7 +302,8 @@ export function Game({ definition, label, musicControl, onHome, winLabel, onWin,
             {goal.kind === 'leaveOne' && <><br />On board: {itemCount(state)}</>}
           </p>
         </div>
-        {regions && (
+        {regions && tasks && <TaskPanel session={state.session} />}
+        {regions && !tasks && (
           <div className="panel next-area" data-next-area>
             <div className="art">
               {nextArea === null ? <span className="art-glyph" aria-hidden="true">✓</span>
@@ -276,7 +344,7 @@ export function Game({ definition, label, musicControl, onHome, winLabel, onWin,
       </div>
 
       <div className="sr-only" aria-live="polite" role="status">
-        {describeAction(state.lastAction, puzzle ? 'Puzzle' : 'Level', goal, regions)} {over ? message : ''}
+        {describeAction(state.lastAction, puzzle ? 'Puzzle' : 'Level', goal, regions, tasks)} {over ? message : ''}
       </div>
 
       <section className="controls" aria-label="Controls">
@@ -285,9 +353,18 @@ export function Game({ definition, label, musicControl, onHome, winLabel, onWin,
             New puzzle
           </button>
         ) : state.status === 'won' ? (
-          <button type="button" className="btn btn-next" data-action="next-level" onClick={onWin}>
-            {winLabel}
-          </button>
+          // Level 9 (a level with tasks): once won, Home sits beside the next-level button, so no row is added and
+          // Undo, Retry and Home stay on an iPad's screen.
+          tasks ? (
+            <div className="row">
+              <button type="button" className="btn btn-next" data-action="next-level" onClick={onWin}>{winLabel}</button>
+              {homeButton}
+            </div>
+          ) : (
+            <button type="button" className="btn btn-next" data-action="next-level" onClick={onWin}>
+              {winLabel}
+            </button>
+          )
         ) : rooms ? null : regions ? (
           // Stays in place (disabled) once every area is open, so Undo and Retry never shift under a finger.
           <button type="button" className="btn btn-unlock" data-action="unlock" disabled={!unlockable}
@@ -308,14 +385,14 @@ export function Game({ definition, label, musicControl, onHome, winLabel, onWin,
             <span>Add supply</span>
           </button>
         )}
-        {!puzzle && <p className="hint" id="supply-hint">{hint}</p>}
+        {!puzzle && (hint || !tasks) && <p className="hint" id="supply-hint">{hint}</p>}
         <div className="row">
           <button type="button" className="btn" data-action="undo" disabled={!canUndo(state)}
             onClick={() => dispatch({ type: 'undo' })}>Undo</button>
           <button type="button" className="btn" data-action="retry"
             onClick={() => dispatch({ type: 'retry' })}>Retry</button>
         </div>
-        <button type="button" className="btn btn-quiet" data-action="home" onClick={() => leave(onHome)}>Home</button>
+        {!(tasks && state.status === 'won') && homeButton}
         {puzzle && <PuzzleId id={puzzleId} />}
       </section>
     </>

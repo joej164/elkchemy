@@ -1,6 +1,10 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type Dispatch, type KeyboardEvent, type PointerEvent } from 'react';
+import {
+  useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type Dispatch, type KeyboardEvent, type PointerEvent, type ReactNode,
+} from 'react';
 import type { Item, Pos } from '../board';
-import { isFixed, regionAt, roomOf, type PlateUnlock, type Region } from '../regions';
+import {
+  isFixed, isOpen, regionAt, roomOf, routeFrom, routeOf, sealedRegion, type GateSymbol, type PlateUnlock, type Region, type TaskUnlock,
+} from '../regions';
 import { isCellOpen } from '../session';
 import { ItemArt, itemLabel, PrizeArt } from './ItemArt';
 import { prizeText, unlockNeed } from './messages';
@@ -65,12 +69,78 @@ export function RuneGate({ open = false }: { open?: boolean }) {
   );
 }
 
+/** A gate symbol's emblem, drawn around (`x`, `y`) at `size` (of 100): a fern frond, a cut crystal or a musical note. */
+function emblem(symbol: GateSymbol, x: number, y: number, size: number, color: string): ReactNode {
+  const k = size / 20;
+  const at = `translate(${x} ${y}) scale(${k})`;
+  if (symbol === 'fern') {
+    return (
+      <g transform={at} fill="none" stroke={color} strokeWidth={2.2 / k + 0.4} strokeLinecap="round">
+        <path d="M0 9 Q1 0 -1 -9" />
+        {[-6, -2, 2, 6].map((dy, i) => <path key={dy} d={`M${-0.2 * dy} ${dy} l${6 - i} ${-3} M${-0.2 * dy} ${dy} l${-6 + i} ${-3}`} />)}
+      </g>
+    );
+  }
+  if (symbol === 'crystal') {
+    return <path transform={at} d="M0 -9 L7 -2 L0 9 L-7 -2 Z M-7 -2 H7" fill={color} stroke={color} strokeWidth={1} strokeLinejoin="round" />;
+  }
+  return (
+    <g transform={at}>
+      <ellipse cx="-3" cy="6" rx="4.6" ry="3.4" fill={color} transform="rotate(-20 -3 6)" />
+      <path d="M1 5.5 V-9 Q6 -6 7 -1" fill="none" stroke={color} strokeWidth={2.4} strokeLinecap="round" />
+    </g>
+  );
+}
+
+/** A round medallion carrying a symbol's emblem: dark and grey while unlit, gold once lit. */
+function medallion(symbol: GateSymbol, x: number, r: number, lit: boolean): ReactNode {
+  return (
+    <g key={symbol} data-symbol={symbol} data-lit={lit ? 'true' : 'false'}>
+      <circle cx={x} cy="50" r={r} fill={lit ? '#f2c14e' : '#2b3a40'} stroke={lit ? '#fff3c4' : '#1b3a4a'} strokeWidth={r / 5} />
+      {emblem(symbol, x, 50, r * 1.35, lit ? '#233a2b' : '#7d8b94')}
+    </g>
+  );
+}
+
+/**
+ * The symbols of the tasks a sealed gate needs, in a row across it, each unlit until `lit`. Decorative (callers give
+ * the text).
+ */
+export function GateSymbols({ symbols, lit }: { symbols: readonly GateSymbol[]; lit: readonly boolean[] }) {
+  const step = 100 / symbols.length;
+  return (
+    <svg viewBox="0 0 100 100" aria-hidden="true" focusable="false" className="gate-symbols">
+      {symbols.map((sym, i) => medallion(sym, step * (i + 0.5), Math.min(15, step / 2 - 1.5), lit[i]))}
+    </svg>
+  );
+}
+
+/** One symbol's medallion on its own, unlit or lit, as on its gate. Decorative. */
+export function SymbolIcon({ symbol, lit }: { symbol: GateSymbol; lit: boolean }) {
+  return <svg viewBox="0 0 100 100" aria-hidden="true" focusable="false">{medallion(symbol, 50, 44, lit)}</svg>;
+}
+
+/** A crystal palace wall: pale crystal blocks with a spire rising through them. Decorative. */
+function PalaceWall() {
+  return (
+    <svg viewBox="0 0 100 100" aria-hidden="true" focusable="false">
+      <rect width="100" height="100" fill="#b9a6dc" />
+      <path d="M0 34 H100 M0 67 H100 M24 0 V34 M76 34 V67 M30 67 V100" stroke="#8f78c0" strokeWidth="3" />
+      <path d="M50 6 L65 38 L59 94 H41 L35 38 Z" fill="#e4dbf5" stroke="#7b5ea7" strokeWidth="3" strokeLinejoin="round" />
+      <path d="M50 6 V94 M35 38 H65" stroke="#5fb3b3" strokeWidth="2.5" opacity="0.8" />
+    </svg>
+  );
+}
+
+const SIDES = [['t', -1, 0], ['r', 0, 1], ['b', 1, 0], ['l', 0, -1]] as const;
+
 /** `onOverflowChange` reports whether the board overflows its viewport (so it needs panning), whenever that changes. */
 export function Board({ state, dispatch, onOverflowChange }: {
   state: UiState; dispatch: Dispatch<UiAction>; onOverflowChange?: (overflowing: boolean) => void;
 }) {
   const board = state.session.board;
-  const regions = state.session.level.regions;
+  const { regions, tasks } = state.session.level;
+  const roomLevel = state.session.level.goal.kind === 'treasure';
   const rows = board.length;
   const cols = board[0].length;
   const over = state.status !== 'playing';
@@ -80,13 +150,17 @@ export function Board({ state, dispatch, onOverflowChange }: {
   const isCell = (p: Pos) => {
     if (!regions) return true;
     const i = regionAt(regions, p);
-    return i !== -1 && !(regions[i].hidden && i > state.session.unlocked);
+    return i !== -1 && !(regions[i].hidden && !isOpen(state.session, i));
   };
+  // Room levels start on the first open cell, so a locked room (the palace in a corner) never takes the first tab stop.
   const firstCell = (): Pos => {
-    for (let row = 0; row < rows; row++) for (let col = 0; col < cols; col++) if (isCell({ row, col })) return { row, col };
+    for (let row = 0; row < rows; row++) {
+      for (let col = 0; col < cols; col++) if (isCell({ row, col }) && (!roomLevel || isCellOpen(state.session, { row, col }))) return { row, col };
+    }
     return { row: 0, col: 0 };
   };
-  // The roving tab stop starts on the first cell, and returns there if Retry hides the cell it was on.
+  // The roving tab stop starts on the first cell, and returns there if Retry hides (or, in room levels, locks) the cell
+  // it was on.
   const [focused, setFocused] = useState<Pos>(firstCell);
   const tabStop = isCell(focused) ? focused : firstCell();
   const [kbFocus, setKbFocus] = useState<Pos | null>(null);
@@ -165,10 +239,14 @@ export function Board({ state, dispatch, onOverflowChange }: {
   // to the first region as on entry (instantly, so input is never delayed). Undo leaves the view where it is.
   const unlocked = openedRegion(state.lastAction);
   const shown = state.lastAction?.kind === 'retry' ? 0 : unlocked;
+  // Regions glowing as they open: all those a task opened together, or the one opened.
+  const progress = state.lastAction && 'progress' in state.lastAction ? state.lastAction.progress : undefined;
+  const glowing = new Set(progress ? progress.regions : unlocked !== null ? [unlocked] : []);
   // A gate that had focus disappears when its region opens; focus then moves to that region's first cell.
   const focusOpened = useRef<number | null>(null);
   useLayoutEffect(() => {
     if (shown !== null && regions && overflowing) showRegion(regions[shown]);
+    if (state.lastAction?.kind === 'retry' && roomLevel && !isCellOpen(state.session, focused)) setFocused(firstCell());
     if (unlocked !== null && regions && focusOpened.current === unlocked) {
       const { row, col } = regions[unlocked];
       const cell = cellRefs.current[row * cols + col];
@@ -271,26 +349,51 @@ export function Board({ state, dispatch, onOverflowChange }: {
   };
 
   const goals = state.status === 'won' ? goalCells(state) : [];
-  // Room levels: each gate's marked tiles, and its passage.
+  // Room levels: each gate's (or task's) marked tiles, and each route's cells: its passage (the gate) and path.
   const plates = useMemo(() => {
     const map = new Map<string, { item: Item; kind: PlateUnlock['kind'] }>();
     regions?.forEach((r) => {
       if (r.unlock && 'plates' in r.unlock) for (const pl of r.unlock.plates) map.set(`${pl.row},${pl.col}`, { item: pl.item, kind: r.unlock.kind });
     });
+    tasks?.forEach((t) => { for (const pl of t.plates) map.set(`${pl.row},${pl.col}`, { item: pl.item, kind: 'pressure' }); });
+    return map;
+  }, [regions, tasks]);
+  const routes = useMemo(() => {
+    const map = new Map<string, { region: number; gate: boolean }>();
+    regions?.forEach((r, i) => routeOf(r).forEach((q, k) => map.set(`${q.row},${q.col}`, { region: i, gate: k === 0 })));
     return map;
   }, [regions]);
-  const passageAt = (pos: Pos) =>
-    regions?.findIndex((r) => !!r.unlock && 'passage' in r.unlock && !!r.unlock.passage && same(r.unlock.passage, pos)) ?? -1;
+  // The sides of a route cell the path runs out of: to the next route cell, or into the rooms at either end.
+  const routeSides = (pos: Pos, i: number) => SIDES.filter(([, dr, dc]) => {
+    const n = { row: pos.row + dr, col: pos.col + dc };
+    const j = regionAt(regions!, n);
+    return routes.get(`${n.row},${n.col}`)?.region === i || j === i || (j !== -1 && j === routeFrom(regions![i]));
+  }).map(([side]) => side);
+  const sealed = regions && tasks ? sealedRegion(regions) : -1;
+  // Room levels: a building's exterior fills the terrain around it (the lodge's roof along its top).
+  const walls = useMemo(() => {
+    const map = new Map<string, string>();
+    regions?.forEach((r) => {
+      if (!r.building) return;
+      for (let row = r.row - 1; row <= r.row + r.rows; row++) {
+        for (let col = r.col - 1; col <= r.col + r.cols; col++) {
+          if (row < 0 || col < 0 || row >= rows || col >= cols || regionAt(regions, { row, col }) !== -1 || routes.has(`${row},${col}`)) continue;
+          map.set(`${row},${col}`, r.building === 'lodge' && row === r.row - 1 ? 'is-lodge is-roof' : `is-${r.building}`);
+        }
+      }
+    });
+    return map;
+  }, [regions, routes, rows, cols]);
   // Room levels: a room with a joined part is outlined edge by edge around its open cells, so it reads as one shape;
   // other regions keep their rectangular outline. A notch fills the gap corner inside a bend, where two edges meet.
   const shaped = (i: number) => !!regions && regions.some((r, j) => r.joins !== undefined && roomOf(regions, j) === roomOf(regions, i));
-  const opened = state.session.unlocked;
+  const opened = regions?.map((_, i) => (isOpen(state.session, i) ? 'o' : '-')).join('');
   const edges = useMemo(() => {
     const out: { row: number; col: number; sides: string[]; notches: string[] }[] = [];
     if (!regions) return out;
     const roomAt = (row: number, col: number) => {
       const i = regionAt(regions, { row, col });
-      return i !== -1 && i <= opened ? roomOf(regions, i) : -1;
+      return i !== -1 && opened![i] === 'o' ? roomOf(regions, i) : -1;
     };
     for (let row = 0; row < rows; row++) {
       for (let col = 0; col < cols; col++) {
@@ -307,7 +410,6 @@ export function Board({ state, dispatch, onOverflowChange }: {
     return out;
   }, [regions, opened, rows, cols]);
   const { goal } = state.session.level;
-  const roomLevel = goal.kind === 'treasure';
   const prize = prizeText(goal);
   const merge = state.lastAction?.kind === 'merge' ? state.lastAction : null;
   const seq = state.actionSeq;
@@ -344,19 +446,42 @@ export function Board({ state, dispatch, onOverflowChange }: {
             // A hidden region's cells, its link included, are plain forest until it opens: no tile, item, label or focus.
             // The link's foliage differs faintly, the only clue.
             if (region && !isCell(pos)) {
+              // A hidden building is sealed instead: blank floor under its locked shade, with nothing on it.
+              if (region.building) return <div key={`${r}-${c}`} className="sealed" aria-hidden="true" />;
               const clue = !!region.link && same(region.link, pos);
               return <div key={`${r}-${c}`} className={`terrain${clue ? ' is-clue' : ''}`} aria-hidden="true" />;
             }
             if (regions && !region) {
-              // Room levels: terrain, or a passage with its rune gate. Never a cell, never focused.
-              const gate = passageAt(pos);
-              if (gate < 0) return <div key={`${r}-${c}`} className="terrain" aria-hidden="true" />;
-              const open = gate <= state.session.unlocked;
-              const across = regionAt(regions, { row: r, col: c - 1 }) !== -1;
+              // Room levels: terrain (or a building's wall), a path, or a passage with its rune gate. Never a cell, never focused.
+              const route = routes.get(`${r},${c}`);
+              const wall = walls.get(`${r},${c}`);
+              if (!route) {
+                return (
+                  <div key={`${r}-${c}`} className={`terrain${wall ? ` ${wall}` : ''}`} aria-hidden="true">
+                    {wall === 'is-palace' && <PalaceWall />}
+                  </div>
+                );
+              }
+              const gate = route.region;
+              const sides = routeSides(pos, gate);
+              if (!route.gate) {
+                return (
+                  <div key={`${r}-${c}`} className="path" aria-hidden="true">
+                    {sides.map((side) => <i key={side} className={`path-${side}`} />)}
+                  </div>
+                );
+              }
+              const open = isOpen(state.session, gate);
+              const across = sides.includes('l') || sides.includes('r');
+              // The sealed gate carries the symbols of the tasks it needs, each lit once done.
+              const needs = gate === sealed ? (regions[gate].unlock as TaskUnlock).tasks : [];
+              const lit = needs.map((t) => state.session.done.includes(t));
+              const symbols = needs.length > 0 ? `, ${lit.filter(Boolean).length} of ${needs.length} symbols lit` : '';
               return (
-                <div key={`${r}-${c}`} className={`passage${across ? ' is-across' : ''}${open ? ' is-open' : ''}`} data-passage={gate}
-                  role="img" aria-label={`Rune gate to ${regions[gate].name}, ${open ? 'open' : 'closed'}`}>
+                <div key={`${r}-${c}`} className={`passage${across ? ' is-across' : ''}${open ? ' is-open' : ''}${needs.length ? ' is-sealed' : ''}`}
+                  data-passage={gate} role="img" aria-label={`Rune gate to ${regions[gate].name}, ${open ? 'open' : 'closed'}${symbols}`}>
                   <RuneGate open={open} />
+                  {needs.length > 0 && <GateSymbols symbols={needs.map((t) => tasks![t].symbol!)} lit={lit} />}
                 </div>
               );
             }
@@ -433,7 +558,7 @@ export function Board({ state, dispatch, onOverflowChange }: {
                     <span>{merge.consumed === 3 ? '3 → 1' : '5 → 2'}</span>
                   </span>
                 )}
-                {unlocked === ri && shaped(ri) && <span key={`unlock-${seq}`} data-fx="unlock" aria-hidden="true" />}
+                {glowing.has(ri) && shaped(ri) && <span key={`unlock-${seq}`} data-fx="unlock" aria-hidden="true" />}
                 {isGoal && same(goals[0], pos) && (
                   <span key={`celebrate-${seq}`} data-fx="celebrate" aria-hidden="true">
                     {BURST.map((i) => <i key={i} className="fx-spark" />)}
@@ -453,13 +578,14 @@ export function Board({ state, dispatch, onOverflowChange }: {
           </div>
         ))}
         {regions?.map((r, i) => {
-          const locked = i > state.session.unlocked;
-          // Outlined edge by edge above instead; a hidden region shows nothing at all until it opens.
-          if (shaped(i) || (locked && r.hidden)) return null;
+          const locked = !isOpen(state.session, i);
+          // Once open, a room with a joined part is outlined edge by edge above instead (until then it is a locked room
+          // like any other); a hidden region shows nothing at all until it opens, except a hidden building, kept sealed.
+          if ((shaped(i) && !locked) || (locked && r.hidden && !r.building)) return null;
           const ready = locked && canUnlock(state, i);
-          const need = r.unlock ? unlockNeed(regions, i) : '';
           // Room levels have no wooden gate: a locked room is only darkened, and its rune gate stands in its passage.
           const key = r.unlock && 'item' in r.unlock ? r.unlock : null;
+          const need = key ? unlockNeed(regions, i) : '';
           return (
             <div key={r.name} className={`region${locked ? ' is-locked' : ''}${roomLevel ? ' is-room' : ''}`} data-region={i}
               style={{ gridRow: `${r.row + 1} / span ${r.rows}`, gridColumn: `${r.col + 1} / span ${r.cols}` }}>
@@ -483,7 +609,7 @@ export function Board({ state, dispatch, onOverflowChange }: {
                   </span>
                 </button>
               )}
-              {unlocked === i && <span key={`unlock-${seq}`} data-fx="unlock" aria-hidden="true" />}
+              {glowing.has(i) && <span key={`unlock-${seq}`} data-fx="unlock" aria-hidden="true" />}
             </div>
           );
         })}

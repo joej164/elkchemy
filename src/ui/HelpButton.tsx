@@ -1,15 +1,17 @@
 import { useId, useRef } from 'react';
-import type { Region } from '../regions';
+import type { Region, Task } from '../regions';
 import type { LevelGoal } from '../session';
 import { helpObjective, isConcealed, LARGE_BOARD_HINT, roomsHelp } from './messages';
 import './help.css';
 
 /**
  * `puzzle`: a generated puzzle (no supply, no next level, New puzzle available). `regions`: a region level (no supply).
- * `unlocked`: the regions open so far, so a concealed part of a room is explained only once found.
+ * `unlocked`: the regions open so far (the last one, or with `tasks`, whether each is open), so a concealed part of a room
+ * is explained only once found.
  */
-export function HelpButton({ goal, largeBoard = false, puzzle = false, regions, unlocked = 0 }: {
-  goal: LevelGoal; largeBoard?: boolean; puzzle?: boolean; regions?: readonly Region[]; unlocked?: number;
+export function HelpButton({ goal, largeBoard = false, puzzle = false, regions, unlocked = 0, tasks }: {
+  goal: LevelGoal; largeBoard?: boolean; puzzle?: boolean; regions?: readonly Region[];
+  unlocked?: number | ((i: number) => boolean); tasks?: readonly Task[];
 }) {
   const dialogId = useId();
   const titleId = useId();
@@ -59,7 +61,7 @@ export function HelpButton({ goal, largeBoard = false, puzzle = false, regions, 
             {largeBoard && <li>{LARGE_BOARD_HINT} Center board recenters the view.</li>}
             <li>Dropping onto a different item swaps them; nothing merges on its own.</li>
             {rooms ? (
-              <li>{roomsHelp(regions ?? [], unlocked)}</li>
+              <li>{roomsHelp(regions ?? [], unlocked, tasks)}</li>
             ) : regions ? (
               <li>
                 Each locked area's gate shows the item that opens it. Make it in the area named, then tap the gate or press

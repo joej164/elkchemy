@@ -1,5 +1,7 @@
 import { drop, previewMerge, type Board, type Item, type Pos } from './board';
-import { isFixed, isOpen, nextLocked, platesMet, regionAt, roomOf, unlockReady, validateRegions, type Region } from './regions';
+import {
+  availableTasks, isFixed, isOpen, nextLocked, platesHold, platesMet, regionAt, roomOf, unlockReady, validateRegions, type Region, type Task,
+} from './regions';
 
 /**
  * `item`: make `item` (its family at its tier or higher) anywhere on the board; with `region` (region levels),
@@ -9,15 +11,16 @@ import { isFixed, isOpen, nextLocked, platesMet, regionAt, roomOf, unlockReady, 
  * `leaveOne`: place all supply and finish with exactly one item on the board; with `item`, that
  *   last item must be exactly `item` (its family at exactly its tier).
  * `treasure` (room levels): collect the treasure at `at`, hidden in the last room until it opens, by tapping it.
- *   `prize` is what it is: a disc-golf backpack (the default) or a clarinet case.
+ *   `prize` is what it is: a disc-golf backpack (the default), a clarinet case or a ukulele case. With `task` (levels
+ *   with tasks), it stays hidden until that task, in its room, is done. Its cell never holds an item.
  */
 export type LevelGoal =
   | { readonly kind: 'item'; readonly item: Item; readonly region?: number }
   | { readonly kind: 'items'; readonly items: readonly Item[] }
   | { readonly kind: 'leaveOne'; readonly item?: Item }
-  | { readonly kind: 'treasure'; readonly at: Pos; readonly prize?: Prize };
+  | { readonly kind: 'treasure'; readonly at: Pos; readonly prize?: Prize; readonly task?: number };
 
-export type Prize = 'backpack' | 'clarinet';
+export type Prize = 'backpack' | 'clarinet' | 'ukulele';
 
 export interface LevelDefinition {
   readonly seed: number;
@@ -34,6 +37,11 @@ export interface LevelDefinition {
    * Their status always uses the region rule in status.ts, whatever `earlyLoss` says.
    */
   readonly regions?: readonly Region[];
+  /**
+   * Room levels: marked tiles that, once done, open regions (each later region then opens when all of its tasks are
+   * done, in any order) or reveal the treasure. Done tasks stay done; see Task in regions.ts.
+   */
+  readonly tasks?: readonly Task[];
 }
 
 export interface SessionSnapshot {
@@ -45,6 +53,8 @@ export interface SessionSnapshot {
   readonly unlocked: number;
   /** Room levels: the treasure has been collected (always false otherwise). */
   readonly collected: boolean;
+  /** Levels with tasks: the tasks done so far, in the order done (always empty otherwise). */
+  readonly done: readonly number[];
 }
 
 export interface SessionState extends SessionSnapshot {
@@ -62,24 +72,28 @@ function inBounds(board: Board, p: Pos): boolean {
 function snapshot(s: SessionState): SessionSnapshot {
   return {
     board: s.board, supplyIndex: s.supplyIndex, rngState: s.rngState, moves: s.moves, unlocked: s.unlocked, collected: s.collected,
+    done: s.done,
   };
 }
 
 /** Throws for unsupported region levels (see validateRegions). */
 export function startSession(level: LevelDefinition): SessionState {
   validateRegions(level);
-  return { level, board: level.board, supplyIndex: 0, rngState: level.seed, moves: 0, unlocked: 0, collected: false, undo: null };
+  return {
+    level, board: level.board, supplyIndex: 0, rngState: level.seed, moves: 0, unlocked: 0, collected: false, done: [], undo: null,
+  };
 }
 
 /**
  * Whether a drop from `from` to `to` is allowed at all: an item to a cell, and in region levels, between open regions
- * of one room (usually one region; see Region.joins) and touching no fixed item (room levels).
+ * of one room (usually one region; see Region.joins) and touching no fixed item or the treasure's cell (room levels).
  */
 export function canDrop(state: SessionState, from: Pos, to: Pos): boolean {
   const { board, level } = state;
   if (!inBounds(board, from) || !inBounds(board, to) || board[from.row][from.col] === null) return false;
-  const { regions } = level;
+  const { regions, goal } = level;
   if (!regions) return true;
+  if (goal.kind === 'treasure' && goal.at.row === to.row && goal.at.col === to.col) return false;
   const a = regionAt(regions, from);
   const b = regionAt(regions, to);
   return isOpen(state, a) && isOpen(state, b) && roomOf(regions, a) === roomOf(regions, b) &&
@@ -115,7 +129,8 @@ export function previewDrop(state: SessionState, from: Pos, to: Pos): Pos[] {
  * Applies a drop as one move. A drop that leaves the board unchanged (onto an identical item that
  * cannot merge, which drop() reports as a swap) is not a move: it must not replace the single undo step.
  * Room levels: a move that fills the next room's plates exactly opens its gate as part of the move. Opening is a
- * checkpoint: the Undo step is cleared, so only Retry closes the gate again.
+ * checkpoint: the Undo step is cleared, so only Retry closes the gate again. With tasks, a move that fills every plate
+ * of a task in an open region does it (any number at once), as one checkpoint; the regions waiting on it open with it.
  */
 export function applyDrop(state: SessionState, from: Pos, to: Pos): SessionState {
   const { board } = state;
@@ -127,14 +142,25 @@ export function applyDrop(state: SessionState, from: Pos, to: Pos): SessionState
   const tgt = board[to.row][to.col];
   if (result.kind === 'swap' && tgt && tgt.family === src.family && tgt.tier === src.tier) return state;
   const next = { ...state, board: result.board, moves: state.moves + 1, undo: snapshot(state) };
+  if (state.level.tasks) {
+    const tasks = state.level.tasks;
+    const met = availableTasks(state).filter((i) => platesHold(result.board, tasks[i].plates));
+    return met.length > 0 ? { ...next, done: [...state.done, ...met], undo: null } : next;
+  }
   const n = nextLocked(state);
   return n !== null && platesMet(result.board, state.level.regions!, n) ? { ...next, unlocked: n, undo: null } : next;
 }
 
-/** Room levels: collects the treasure once its room is open. One undoable move. */
-export function collect(state: SessionState): SessionState {
+/** Room levels: whether the treasure is there to collect: its room is open (and its task, if any, done). */
+export function treasureRevealed(state: SessionState): boolean {
   const { goal, regions } = state.level;
-  if (goal.kind !== 'treasure' || state.collected || !isOpen(state, regionAt(regions!, goal.at))) return state;
+  if (goal.kind !== 'treasure') return false;
+  return isOpen(state, regionAt(regions!, goal.at)) && (goal.task === undefined || state.done.includes(goal.task));
+}
+
+/** Room levels: collects the treasure once it is revealed. One undoable move. */
+export function collect(state: SessionState): SessionState {
+  if (state.level.goal.kind !== 'treasure' || state.collected || !treasureRevealed(state)) return state;
   return { ...state, collected: true, moves: state.moves + 1, undo: snapshot(state) };
 }
 
@@ -193,8 +219,8 @@ export function placeSupplyRandom(state: SessionState): SessionState {
 
 export function undo(state: SessionState): SessionState {
   if (state.undo === null) return state;
-  const { board, supplyIndex, rngState, moves, unlocked, collected } = state.undo;
-  return { level: state.level, board, supplyIndex, rngState, moves, unlocked, collected, undo: null };
+  const { board, supplyIndex, rngState, moves, unlocked, collected, done } = state.undo;
+  return { level: state.level, board, supplyIndex, rngState, moves, unlocked, collected, done, undo: null };
 }
 
 export function retry(state: SessionState): SessionState {

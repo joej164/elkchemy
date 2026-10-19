@@ -4,9 +4,196 @@ Each entry records what changed, how it was verified, and known limitations. **U
 
 Earlier published builds are not backfilled here. The previous build, `20261018-195510`, has five handcrafted levels and optional looping music; its verification is recorded in TODO.md under Current baseline and Audio.
 
+## 20261019-200030 — Level 9, The Crystal Palace, and a scrolling Levels window (October 19, 2026)
+
+Release build `20261019-200030`. Owner-approved design; implemented by Claude and reviewed independently by Codex. Owner authorized commit → push → deploy. Physical iPad/Safari remains unverified.
+
+Codex verification: 502 tests, typecheck, production build and diff checks pass. Full Chromium wins at 820×1180, 1180×820 and 390×844; 30 measured portrait states keep controls visible with about 20px minimum clearance. Palace concealment/reveal, branch switching, case activation, Undo and Retry pass, with no horizontal overflow or console errors. Approved music and effects are retained as source assets only; integration is deferred.
+
+### Changes
+
+- **Map** (`PALACE_LEVEL`, `src/levels.ts`): a 16 × 16 board, columns A–P and rows 1–16. Tiers below are player-facing. Tiles stay 64px and the board pans; it is never shrunk to fit.
+  - **Starting Glade** (B8–E11, open): three Grove tier 1. Grove tier 2 on E8 opens the rune gate at F10 to Songbird Glade.
+  - **Songbird Glade** (G8–J11, the hub): three Song tier 1, two Song tier 2. Song tier 3 on J8 opens the gates to all three branches on one move, as one checkpoint: I7 (Fern Glade), K9 (Crystal Glade) and I12 (Woodland Lodge).
+  - **Fern Glade** (G3–J6): three Grove 1, two Crystal 1, two Song 1.
+    - Grove 2 on J3 reveals its concealed part (L3–N5: one Crystal 1, two Crystal 2, one Song 1) and the link K4 together.
+    - Crystal 3 on I6 and Song 2 on J6, both exact, complete it.
+  - **Crystal Glade** (L8–O11): three Crystal 1, two Crystal 2, two Crystal 3. Crystal 4 on O11 completes it.
+  - **Woodland Lodge** (G13–J16): three Song 1, two Song 2. Song 3 on J16 completes it. Log walls and a shingled roof edge fill the terrain around it. There is no case in the lodge.
+  - **Crystal Palace** (A1–D5): the seven-piece Crystal chain, three Song 1 and two Song 2.
+    - Until it opens, its interior is sealed: blank crystal floor under the locked shade and dashed outline, with no items, marked tiles, cell labels, focus, taps or drops. Its exterior (walls, spires, path, gate and symbols) stays visible, so it still reads as a sealed palace, not forest. The opening move reveals the floor, items and both marked tiles together. Retry seals it again.
+    - Crystal walls with spires fill E1–E6, A6, C6 and D6, visible from the start as a hint.
+    - A forest path leads from the hub's G8 through G7, F7–B7 and B6.
+    - Its rune gate at F7 carries three symbols (fern, crystal, musical note). Each lights when Fern Glade, Crystal Glade or Woodland Lodge is completed, in any order; the third completion opens the gate on the same move.
+    - Crystal 4 on D1 and Song 3 on D2 reveal a closed ukulele case on C5, as a checkpoint. Tap it (or press Enter or Space) to open it: a whole ukulele inside, and the win.
+  - Every inventory is a plain three-for-one chain with never five alike, so there is no five-merge and no wrong choice. Room levels never report a loss, and this one can't be stranded.
+- **Winning line** (local (row, column) from each area's top-left; also in the `src/levels.ts` comment and `tests/palace.test.tsx`):
+  - Starting Glade: (1,2)→(0,1), (0,1)→(0,3).
+  - Songbird Glade: (1,2)→(0,1), (0,1)→(2,0), (2,0)→(0,3).
+  - Then the three branches, in any order:
+    - Crystal Glade: (1,2)→(0,1), (0,1)→(2,0), (2,0)→(3,0), (3,0)→(3,3).
+    - Woodland Lodge: (1,2)→(0,1), (0,1)→(2,0), (2,0)→(3,3).
+    - Fern Glade (its concealed part is local columns 5–7): (1,2)→(0,1), (0,1)→(0,3) reveals; (0,5)→(2,0), (2,0)→(2,5), (2,5)→(3,2), (0,7)→(1,0), (1,0)→(3,3).
+  - Crystal Palace: (1,2)→(0,1), (0,1)→(2,0), (2,0)→(3,0), (3,0)→(0,3), (4,3)→(4,1), (4,1)→(3,3), (3,3)→(1,3); tap (4,2).
+- **Model** (`src/regions.ts`, `src/session.ts`):
+  - Why: the single ordered `unlocked` index can't express branches completed in any order, or a region that needs three completions.
+  - `LevelDefinition.tasks`: each task is a set of marked tiles in one region. On the move that leaves every plate's exact item on it, the task is done for good. That move is a checkpoint: the plate items are fixed and Undo is cleared. A partly filled task fixes nothing.
+  - The session records `done`, the tasks done so far. Undo snapshots include it, and Retry clears it.
+  - In a level with tasks, every later region opens by a `TaskUnlock`: when all of its `tasks` are done. Progress is read from `done`, never from item counts.
+  - Levels 6–8 keep the ordered `unlocked` index and its rules unchanged. `isOpen`, `isFixed` and `applyDrop` branch once on whether the level has tasks; `nextLocked` is null for task levels.
+  - A treasure goal may name a `task`: the treasure stays absent, and can't be collected, until that task is done.
+  - Room levels' treasure cell now refuses drops, so the case always has room. This changes nothing in levels 7–8, whose treasure rooms hold no items.
+  - The palace is a `hidden` building: hidden regions are not cells until they open (no labels, focus or drops). A hidden building is drawn sealed (`.sealed` floor tiles and its locked outline) instead of as forest, which stays the presentation of Fern Glade's concealed part.
+  - Routes: a `TaskUnlock` has a gate cell (`passage`) and optional scenery `path` cells, leading from room `from`; a hidden joined region keeps its `link` instead. A region may be a `building` (`lodge` or `palace`); this is scenery only.
+  - Validation (`validateTasks`) covers:
+    - task indices, and each task's plates lying in its region on cells of their own;
+    - no task already done at the start;
+    - each task's region opening only by earlier tasks, so every task is reachable;
+    - one region needing several tasks, each with its own symbol;
+    - routes as free, connected terrain joining the right rooms;
+    - the treasure's task lying in the treasure's region.
+  - Resource boundaries are unchanged. Fern Glade and its concealed part (with K4) are one room; every other area is its own room.
+- **Board** (`src/ui/Board.tsx`, `src/ui/app.css`):
+  - Path cells draw the path out of each side they connect.
+  - The sealed gate is the existing rune gate with a row of three symbol medallions over it, dark until lit gold.
+  - Buildings fill the terrain around them with log walls and roof shingles (the lodge) or crystal blocks with spires (the palace), clear of playable tiles.
+  - A locked room with a joined part (Fern Glade) is now darkened like any locked room; until now, only open rooms had joined parts.
+  - Every region a checkpoint opens glows once.
+  - In room levels, the first tab stop is the first open cell (Starting Glade, not the locked palace in the corner). Retry moves a tab stop that sits on a now-locked cell back there. Levels 7–8 start on A1 as before.
+- **View:**
+  - The level starts on Starting Glade, and opening the hub brings it into view.
+  - Opening the three branches keeps the view on the hub.
+  - The Fern discovery brings the concealed part into view.
+  - Branch completions keep the view where it is. So does the palace opening, which is announced instead.
+  - Retry returns to the start view.
+  - The rule (`src/ui/controller.ts`): a checkpoint brings a region into view only when it opens exactly one region that needs just that one task.
+- **Text:**
+  - After the hub opens, the next-area panel becomes a compact checklist. It has Fern Glade, Crystal Glade and Woodland Lodge, each with its symbol (lit once done) and a lock, the items it needs now with their exact tier ("tier 2 of 4"), or ✓. Assistive technology hears each row in full, for example "Fern Glade: needs Grove, tier 2 of 4". A Crystal Palace row shows "n of 3" or "Open".
+  - The banner is short and names no required order, leaving each branch's needs to the checklist:
+    - with all three to do: "Complete the three branches in any order to open Crystal Palace.";
+    - with two: "Complete Fern Glade and Woodland Lodge in either order to open Crystal Palace.";
+    - with one, its need: "Complete Fern Glade to open Crystal Palace: put Grove, tier 2 of 4 on its marked tile."
+  - Before discovery, Fern Glade asks only for its Grove item; nothing names or describes the concealed part until it is found.
+  - "More of Fern Glade has been revealed." leads the banner only on the discovery move, and "Crystal Palace is open: put Crystal, tier 4 of 4 and Song, tier 3 of 4 on its marked tiles." appears only on the move that opens it; neither repeats afterwards. On a discovery move with Fern Glade the last branch, the banner names it without its needs, which the checklist shows. Both keep the banner to two lines at 820×1180. The live announcements keep their full wording.
+  - **Layout, on this level only** (other levels unchanged), so its controls stay on an iPad's screen:
+    - the room hint "Gates open by themselves and stay open" and its row are never shown; Help explains the gates, and levels 7 and 8 keep the hint;
+    - the vertical gaps between the page's areas are 8px instead of 14px (`.app.has-checklist`);
+    - the checklist is tighter: 2px vertical padding, no row gap, and 22px rows and need icons (24px before);
+    - the hub-stage banner counts the branches instead of naming them (the checklist names them): "Put Song, tier 3 of 4 on the pressure plate in Songbird Glade to open the rune gates to all three branches.";
+    - once won, Home sits beside "Play again from level 1" instead of in a row of its own, above Undo and Retry, so the win adds no row;
+    - the win message is one line: "Goal complete! You found a ukulele in the case."
+    - Text sizes, tile sizes and the board viewport are unchanged.
+  - Announcements, for example: "Woodland Lodge is complete: its musical note is lit on the gate to Crystal Palace. The rune gate to Crystal Palace opened." and "A closed ukulele case appeared in Crystal Palace."
+  - Help explains that marked tiles open gates or complete the three branches in any order, each lighting its symbol.
+- **Prize:** `UkuleleCaseArt` (`src/ui/ItemArt.tsx`), drawn in code like the other prizes.
+  - Closed: a ukulele-shaped hard case with a handle and gold latches.
+  - Open: the lid raised behind, and a whole ukulele on the red lining (body, sound hole, bridge, four strings, fretted neck, headstock with four pegs).
+  - Level 7's backpack and level 8's clarinet are unchanged.
+- **Levels page** (`src/ui/LevelPicker.tsx`): the list scrolls in its own window while the title and Home stay in place. The page is bounded to the screen, the window shrinks to fit the list when it can, and the current entry is centred when the page opens. Styling, names, numbers and tap targets are unchanged; nothing new is saved.
+- **In-game release note:** "The Crystal Palace", dated October 19, 2026.
+- **Tests updated for the new shape:** the session snapshot now includes `done`, and there are nine levels (`tests/session.test.ts`, `tests/levels.test.ts`, `tests/regions.test.ts`).
+
+### Verification (Claude)
+
+- **Automated:** 501 tests (30 new), typecheck and production build pass.
+  - `tests/palace.test.tsx` (29):
+    - the layout, the inventories and the exact plate tiers;
+    - the whole winning line, through session rules;
+    - all six branch orders, with the palace sealed after zero, one and two completions and open after three;
+    - the three branches opening together, with the concealed part and palace still closed;
+    - partial work left in one branch while others are completed;
+    - the concealed part and K4: unusable before discovery, then moves, swaps and three- and five-merges through K4;
+    - separate rooms refusing every cross-room drop, including routes and terrain;
+    - a two-plate task completing only on its second exact plate, with nothing fixed before then;
+    - every checkpoint fixing its items and clearing Undo, with the next move getting a fresh Undo back to it;
+    - the case absent, then closed, opened, and closed again by Undo; Retry resetting everything;
+    - task-level validation errors;
+    - the controller's view rule and announcements;
+    - the banner and Help at each stage, with nothing concealed named early;
+    - the board and checklist markup.
+  - A Levels-window markup test (`tests/helpButton.test.tsx`) and the ukulele art test (`tests/itemArt.test.tsx`).
+  - Mutation checks: opening the palace on any one branch failed 11 tests; checkpoints not clearing Undo failed 11; letting the case's cell take items failed 1.
+- **Playwright Chromium against the production build** (`vite preview`):
+  - **820×1180, taps:** a full win in the order Lodge, Crystal, Fern.
+    - The hub view, and the hub glowing as it opens.
+    - The checklist after the hub; the three gates opening together with the view unchanged.
+    - Partial work in Crystal Glade, then switching to the lodge and back.
+    - The discovery: before it, the concealed part and K4 are forest; after it, one outline, the glow, and the concealed part brought into view.
+    - A partly filled Fern task not fixed, with Undo available.
+    - The palace opening on the third completion with the view unchanged, and the announcement.
+    - The case cell refusing a drop before the reveal; Enter opening the case, with a visible focus ring.
+    - Undo closing the case; Retry restoring the start view, the clue, no fixed items and the first tab stop in Starting Glade.
+    - Case art 6px inside its cell.
+  - **820×1180, a second run:** a fresh Undo after the branches checkpoint, Help before and after discovery, and Space opening the case.
+  - **1180×820, mouse drags:** a full win in the order Fern, Lodge, Crystal. Dragging forest panned, and Center board recentred.
+  - **390×844, taps and keyboard:** a full win in the order Crystal, Fern, Lodge.
+    - Starting Glade fully in view at the start.
+    - Keyboard: Tab, arrows and Enter played the hub's opening, with focus kept, visible, on the fixed plate. Arrows crossed terrain into the hub.
+    - The concealed part and K4 fully in view after discovery; Retry returned to Starting Glade.
+  - **844×390 and 1024×1366:** start views checked.
+  - **Progression:** level 8 → Next level → level 9, and Home's note says levels continue at level 9.
+  - **Levels page** at 820×1180, 844×390, 390×844, 1180×820, 1024×1366 and 360×640:
+    - no page overflow either way, with the title and Home outside the window;
+    - the current entry (1, 5 and 9 checked) in view, and the wheel scrolling the list, not the page;
+    - picking level 9 starts it.
+  - Screenshots of the start, hub, branches, discovery, palace and win at three sizes, plus close-ups of the gate symbols (unlit, partly lit, open) and of both case states.
+  - Levels 6–8 start as before: tab stops, gates and markup unchanged.
+  - No console warnings or errors, no horizontal page overflow, and no control outside the board under 44px.
+- **Codex review fixes, re-verified** (sealed palace interior; shorter branch banner):
+  - Automated: 502 tests, typecheck, production build and diff checks pass.
+  - The new rendering test covers the sealed palace with zero, one and two branches done:
+    - its 20 tiles are blank and `aria-hidden`, with no palace cells, labels, items or case;
+    - it is still a locked, outlined room with its crystal walls;
+    - nothing in it can be picked up or previewed;
+    - the third branch reveals its items, both marked tiles and the empty case cell together, glowing once, with the case still absent until the final plates;
+    - Retry seals it again.
+  - Updated text tests cover the short banners, the one-time discovery and palace lines, and the checklist's visible tiers and full accessible needs. Without the palace's `hidden` flag, 2 tests fail.
+  - Chromium against the production build:
+    - 820×1180: the sealed and opened palace inspected; the third completion (Lodge last) revealed the palace with the view unchanged.
+    - 1180×820: a full win in the order Lodge, Fern, Crystal, with the view unchanged on the third completion (Crystal last). The case was absent until the final plate; Undo closed it; Retry re-sealed the palace and returned to the start view and tab stop.
+    - 390×844: a full win; ArrowUp from B8 doesn't enter the sealed palace.
+    - The checklist rows stay inside the panel at 360, 390, 820 and 1180 widths. On phones, Fern's two needs stack rather than wrapping its name.
+    - No console warnings or errors, and no horizontal overflow (except the known 1px title row at 360px).
+  - Layout at 820×1180, branch stage, scrolled to the top:
+    - the banner is two lines (68px) in every branch state measured: three left, one done, the discovery move, after discovery, and Fern last;
+    - Undo and Retry are fully visible (bottom 1162 of 1180);
+    - Home was not (1170–1218, 38px below the fold), before the layout adjustment below. Before this fix the banner ran to three or four lines, and on the discovery move Undo and Retry were 4px clipped.
+- **Layout** (the level-9 changes listed under Text), checked in Chromium against the production build:
+  - **820×1180**, 90 states, each measured with the page scrolled to the top:
+    - three orders (Crystal, Lodge, Fern; Fern, Crystal, Lodge; Lodge, Fern, Crystal);
+    - after every move from the start through the starting and hub puzzles, the branches, Fern's discovery and completion, the palace opening and puzzle, and the case reveal;
+    - then the win, Undo and Retry.
+    - Undo, Retry and Home are fully visible in every state, with no horizontal overflow. The lowest control's bottom edge (clearance to 1180):
+      - start, starting-puzzle first move and Retry: 1145 (35px);
+      - every hub, branch, discovery, palace-opening and palace-puzzle state: 1155 (25px);
+      - case revealed, and Undo from the win: 1143 (37px);
+      - win: 1160 (20px).
+    - Retry restores the start layout exactly (1145).
+    - The page still scrolls about 60–76px, but only for the build and update footer below Home.
+  - **Before this pass**, Home ended at 1193 (start), 1225 (hub open), 1173 (branches) and 1247 (win).
+  - **Where the space came from:** the hint row 30px; the 8px gaps 18px; the two-line hub banner 21px; at the win, Home beside "Play again" 56px and the one-line win message 12px.
+  - **Why a control moved:** spacing and text alone couldn't fit the win, because its next-level button adds a 64px row. Putting Home beside it was the smallest change that removes no control and keeps the board viewport.
+  - **Checklist:** the exact tiers stay visible at 13.6px ("tier 3 of 4", "tier 2 of 4"), and each row still gives its full requirement to assistive technology (": needs Crystal, tier 3 of 4 and Song, tier 2 of 4"). Rows stay inside the panel at 390 and 820, and Fern's two needs now fit on one line at 390.
+  - **390×844 and 1180×820:** full wins, with no hint at any stage. Tiles stay 64px, case art stays 6px inside its cell, and no control outside the board is under 44px.
+    - On the win, "Play again from level 1" wraps to two lines beside Home (both 66px tall), and the row reads cleanly.
+    - At 1180×820 the controls end by 517 of 820 at every stage.
+  - **Levels 7 and 8** keep their hint, 14px gaps, and a full-width next-level button with Home below it.
+  - No console warnings or errors, and no horizontal overflow.
+  - 502 tests, typecheck, production build and diff checks pass. The text tests follow the trimmed banners, the hub banner and the win message. The hint and win layout are checked only in the browser: static rendering can't reach those states.
+- **Not verified:** physical iPad/Safari, VoiceOver and Home Screen mode. Chromium emulation does not establish them. Owner and Alisha playtests are pending.
+
+### Known limitations
+
+- **Page height:** at 820×1180, Undo, Retry and Home fit without scrolling in every measured state, with at least 20px to spare in Chromium (the win). Safari's toolbars and fonts may differ. Level 9's win puts Home beside the next-level button, unlike other levels.
+- **Phone landscape** (844×390): the board viewport shows about three tiles across, so Starting Glade is centred but not entirely in view, as with the earlier region levels.
+- **Palace walls:** the palace sits in the board's corner, so it has walls only on its right and bottom sides.
+- **Small symbols:** the gate's medallions are about 19px on 64px tiles; the checklist gives the same status in text.
+- **Case cell:** before the case appears, its cell refuses drops, which a player might notice as an odd floor tile.
+- **No loss rule:** room levels never report a loss; exact inventories keep this one from being stranded.
+
 ## 20261019-175745 — The Hidden Cache: a concealed part of the clearing (October 19, 2026)
 
-Release build `20261019-175745`; owner authorized commit → push → deploy. The owner found the published alcove too obvious: its silhouette, name, gate and path announced another room. The approved direction makes the resource area a concealed extension of one irregular room, with a subtle clue. Implemented by Claude; reviewed by Codex. Independent verification: 471 tests, typecheck, production build and diff checks passed; Chromium full wins at 390×844, 820×1180 and 1180×820, including reveal, playable E2, checkpoints, clarinet case, Undo and Retry. No page overflow or console warnings/errors. Physical iPad/Safari remains unverified.
+Release build `20261019-175745`; owner authorized commit → push → deploy. After deployment the owner responded positively to the revision (October 19, 2026). This records only that response, not any particular device check. The owner found the published alcove too obvious: its silhouette, name, gate and path announced another room. The approved direction makes the resource area a concealed extension of one irregular room, with a subtle clue. Implemented by Claude; reviewed by Codex. Independent verification: 471 tests, typecheck, production build and diff checks passed; Chromium full wins at 390×844, 820×1180 and 1180×820, including reveal, playable E2, checkpoints, clarinet case, Undo and Retry. No page overflow or console warnings/errors. Physical iPad/Safari remains unverified.
 
 ### Changes
 

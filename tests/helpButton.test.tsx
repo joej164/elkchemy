@@ -171,6 +171,19 @@ describe('HelpButton', () => {
     expect(page).not.toContain('disabled');
   });
 
+  it('the Levels page scrolls its list in its own window, below the title and Home, with the current level marked', () => {
+    const page = renderToStaticMarkup(<LevelPicker levels={LEVELS} current={8} onPick={() => {}} onHome={() => {}} musicControl={null} />);
+    const window = page.indexOf('<div class="level-scroll" data-level-scroll');
+    expect(window).toBeGreaterThan(page.indexOf('<h1>Levels</h1>'));
+    expect(window).toBeGreaterThan(page.indexOf('data-action="home"'));
+    const list = page.slice(window);
+    expect((list.match(/data-action="pick-level"/g) ?? []).length).toBe(9);
+    expect(list).not.toContain('data-action="home"');
+    expect(list).toMatch(/data-level="9" aria-current="step"[^>]*>(?:(?!<\/button>).)*The Crystal Palace(?:(?!<\/button>).)*Up next/);
+    // The Levels screen gets the class that bounds the page to the screen.
+    expect(renderToStaticMarkup(<App />)).not.toContain('is-levels');
+  });
+
   it('the region level shows its goal region, the next lock and an Unlock button instead of supply', () => {
     const level = LEVELS[5];
     const game = renderToStaticMarkup(<Game definition={level.definition} label={`Level 6 of 6 · ${level.name}`}

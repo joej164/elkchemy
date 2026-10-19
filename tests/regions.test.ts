@@ -75,7 +75,7 @@ describe('HOLLOW_LEVEL design', () => {
   const start = startSession(HOLLOW_LEVEL);
 
   it('is level 6, after the original five (the experimental room levels follow it)', () => {
-    expect(LEVELS).toHaveLength(8);
+    expect(LEVELS).toHaveLength(9);
     expect(LEVELS[5]).toEqual({ name: 'The Hidden Hollow', definition: HOLLOW_LEVEL });
   });
 

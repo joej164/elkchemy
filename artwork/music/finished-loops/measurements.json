@@ -1,0 +1,38 @@
+[
+  {
+    "file": "woodland-journey-clarinet-ukulele-v2.wav",
+    "bpm": 82,
+    "bars": 24,
+    "seconds": 70.24391666666666,
+    "peak": 0.33367919921875,
+    "rms": 0.08999727617364095,
+    "dc": 1.7499346190973537e-07,
+    "seamDelta": 0.001495361328125,
+    "maxDerivative": 0.132781982421875,
+    "seamNeighbourhoodMaxDerivative": 0.127532958984375,
+    "dryStemRms": {
+      "uke": 0.008705852701871315,
+      "bass": 0.025766278964763262,
+      "reed": 0.08677960278882235
+    },
+    "sha256": "e74582c5f5f521d67d45b5e322cc25aaf659b0c979d457ff6642700838046c85"
+  },
+  {
+    "file": "crystal-palace-harp-glass-v2.wav",
+    "bpm": 68,
+    "bars": 16,
+    "seconds": 56.47058333333333,
+    "peak": 0.5999755859375,
+    "rms": 0.08749381359014166,
+    "dc": -9.344684564290109e-09,
+    "seamDelta": 0.001739501953125,
+    "maxDerivative": 0.874359130859375,
+    "seamNeighbourhoodMaxDerivative": 0.00921630859375,
+    "dryStemRms": {
+      "glass": 0.06654060394414796,
+      "bass": 0.026576088993142868,
+      "harp": 0.051429810734893715
+    },
+    "sha256": "f21c175e89aab2a70faef38a6fb03e38fe9c52eea7b896180c0923cdec1d15d6"
+  }
+]

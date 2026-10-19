@@ -2,7 +2,8 @@ import { describe, it, expect } from 'vitest';
 import type { Pos } from '../src/board';
 import { previewMerge, type Board } from '../src/board';
 import {
-  CACHE_LEVEL, CRYSTAL_LEVEL, FARAWAY_LEVEL, HOLLOW_LEVEL, INTRO_LEVEL, LEAVE_ONE_LEVEL, LEVELS, RUNE_LEVEL, SONG_LEVEL, nextLevelIndex,
+  CACHE_LEVEL, CRYSTAL_LEVEL, FARAWAY_LEVEL, HOLLOW_LEVEL, INTRO_LEVEL, LEAVE_ONE_LEVEL, LEVELS, PALACE_LEVEL, RUNE_LEVEL, SONG_LEVEL,
+  nextLevelIndex,
 } from '../src/levels';
 import { EIGHT_GROVE_LEVEL } from './fixtures';
 import {
@@ -384,12 +385,14 @@ describe('CRYSTAL_LEVEL', () => {
 
 describe('LEVELS', () => {
   it('lists the levels in order with distinct non-empty names', () => {
-    expect(LEVELS.map((l) => l.definition)).toEqual([INTRO_LEVEL, SONG_LEVEL, LEAVE_ONE_LEVEL, CRYSTAL_LEVEL, FARAWAY_LEVEL, HOLLOW_LEVEL, RUNE_LEVEL, CACHE_LEVEL]);
+    expect(LEVELS.map((l) => l.definition)).toEqual([
+      INTRO_LEVEL, SONG_LEVEL, LEAVE_ONE_LEVEL, CRYSTAL_LEVEL, FARAWAY_LEVEL, HOLLOW_LEVEL, RUNE_LEVEL, CACHE_LEVEL, PALACE_LEVEL,
+    ]);
     LEVELS.forEach((l) => expect(l.name.trim()).not.toBe(''));
     expect(new Set(LEVELS.map((l) => l.name)).size).toBe(LEVELS.length);
   });
-  it('nextLevelIndex cycles 0 -> 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 0', () => {
-    expect([0, 1, 2, 3, 4, 5, 6, 7].map((i) => nextLevelIndex(i))).toEqual([1, 2, 3, 4, 5, 6, 7, 0]);
+  it('nextLevelIndex cycles 0 -> 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 0', () => {
+    expect([0, 1, 2, 3, 4, 5, 6, 7, 8].map((i) => nextLevelIndex(i))).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 0]);
     expect(nextLevelIndex(0, 1)).toBe(0); // a one-level list (the sandbox) replays itself
   });
 });

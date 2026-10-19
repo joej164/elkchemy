@@ -6,6 +6,15 @@ export interface ReleaseNote { readonly title: string; readonly date: string; re
 
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    title: 'The Crystal Palace',
+    date: 'October 19, 2026',
+    notes: [
+      'A new, larger woodland level. Open your way to Songbird Glade, then explore Fern Glade, Crystal Glade and Woodland Lodge in any order.',
+      'Each one you complete lights a symbol on the Crystal Palace gate. Light all three to open the palace, then find the ukulele case and tap it to open it.',
+      'The Levels page now scrolls in its own window, starting at the level you are up to.',
+    ],
+  },
+  {
     title: 'The Hidden Cache',
     date: 'October 19, 2026',
     notes: [

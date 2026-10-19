@@ -1,6 +1,6 @@
 # Elkchemy
 
-Elkchemy is a woodland merge puzzle. The app opens on a home screen, a painted woodland scene with the elk, and four choices: Play (generated puzzles), Levels (seven handcrafted levels, any of which can be started), Music / Scores (clarinet and ukulele arrangements of the game music), and Release notes (a short player-facing history of what changed; the internal record is [docs/release-notes.md](docs/release-notes.md)). Every other screen has a Home button.
+Elkchemy is a woodland merge puzzle. The app opens on a home screen, a painted woodland scene with the elk, and four choices: Play (generated puzzles), Levels (nine handcrafted levels, any of which can be started), Music / Scores (clarinet and ukulele arrangements of the game music), and Release notes (a short player-facing history of what changed; the internal record is [docs/release-notes.md](docs/release-notes.md)). Every other screen has a Home button.
 
 ## Generated puzzles
 
@@ -17,7 +17,7 @@ Each puzzle shows a reproduction ID such as `v1-goals-t4-g2-1nqrzv7`: generator 
 
 ## Handcrafted levels
 
-Seven levels (`src/levels.ts`). Levels on the home screen lists them all; tap any to play it. The one the sequence has reached is marked "Up next".
+Nine levels (`src/levels.ts`). Levels on the home screen lists them all in a scrolling window, opening on the one the sequence has reached (marked "Up next"); tap any to play it.
 
 1. Sprouting Grove: make Grove, tier 3 of 4 (forgiving intro).
 2. Songbird Chorus: make Song, tier 3 of 4; plain 3-merges suffice.
@@ -39,6 +39,12 @@ Seven levels (`src/levels.ts`). Levels on the home screen lists them all; tap an
    - **Gates:** each opens by itself on the move that meets its tiles, a plain move included, and consumes nothing. Opening is a checkpoint: the items on those tiles stay fixed (a small padlock) and Undo can't go back past it.
    - **Goal:** the Treasure Nook hides a disc-golf backpack until its gate opens. It appears closed; tap it (or press Enter or Space on it) to open it and win.
    - **Failure:** none; the level can't be stranded. Items never leave their room.
+8. The Hidden Cache: a forest clearing with a concealed part, revealed when Grove tier 2 of 4 is on its marked tile; its crystals then join the clearing's. Crystal tier 3 of 4 on the second marked tile opens a separate room with a clarinet case to open.
+9. The Crystal Palace: a 16 × 16 map that pans.
+   - **Start:** Starting Glade's marked tile opens Songbird Glade, whose marked tile opens Fern Glade, Crystal Glade and Woodland Lodge together.
+   - **Branches:** complete each with the items shown on its marked tiles, in any order (the checklist shows what each needs). Each lights its symbol on the Crystal Palace's gate, and the third opens it, revealing its sealed interior. Fern Glade hides a concealed part, as in level 8.
+   - **Goal:** the palace's two marked tiles reveal a closed ukulele case; tap it to open it and win.
+   - **Rules:** every marked tile is a checkpoint (items fixed, Undo cleared). Items never leave their own room; the level can't be stranded.
 
 Winning offers Next level (after the last level: play again from level 1). Progress is kept in memory only: the Levels page and the home screen note show where the sequence is up to, and reloading starts at level 1.
 

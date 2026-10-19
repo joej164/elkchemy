@@ -241,12 +241,28 @@ body {
 .region-need { display: inline-flex; align-items: center; gap: 6px; }
 .region-need-art { width: 32px; height: 32px; flex: none; background: var(--earth); border-radius: 6px; padding: 2px; }
 .region-need-art svg { display: block; width: 100%; height: 100%; }
+/* Levels with tasks: the checklist of the rooms a sealed region needs, and that region. */
+.next-area.is-checklist { display: block; padding: 2px 10px; }
+.checklist { list-style: none; margin: 0; padding: 0; display: grid; gap: 0; }
+.checklist li { display: grid; grid-template-columns: 22px auto minmax(0, 1fr); align-items: center; gap: 8px; min-height: 22px; }
+.check-symbol { width: 22px; height: 22px; }
+.check-symbol svg, .check-item svg { display: block; width: 100%; height: 100%; }
+.check-lock { display: flex; align-items: center; justify-content: center; color: var(--bark-dark); }
+.check-lock svg { width: 18px; height: 18px; }
+.check-name { font-size: 0.95rem; line-height: 1.2; white-space: nowrap; }
+.check-state {
+  display: inline-flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 2px 8px; font-weight: 700; color: var(--bark-dark);
+}
+.check-need { display: inline-flex; align-items: center; gap: 4px; font-size: 0.85rem; white-space: nowrap; }
+.check-item { width: 22px; height: 22px; padding: 1px; border-radius: 6px; background: var(--earth); }
+.check-mark { color: var(--moss); font-size: 1.15rem; }
+.checklist li.is-done .check-name { color: var(--moss); font-weight: 700; }
 
 /* Room levels (The Rune Gates): terrain between the rooms, rune gates across the passages, marked tiles and the
    treasure. A locked room is only darkened; nothing is drawn over it. */
 .region.is-room.is-locked { background: rgb(14 24 16 / 0.62); }
-.terrain, .passage { position: relative; border-radius: 10px; background: #1c3020; }
-.terrain {
+.terrain, .passage, .path { position: relative; border-radius: 10px; background: #1c3020; }
+.terrain, .path {
   background:
     radial-gradient(circle at 28% 32%, #3d6b35 0 16%, transparent 17%),
     radial-gradient(circle at 70% 64%, #2f5a2c 0 19%, transparent 20%),
@@ -285,8 +301,34 @@ body {
 }
 .passage.is-across::before { left: calc(var(--gap) * -1); right: calc(var(--gap) * -1); top: 24%; bottom: 24%; }
 .passage svg { position: relative; display: block; width: 100%; height: 100%; }
-.passage.is-across svg { transform: rotate(90deg); }
-.passage:not(.is-open) svg { filter: drop-shadow(0 0 6px rgb(143 227 255 / 0.8)); }
+.passage.is-across svg:not(.gate-symbols) { transform: rotate(90deg); }
+.passage:not(.is-open) svg:not(.gate-symbols) { filter: drop-shadow(0 0 6px rgb(143 227 255 / 0.8)); }
+/* The sealed gate (The Crystal Palace) carries a symbol for each room it needs, lit gold as each is completed. */
+.passage .gate-symbols { position: absolute; inset: 0; }
+.gate-symbols [data-lit="true"] { filter: drop-shadow(0 0 4px rgb(242 193 78 / 0.95)); }
+/* A longer route's path cells: scenery in the forest, the path running out of each side it connects. */
+.path i { position: absolute; background: var(--earth-sunken); }
+.path .path-t { left: 24%; right: 24%; top: calc(var(--gap) * -1); bottom: 24%; }
+.path .path-b { left: 24%; right: 24%; top: 24%; bottom: calc(var(--gap) * -1); }
+.path .path-l { top: 24%; bottom: 24%; left: calc(var(--gap) * -1); right: 24%; }
+.path .path-r { top: 24%; bottom: 24%; right: calc(var(--gap) * -1); left: 24%; }
+/* Buildings: the terrain around one is its exterior (scenery): log walls and a shingled roof edge for the lodge,
+   crystal blocks with spires for the palace. */
+.terrain.is-lodge, .terrain.is-palace { border-radius: 4px; overflow: hidden; }
+.terrain.is-lodge {
+  background: repeating-linear-gradient(180deg, #8b6139 0 9px, #5e3f26 9px 11px);
+  box-shadow: inset 0 0 0 2px #3a2616;
+}
+.terrain.is-lodge.is-roof {
+  background: radial-gradient(circle at 50% 0, #8b5a33 0 8px, #4a2e1a 8px 9.5px, transparent 10px) 0 0 / 16px 10px, #6b4428;
+}
+.terrain.is-palace { box-shadow: inset 0 0 0 2px #7b5ea7; }
+/* A hidden building's sealed interior (The Crystal Palace): blank crystal floor under the locked shade, nothing on it. */
+.sealed {
+  position: relative; border-radius: 10px; box-shadow: inset 0 0 0 2px #6a5698;
+  background: linear-gradient(135deg, rgb(255 255 255 / 0.2) 0 16%, transparent 16% 52%, rgb(255 255 255 / 0.12) 52% 60%, transparent 60%), #8a76b8;
+}
+.terrain.is-palace svg { display: block; width: 100%; height: 100%; }
 /* Marked tiles: a ring (bronze for a pressure plate, slate for the stone) and the item they need, faint while empty,
    then as a corner badge; once the gate has opened and the item is fixed, a small bare padlock in the corner instead.
    The item sits further in, inside the ring (its inner edge is 6px in). */
@@ -517,7 +559,16 @@ body {
   .score-scroll { overflow: visible; }
   .score { min-width: 0; }
 }
+/* Levels: the page fills the screen and the list scrolls in its own window, so the title and Home stay in view. */
+.app.is-page.is-levels { height: 100vh; height: 100dvh; grid-template-rows: minmax(0, 1fr) auto; align-items: stretch; }
+.level-page { min-height: 0; grid-template-rows: auto auto minmax(0, auto); }
+.level-scroll {
+  position: relative; min-height: 0; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch;
+  padding: 8px; border: 2px solid rgb(244 236 216 / 0.25); border-radius: 14px; background: rgb(10 24 16 / 0.35);
+}
 .level-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+/* Level 9 (a level with a checklist): tighter gaps between the page's areas, so its controls stay on an iPad's screen. */
+.app.is-game.has-checklist { row-gap: 8px; }
 .level-choice { width: 100%; justify-content: flex-start; text-align: left; }
 .level-number {
   flex: none; display: flex; align-items: center; justify-content: center; width: 36px; height: 36px;

@@ -15,6 +15,7 @@ const s2: Item = { family: 'song', tier: 2 };
 const c0: Item = { family: 'crystal', tier: 0 };
 const c1: Item = { family: 'crystal', tier: 1 };
 const c2: Item = { family: 'crystal', tier: 2 };
+const c3: Item = { family: 'crystal', tier: 3 };
 const e0: Item = { family: 'elk', tier: 0 };
 const e1: Item = { family: 'elk', tier: 1 };
 const e2: Item = { family: 'elk', tier: 2 };
@@ -255,6 +256,88 @@ export const CACHE_LEVEL: LevelDefinition = {
   goal: { kind: 'treasure', at: { row: 6, col: 1 }, prize: 'clarinet' },
 };
 
+// Level 9: a 16 × 16 woodland map (columns A-P, rows 1-16; code coordinates are (row, column) from 0). Starting Glade's
+// marked tile opens Songbird Glade, the hub; the hub's opens Fern Glade, Crystal Glade and Woodland Lodge together. Each
+// branch is completed by its own marked tiles, in any order, and lights its symbol on the Crystal Palace's gate; the
+// third opens the palace, whose interior stays sealed (blank, unlabelled) until then. Its two marked tiles reveal a closed
+// ukulele case. Fern Glade has a concealed part (L3-N5),
+// joined by the link K4, revealed by its Grove tile. Every marked tile is a task: a checkpoint, done for good.
+//   A  B  C  D  E  F  G  H  I  J  K  L  M  N  O  P
+//   P  P  P  #  w                                        1    P Crystal Palace, w its crystal walls; $ the ukulele case
+//   P  P  P  #  w                                        2    S Starting Glade, H Songbird Glade (the hub)
+//   P  P  P  P  w     F  F  F  #     x  x  x             3    F Fern Glade, x its concealed part, * the link K4
+//   P  P  P  P  w     F  F  F  F  *  x  x  x             4    C Crystal Glade
+//   P  P  $  P  w     F  F  F  F     x  x  x             5    L Woodland Lodge, w its log walls
+//   w  =  w  w  w     F  F  #  #                         6    | rune gates: F10, I7, K9, I12, and the palace's at F7,
+//      =  =  =  =  |  =     |                            7      on its path (=) G7, F7-B7, B6
+//      S  S  S  #     H  H  H  #     C  C  C  C          8    # marked tiles (player-facing tiers):
+//      S  S  S  S     H  H  H  H  |  C  C  C  C          9      E8 Grove 2 opens the hub; J8 Song 3 opens F, C and L;
+//      S  S  S  S  |  H  H  H  H     C  C  C  C          10     J3 Grove 2 reveals x and *; I6 Crystal 3 with J6 Song 2
+//      S  S  S  S     H  H  H  H     C  C  C  #          11     complete F; O11 Crystal 4 completes C; J16 Song 3
+//                  w  w  w  |  w  w                      12     completes L; D1 Crystal 4 with D2 Song 3 reveal $
+//                  w  L  L  L  L  w                      13
+//                  w  L  L  L  L  w                      14
+//                  w  L  L  L  L  w                      15
+//                  w  L  L  L  #  w                      16
+// Every room's inventory is a plain chain of its families: three tier-1 make a tier 2, which with two more makes a tier 3,
+// and so on; never five alike, so no five-merge and no wrong choice. Fern Glade's two Crystal and two Song tier 1 can't
+// merge until the concealed part adds one of each (and two Crystal tier 2). Room levels never report a loss; exact
+// inventories keep this one from being stranded. The case's cell takes no item, so the case always has room.
+// Winning lines, area by area (local (row, column) from each area's top-left):
+//   Starting Glade (1,2)→(0,1), (0,1)→(0,3).  Songbird Glade (1,2)→(0,1), (0,1)→(2,0), (2,0)→(0,3).
+//   Crystal Glade (1,2)→(0,1), (0,1)→(2,0), (2,0)→(3,0), (3,0)→(3,3).  Woodland Lodge (1,2)→(0,1), (0,1)→(2,0), (2,0)→(3,3).
+//   Fern Glade (1,2)→(0,1), (0,1)→(0,3) reveals, (0,5)→(2,0), (2,0)→(2,5), (2,5)→(3,2), (0,7)→(1,0), (1,0)→(3,3).
+//   Crystal Palace (1,2)→(0,1), (0,1)→(2,0), (2,0)→(3,0), (3,0)→(0,3), (4,3)→(4,1), (4,1)→(3,3), (3,3)→(1,3); tap (4,2).
+const PALACE_AREAS: [number, number, [number, number, Item][]][] = [
+  [7, 1, [[0, 0, g0], [0, 1, g0], [1, 2, g0]]],                                                  // Starting Glade
+  [7, 6, [[0, 0, s0], [0, 1, s0], [1, 2, s0], [2, 0, s1], [2, 1, s1]]],                          // Songbird Glade
+  [2, 6, [[0, 0, g0], [0, 1, g0], [1, 2, g0], [2, 0, c0], [2, 1, c0], [1, 0, s0], [1, 1, s0]]],  // Fern Glade
+  [7, 11, [[0, 0, c0], [0, 1, c0], [1, 2, c0], [2, 0, c1], [2, 1, c1], [3, 0, c2], [3, 1, c2]]], // Crystal Glade
+  [12, 6, [[0, 0, s0], [0, 1, s0], [1, 2, s0], [2, 0, s1], [2, 1, s1]]],                         // Woodland Lodge
+  [2, 11, [[0, 0, c0], [2, 0, c1], [2, 1, c1], [0, 2, s0]]],                                     // Fern Glade's concealed part
+  [0, 0, [[0, 0, c0], [0, 1, c0], [1, 2, c0], [2, 0, c1], [2, 1, c1], [3, 0, c2], [3, 1, c2],    // Crystal Palace
+    [4, 0, s0], [4, 1, s0], [4, 3, s0], [2, 3, s1], [3, 3, s1]]],
+];
+const palaceBoard: Cell[][] = Array.from({ length: 16 }, () => Array.from({ length: 16 }, (): Cell => null));
+for (const [top, left, items] of PALACE_AREAS) for (const [row, col, item] of items) palaceBoard[top + row][left + col] = item;
+
+export const PALACE_LEVEL: LevelDefinition = {
+  seed: 9,
+  board: palaceBoard,
+  supply: [],
+  regions: [
+    { name: 'Starting Glade', row: 7, col: 1, rows: 4, cols: 4 },
+    { name: 'Songbird Glade', row: 7, col: 6, rows: 4, cols: 4, unlock: { tasks: [0], from: 0, passage: { row: 9, col: 5 } } },
+    { name: 'Fern Glade', row: 2, col: 6, rows: 4, cols: 4, unlock: { tasks: [1], from: 1, passage: { row: 6, col: 8 } } },
+    { name: 'Crystal Glade', row: 7, col: 11, rows: 4, cols: 4, unlock: { tasks: [1], from: 1, passage: { row: 8, col: 10 } } },
+    {
+      name: 'Woodland Lodge', row: 12, col: 6, rows: 4, cols: 4, building: 'lodge',
+      unlock: { tasks: [1], from: 1, passage: { row: 11, col: 8 } },
+    },
+    {
+      name: 'Fern Glade concealed part', row: 2, col: 11, rows: 3, cols: 3, joins: 2, hidden: true, link: { row: 3, col: 10 },
+      unlock: { tasks: [2] },
+    },
+    {
+      name: 'Crystal Palace', row: 0, col: 0, rows: 5, cols: 4, building: 'palace', hidden: true,
+      unlock: {
+        tasks: [3, 4, 5], from: 1, passage: { row: 6, col: 5 },
+        path: [{ row: 6, col: 6 }, { row: 6, col: 4 }, { row: 6, col: 3 }, { row: 6, col: 2 }, { row: 6, col: 1 }, { row: 5, col: 1 }],
+      },
+    },
+  ],
+  tasks: [
+    { in: 0, plates: [{ row: 7, col: 4, item: g1 }] },                                                           // 0: E8 opens the hub
+    { in: 1, plates: [{ row: 7, col: 9, item: s2 }] },                                                           // 1: J8 opens the branches
+    { in: 2, plates: [{ row: 2, col: 9, item: g1 }] },                                                           // 2: J3 reveals the concealed part
+    { in: 2, plates: [{ row: 5, col: 8, item: c2 }, { row: 5, col: 9, item: s1 }], symbol: 'fern' },             // 3: I6 and J6
+    { in: 3, plates: [{ row: 10, col: 14, item: c3 }], symbol: 'crystal' },                                      // 4: O11
+    { in: 4, plates: [{ row: 15, col: 9, item: s2 }], symbol: 'note' },                                          // 5: J16
+    { in: 6, plates: [{ row: 0, col: 3, item: c3 }, { row: 1, col: 3, item: s2 }] },                            // 6: D1 and D2
+  ],
+  goal: { kind: 'treasure', at: { row: 4, col: 2 }, prize: 'ukulele', task: 6 },
+};
+
 export const LEVELS: readonly Level[] = [
   { name: 'Sprouting Grove', definition: INTRO_LEVEL },
   { name: 'Songbird Chorus', definition: SONG_LEVEL },
@@ -264,6 +347,7 @@ export const LEVELS: readonly Level[] = [
   { name: 'The Hidden Hollow', definition: HOLLOW_LEVEL },
   { name: 'The Rune Gates', definition: RUNE_LEVEL },
   { name: 'The Hidden Cache', definition: CACHE_LEVEL },
+  { name: 'The Crystal Palace', definition: PALACE_LEVEL },
 ];
 
 /** The level index to play after `index` in a list of `count` levels: the next one, or 0 to replay after the last. */

@@ -23,6 +23,9 @@ These resolve older conflicting entries below.
 
 ## Current baseline
 
+- Level 9 release build `20261019-200030`: The Crystal Palace and scrolling Levels window, reviewed by Codex; owner authorized commit → push → deploy. Approved audio source assets retained; game integration is pending.
+
+- Unreleased (October 19, 2026): level 9, The Crystal Palace, and a scrolling Levels window. Implemented by Claude; awaiting Codex review. Nothing committed, pushed or deployed. See Connected regions below and [docs/release-notes.md](docs/release-notes.md).
 - Release build `20261019-175745`: The Hidden Cache's resource area is now a concealed part of one irregular clearing: plain forest with a faint clue at E2 until the D1 plate reveals E2 and the pocket. Codex reviewed; owner authorized commit → push → deploy. See Connected regions below and [docs/release-notes.md](docs/release-notes.md).
 - Level 8 release build `20261019-171209`: The Hidden Cache, a clearing whose hidden alcove shares its items, and a clarinet case to open. Codex reviewed; owner authorized commit → push → deploy. Physical-iPad playtesting follows publication. See Connected regions below and [docs/release-notes.md](docs/release-notes.md).
 - Previous deployment `20261019-163932` (commit `d271347`): cell art placed by insets, so ordinary items and the backpack fit their cells. The owner reports the build and confirms the fix on the physical iPad; Claude checked only that the live `/version.json` reports it.
@@ -198,12 +201,30 @@ From [docs/game-vision.md](docs/game-vision.md); investigate and prototype befor
   - 471 tests, typecheck and build pass; Chromium-checked at 390×844, 844×390, 820×1180 and 1180×820. Details: [docs/release-notes.md](docs/release-notes.md).
 - [x] Codex review of the concealed revision; independent checks recorded in release notes.
 - Owner authorized commit → push → deploy the revision (`20261019-175745`).
+- [x] Owner responded positively to the deployed concealed revision (`20261019-175745`, October 19, 2026). That response is recorded as given; it doesn't settle the specific checks below.
 - [ ] Owner judgment on the E2 clue: subtle enough, or too subtle, on the iPad.
 - [ ] Owner and Alisha playtest of The Hidden Cache: whether the unmergeable crystal pair and the clue lead to the discovery, whether the revealed shape reads as one clearing, and the clarinet case art.
 - [ ] Physical iPad/Safari for The Hidden Cache: touch across the clearing, E2 and pocket, panning from concealed forest, case activation, VoiceOver labels.
 - [ ] Alisha playtest of The Rune Gates: whether plates, the stone and checkpoints are clear without instructions.
 - [ ] Physical iPad/Safari for The Rune Gates: touch on plates and the backpack, panning from terrain, VoiceOver labels; Chromium was checked at 820×1180 and 390×844 only.
-- Option for future levels, not an implementation request (owner, October 19, 2026): longer paths between rooms.
+- Option for future levels, not an implementation request (owner, October 19, 2026): longer paths between rooms. Level 9 uses one (the palace path).
+- [x] Level 9, The Crystal Palace (owner-approved design; release build `20261019-200030`). A 16 × 16 map:
+  - Starting Glade opens Songbird Glade, the hub, which opens Fern Glade, Crystal Glade and Woodland Lodge together.
+  - The three branches are completed in any order, each lighting its symbol on the Crystal Palace's gate; the third opens it.
+  - The palace's two marked tiles reveal a closed ukulele case that opens to a ukulele and wins.
+  - Fern Glade has a concealed part revealed by its Grove tile, as in level 8.
+  - Model: explicit, permanent tasks (`LevelDefinition.tasks`, session `done`) for levels with independent branches; levels 6–8 keep the ordered `unlocked` index.
+  - 501 tests, typecheck and build pass; Chromium full wins at 820×1180, 1180×820 and 390×844 in three branch orders. Details and limitations: [docs/release-notes.md](docs/release-notes.md).
+- [x] Levels page: the list scrolls in its own screen-bounded window, title and Home fixed, current level brought into view (build `20261019-200030`).
+- [x] Codex review and independent verification of level 9 and the Levels window; 502 tests and browser checks pass. Owner authorized commit → push → deploy build `20261019-200030`.
+- [ ] Owner and Alisha playtest of The Crystal Palace: whether the any-order branches and palace symbols read clearly, the length of the banner and checklist, the gate symbols' size, and the ukulele case art.
+- [x] Codex review fixes (build `20261019-200030`): the palace interior stays sealed (blank, unlabelled, unfocusable) until the third branch opens it; the branch-stage banner is short, with each branch's exact needs in the checklist.
+- [x] Level 9 layout (owner-approved):
+  - no gate hint row, 8px gaps between areas, a tighter checklist, and a two-line hub banner;
+  - Home beside "Play again" on the win, and a one-line win message.
+  - At 820×1180, Undo, Retry and Home fit without scrolling in all 90 measured states, from start to win, Undo and Retry, with 20–37px to spare, in Chromium. Details: [docs/release-notes.md](docs/release-notes.md).
+- [ ] Physical iPad/Safari for The Crystal Palace: panning a 16 × 16 map, touch on paths and gates, case activation, VoiceOver labels.
+- [ ] Physical iPad/Safari for the scrolling Levels window: touch scrolling inside the window, and the window's height in Safari's toolbars and Home Screen mode.
 - [ ] If rooms with real choices are wanted, design a room-aware loss rule first; room levels currently never report a loss.
 - [ ] Decide from playtesting whether to build more region levels, generated multi-room puzzles, or neither. Not built: non-rectangular areas, out-of-order unlocks, supply in region levels, transfers between separate rooms (The Hidden Cache's pocket is part of its clearing's room, not a transfer), elk movement, unlock sounds.
 

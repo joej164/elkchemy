@@ -227,8 +227,54 @@ export function ClarinetCaseArt({ open }: { open: boolean }) {
   );
 }
 
+// A ukulele case's outline seen from above: the lower bout (centre 27,56, r 21) and upper bout (50,56, r 15), meeting
+// at x 43.2, then the neck section (y 49-63) to a rounded head end.
+const UKULELE_CASE = 'M43.2 42.6 A21 21 0 1 0 43.2 69.4 A15 15 0 0 0 63.3 63 L92 63 Q97 63 97 56 Q97 49 92 49 L63.3 49 ' +
+  'A15 15 0 0 0 43.2 42.6 Z';
+
+/**
+ * The Crystal Palace's treasure: a ukulele case. Closed (until opened): a hard case in a ukulele's shape, with a handle
+ * and two gold latches. Open: its lid raised behind, and a whole ukulele on the lining: body with sound hole and
+ * bridge, four strings, a fretted neck and a headstock with four tuning pegs. Decorative (callers give the text).
+ */
+export function UkuleleCaseArt({ open }: { open: boolean }) {
+  return (
+    <svg viewBox="0 0 100 100" width="100%" height="100%" aria-hidden="true" focusable="false" data-ukulele={open ? 'open' : 'closed'}>
+      {open ? (
+        <>
+          <path d={UKULELE_CASE} transform="translate(0 -14)" fill="#1f4650" {...S} />
+          <path d={UKULELE_CASE} transform="translate(0 -14) translate(5 6.7) scale(0.88)" fill="#7d2636" />
+          <path d={UKULELE_CASE} fill="#1f4650" {...S} />
+          <path d={UKULELE_CASE} transform="translate(5 6.7) scale(0.88)" fill="#a8364a" />
+          <rect x="56" y="52.5" width="29" height="7" fill="#a8743f" {...S} strokeWidth={1.5} />
+          {[60, 64, 68, 72, 76, 80].map((x) => <path key={x} d={`M${x} 52.8 V59.2`} stroke="#d9dde3" strokeWidth={1.2} />)}
+          <path d="M84 50 L95 48.5 Q97 56 95 63.5 L84 62 Z" fill="#7a4f2a" {...S} strokeWidth={1.5} />
+          {[[87, 47], [92.5, 46], [87, 65], [92.5, 66]].map(([x, y]) => (
+            <circle key={`${x},${y}`} cx={x} cy={y} r="2.2" fill="#d9dde3" stroke={DARK} strokeWidth={1} />
+          ))}
+          <circle cx="27" cy="56" r="16" fill="#e3b778" {...S} />
+          <circle cx="46" cy="56" r="11.5" fill="#e3b778" {...S} />
+          <circle cx="27" cy="56" r="16" fill="#e3b778" />
+          <circle cx="45" cy="56" r="4.2" fill="#3b2412" />
+          <rect x="19" y="50" width="5" height="12" rx="1.5" fill="#5a3820" />
+          {[53.6, 55.2, 56.8, 58.4].map((y) => <path key={y} d={`M22 ${y} H88`} stroke="#f4ecd8" strokeWidth={0.8} />)}
+        </>
+      ) : (
+        <>
+          <path d="M20 37 Q27 22 36 36" fill="none" stroke={DARK} strokeWidth={4} strokeLinecap="round" />
+          <path d={UKULELE_CASE} fill="#2c5f6e" {...S} />
+          <path d={UKULELE_CASE} transform="translate(5 6.7) scale(0.88)" fill="none" stroke="#7fb3bd" strokeWidth={1.5} opacity="0.7" />
+          {[[14, 70], [36, 72]].map(([x, y]) => <rect key={x} x={x} y={y} width="7" height="6" rx="1.5" fill="#f2c14e" {...S} strokeWidth={1.2} />)}
+          <rect x="86" y="53" width="6" height="6" rx="1.5" fill="#f2c14e" {...S} strokeWidth={1.2} />
+        </>
+      )}
+    </svg>
+  );
+}
+
 /** A room level's treasure, closed until `open`. */
 export function PrizeArt({ prize = 'backpack', open }: { prize?: Prize; open: boolean }) {
+  if (prize === 'ukulele') return <UkuleleCaseArt open={open} />;
   return prize === 'clarinet' ? <ClarinetCaseArt open={open} /> : <BackpackArt open={open} />;
 }
 

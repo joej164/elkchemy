@@ -1,5 +1,7 @@
-import { isOpen, nextLocked, unlockReady, type Plate, type Region } from '../regions';
-import type { LevelGoal, Prize } from '../session';
+import {
+  availableTasks, isOpen, nextLocked, sealedRegion, unlockReady, type GateSymbol, type Plate, type Region, type Task, type TaskUnlock,
+} from '../regions';
+import { treasureRevealed, type LevelGoal, type Prize, type SessionState } from '../session';
 import { FAMILY_NAMES, itemLabel } from './ItemArt';
 import type { UiState } from './controller';
 
@@ -30,6 +32,11 @@ export const PRIZES: Record<Prize, PrizeText> = {
     name: 'clarinet case', verb: 'open', opened: 'open, an assembled clarinet inside',
     done: 'Opened the clarinet case: an assembled clarinet is inside.',
     won: 'Goal complete! You opened the clarinet case and found an assembled clarinet.',
+  },
+  ukulele: {
+    name: 'ukulele case', verb: 'open', opened: 'open, a ukulele inside',
+    done: 'Opened the ukulele case: a ukulele is inside.',
+    won: 'Goal complete! You found a ukulele in the case.',
   },
 };
 
@@ -74,22 +81,36 @@ export const REGION_STUCK_MESSAGE = 'No useful merges left—Undo or Retry.';
 const PAN_HINT = 'Drag empty ground to pan.';
 export const LARGE_BOARD_HINT = `${PAN_HINT} For far moves, tap an item, pan, then tap where it goes.`;
 
+/** "A, B and C" (or "A and B", or "A"; `or` for "A, B or C"). */
+function listOf(words: readonly string[], joiner = 'and'): string {
+  return words.length > 1 ? `${words.slice(0, -1).join(', ')} ${joiner} ${words[words.length - 1]}` : words[0];
+}
+
 /**
  * Region levels: what the next region needs, e.g. "Grove, tier 3 of 4 in Mossy Clearing", or in room levels
- * "Grove, tier 2 of 4 and Song, tier 2 of 4 on the pressure plates in Pressure Hall".
+ * "Grove, tier 2 of 4 and Song, tier 2 of 4 on the pressure plates in Pressure Hall". With tasks (`tasks` given), what
+ * its task needs, or for a region needing several, "Fern Glade, Crystal Glade and Woodland Lodge complete".
  */
-export function unlockNeed(regions: readonly Region[], index: number): string {
+export function unlockNeed(regions: readonly Region[], index: number, tasks?: readonly Task[]): string {
   const u = regions[index].unlock!;
+  if ('tasks' in u) {
+    if (u.tasks.length > 1) return `${listOf(u.tasks.map((t) => regions[tasks![t].in].name))} complete`;
+    return taskNeed(regions, tasks![u.tasks[0]]);
+  }
   const room = regions[u.in].name;
   if ('item' in u) return `${itemLabel(u.item)} in ${room}`;
   if (u.kind === 'stone') return `${itemLabel(u.plates[0].item)} alone on the stone in ${room}`;
   return `${plateItems(u.plates)} on the pressure ${u.plates.length > 1 ? 'plates' : 'plate'} in ${room}`;
 }
 
+/** Levels with tasks: what a task needs, e.g. "Song, tier 3 of 4 on the pressure plate in Songbird Glade". */
+export function taskNeed(regions: readonly Region[], task: Task): string {
+  return `${plateItems(task.plates)} on the pressure ${task.plates.length > 1 ? 'plates' : 'plate'} in ${regions[task.in].name}`;
+}
+
 /** Room levels: the items some plates need, e.g. "Grove, tier 2 of 4 and Song, tier 2 of 4". */
 export function plateItems(plates: readonly Plate[]): string {
-  const items = plates.map((pl) => itemLabel(pl.item));
-  return items.length > 1 ? `${items.slice(0, -1).join(', ')} and ${items[items.length - 1]}` : items[0];
+  return listOf(plates.map((pl) => itemLabel(pl.item)));
 }
 
 /**
@@ -102,24 +123,122 @@ export function isConcealed(region: Region): boolean {
 
 /**
  * Room levels: the help dialog's rule for gates and rooms. The stone's rule appears only where there is a stone; a
- * concealed part of a room is mentioned only once `unlocked` has opened it.
+ * concealed part of a room is mentioned only once `unlocked` (the last region opened, or with tasks, whether a region is
+ * open) has opened it. With `tasks`, the completions that open the region needing several are explained instead.
  */
-export function roomsHelp(regions: readonly Region[], unlocked = 0): string {
+export function roomsHelp(regions: readonly Region[], unlocked: number | ((i: number) => boolean) = 0, tasks?: readonly Task[]): string {
+  const open = typeof unlocked === 'number' ? (i: number) => i <= unlocked : unlocked;
   const stone = regions.some((r) => !!r.unlock && 'kind' in r.unlock && r.unlock.kind === 'stone');
   const shared = regions.map((r, i) => {
     if (r.joins === undefined) return '';
     const host = regions[r.joins].name;
     if (!isConcealed(r)) return ` ${r.name} is part of ${host}'s room: once its gate opens, items move, swap and merge between the two.`;
-    return i <= unlocked ? ` More of ${host} has been revealed: items move, swap and merge anywhere in it.` : '';
+    return open(i) ? ` More of ${host} has been revealed: items move, swap and merge anywhere in it.` : '';
   });
+  const sealed = tasks ? sealedRegion(regions) : -1;
+  if (sealed >= 0) {
+    const names = (regions[sealed].unlock as TaskUnlock).tasks.map((t) => regions[tasks![t].in].name);
+    return 'Marked tiles work by themselves, on the move that puts exactly the items shown on them: they open rune gates, ' +
+      `or complete ${listOf(names, 'or')}, in any order. Each one completed lights its symbol on the gate to ` +
+      `${regions[sealed].name}, and ${allOf(names.length)} open it.${shared.join('')} Items never leave their own room.`;
+  }
   return 'Each rune gate opens by itself on the move that puts exactly the items shown on its room\'s marked tiles' +
     `${stone ? '; a stone must hold the only item left in its room' : ''}.${shared.join('')} Items never leave their own room.`;
+}
+
+/** Levels with tasks: the regions that open by task `t` alone. */
+function opensBy(regions: readonly Region[], t: number): number[] {
+  return regions.flatMap((r, i) => (r.unlock && 'tasks' in r.unlock && r.unlock.tasks.length === 1 && r.unlock.tasks[0] === t ? [i] : []));
+}
+
+/**
+ * Levels with tasks: the marked tiles task `t` (completing a room) asks for now. Until the room's concealed part is
+ * found, that is only the tile that reveals it, so nothing names the concealed part.
+ */
+export function branchPlates(session: SessionState, t: number): readonly Plate[] {
+  const regions = session.level.regions!;
+  const tasks = session.level.tasks!;
+  const finder = availableTasks(session).find((f) => f !== t && tasks[f].in === tasks[t].in && opensBy(regions, f).some((i) => isConcealed(regions[i])));
+  return tasks[finder ?? t].plates;
+}
+
+/**
+ * Levels with tasks: the next steps. A task opening rune gates comes first; then the tasks completing the rooms that
+ * open the sealed region, in any order, named briefly (the checklist shows what each needs; only the last one's need
+ * is spelled out here, and a room's concealed part is asked for only by its marked tile); then the task that reveals the
+ * treasure, which is then tapped. A discovery, or the sealed region opening, is told once, on the move that did it.
+ */
+function taskStep(state: UiState): string {
+  const { session } = state;
+  const { goal } = session.level;
+  const regions = session.level.regions!;
+  const tasks = session.level.tasks!;
+  if (goal.kind !== 'treasure') return '';
+  const { name, verb } = prizeText(goal);
+  const home = regions[regions.length - 1].name;
+  if (treasureRevealed(session)) return `The ${name} is in ${home}. Tap it to ${verb} it.`;
+  const available = availableTasks(session);
+  const opened = state.lastAction && 'progress' in state.lastAction ? state.lastAction.progress?.regions ?? [] : [];
+  if (goal.task !== undefined && available.includes(goal.task)) {
+    const { plates } = tasks[goal.task];
+    // On the move that opens it, a short line (the case is named on the next); the banner then stays two lines on iPad.
+    if (opened.includes(regions.length - 1)) return `${home} is open: put ${plateItems(plates)} on its marked tiles.`;
+    return `Put ${taskNeed(regions, tasks[goal.task])} to find the ${name}.`;
+  }
+  const sealed = sealedRegion(regions);
+  const needs = sealed < 0 ? [] : (regions[sealed].unlock as TaskUnlock).tasks;
+  const branches = needs.filter((t) => available.includes(t));
+  if (branches.length > 0) {
+    const found = opened.filter((i) => isConcealed(regions[i]))
+      .map((i) => `More of ${regions[regions[i].joins!].name} has been revealed. `).join('');
+    const palace = regions[sealed].name;
+    if (branches.length === 1) {
+      const room = regions[tasks[branches[0]].in].name;
+      // On the discovery move the checklist alone shows the new needs, so the banner stays short.
+      if (found) return `${found}Complete ${room} to open ${palace}.`;
+      const plates = branchPlates(session, branches[0]);
+      return `Complete ${room} to open ${palace}: put ${plateItems(plates)} on its marked ${plates.length > 1 ? 'tiles' : 'tile'}.`;
+    }
+    if (branches.length === needs.length) return `${found}Complete the ${countWord(needs.length)} branches in any order to open ${palace}.`;
+    const rooms = listOf(branches.map((t) => regions[tasks[t].in].name));
+    return `${found}Complete ${rooms} in ${branches.length === 2 ? 'either' : 'any'} order to open ${palace}.`;
+  }
+  const t = available.find((a) => opensBy(regions, a).length > 0);
+  if (t === undefined) return '';
+  const opens = opensBy(regions, t);
+  // Gates to every room the sealed region needs: the checklist names them, so the banner just counts them.
+  const branchRooms = needs.map((n) => tasks[n].in);
+  const to = opens.length > 1 && opens.length === branchRooms.length && opens.every((i) => branchRooms.includes(i))
+    ? `all ${countWord(opens.length)} branches` : listOf(opens.map((i) => regions[i].name));
+  return `Put ${taskNeed(regions, tasks[t])} to open the rune ${opens.length > 1 ? 'gates' : 'gate'} to ${to}.`;
+}
+
+const SYMBOL_NAMES: Record<GateSymbol, string> = { fern: 'fern', crystal: 'crystal', note: 'musical note' };
+
+/**
+ * Levels with tasks: the announcement of what a drop's checkpoint did, e.g. " Crystal Glade is complete: its crystal is
+ * lit on the gate to Crystal Palace. The rune gate to Crystal Palace opened." (empty when it did nothing). A concealed
+ * part of a room is announced as more of that room.
+ */
+export function progressText(tasksDone: readonly number[], opened: readonly number[], goal: LevelGoal, regions: readonly Region[], tasks: readonly Task[]): string {
+  const sealed = sealedRegion(regions);
+  const parts = tasksDone.flatMap((t) => {
+    const { symbol } = tasks[t];
+    if (symbol) return [`${regions[tasks[t].in].name} is complete: its ${SYMBOL_NAMES[symbol]} is lit on the gate to ${regions[sealed].name}.`];
+    if (goal.kind === 'treasure' && goal.task === t) return [`A closed ${prizeText(goal).name} appeared in ${regions[regions.length - 1].name}.`];
+    return [];
+  });
+  const shown = opened.filter((i) => !isConcealed(regions[i])).map((i) => regions[i].name);
+  for (const i of opened) if (isConcealed(regions[i])) parts.push(`More of ${regions[regions[i].joins!].name} was revealed, with more items to use.`);
+  if (shown.length > 0) parts.push(`The rune ${shown.length > 1 ? 'gates' : 'gate'} to ${listOf(shown)} opened.`);
+  return parts.map((part) => ` ${part}`).join('');
 }
 
 /** Region levels: the next step, from the next unlock to the goal. */
 function regionStep(state: UiState): string {
   const { session } = state;
   const { regions, goal } = session.level;
+  if (session.level.tasks) return taskStep(state);
   const n = nextLocked(session);
   if (goal.kind === 'treasure') {
     const { name, verb } = prizeText(goal);

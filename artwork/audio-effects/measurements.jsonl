@@ -1,0 +1,6 @@
+{"file": "merge-three-v1.wav", "seconds": 0.36, "peak": 0.202393, "rms": 0.046097, "dc": 2.1e-07, "endpoints": [0, 0], "sha256": "6a2a2a1bfd31ef4d1893da14aca2424ab3058466adc0ca0060576e219dc1f068"}
+{"file": "merge-five-v1.wav", "seconds": 0.66, "peak": 0.203033, "rms": 0.054011, "dc": 1.2e-07, "endpoints": [0, 0], "sha256": "d9c8d7011d6944b28b71ea42748af3004f8f0f1127244e6acb56290429fceaa1"}
+{"file": "discovery-v1.wav", "seconds": 1.18, "peak": 0.155975, "rms": 0.043102, "dc": 7e-08, "endpoints": [0, 0], "sha256": "172c26d68e6cd943d924a4895db8fb4c892b5dd2bae088d0784abe3668dcdd64"}
+{"file": "completion-v1.wav", "seconds": 0.96, "peak": 0.211426, "rms": 0.052964, "dc": 4e-07, "endpoints": [0, 0], "sha256": "cebebbae73a77ee9a9c383c5a4a94fbabdfe939c96b62875734979a84233133c"}
+{"file": "case-victory-v1.wav", "seconds": 2.85, "peak": 0.304474, "rms": 0.038656, "dc": 1.68e-06, "endpoints": [0, 0], "sha256": "9137e0d864f1f7a08d51a8187a90b7ef02a420ca450e743353268b091e6c7c32"}
+{"file": "audition-reel-v1.wav", "seconds": 20.77, "peak": 0.304474, "rms": 0.030937, "dc": 2.9e-07, "endpoints": [0, 0], "sha256": "3365ed39fd80e3bd4f4f39d72c31b683cc93327a46e311a333a114fddc01fdd0"}

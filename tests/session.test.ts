@@ -30,6 +30,7 @@ function level(rows: string[], supply: string[] = ['s0', 'c0'], seed = 42): Leve
 
 const fields = (s: SessionState) => ({
   board: s.board, supplyIndex: s.supplyIndex, rngState: s.rngState, moves: s.moves, unlocked: s.unlocked, collected: s.collected,
+  done: s.done,
 });
 
 describe('startSession', () => {

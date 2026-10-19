@@ -1,14 +1,23 @@
 import type { Item, Pos, Tier } from '../board';
-import { inRegion, isFixed, nextLocked, unlockReady } from '../regions';
+import { inRegion, isFixed, isOpen, nextLocked, unlockReady } from '../regions';
 import {
-  applyDrop, canDrop, chooseSupplyCell, collect, isCellOpen, placeSupplyRandom, previewDrop, retry, startSession, undo, unlock,
+  applyDrop, canDrop, chooseSupplyCell, collect, isCellOpen, placeSupplyRandom, previewDrop, retry, startSession, treasureRevealed, undo, unlock,
   type LevelDefinition, type SessionState,
 } from '../session';
 import { evaluateStatus, type GameStatus } from '../status';
 
-/** `opened` (room levels): the region whose gate the drop opened. */
+/**
+ * Levels with tasks: what a drop's checkpoint did: the tasks it completed and the regions that opened with them.
+ */
+export interface Progress { readonly tasks: readonly number[]; readonly regions: readonly number[] }
+
+/**
+ * `opened` (room levels): the region whose gate the drop opened, brought into view. With tasks, `progress` says what
+ * the drop did, and `opened` is set only when it opened a single region that needed just that one task: a region
+ * opened alongside others, or by several tasks, is announced without moving the view.
+ */
 export type LastAction =
-  | { readonly kind: 'move' | 'swap'; readonly opened?: number }
+  | { readonly kind: 'move' | 'swap'; readonly opened?: number; readonly progress?: Progress }
   | { readonly kind: 'undo' | 'retry' | 'collect' }
   | { readonly kind: 'place'; readonly at: Pos; readonly item: Item }
   | { readonly kind: 'unlock'; readonly region: number }
@@ -20,6 +29,7 @@ export type LastAction =
       readonly cells: readonly Pos[];
       readonly outputs: readonly Pos[];
       readonly opened?: number;
+      readonly progress?: Progress;
     };
 
 /** The region the last action opened: by Unlock (or a gate), or, in room levels, by a drop. */
@@ -88,10 +98,9 @@ export function canPickUp(state: UiState, pos: Pos): boolean {
     !isFixed(session, pos);
 }
 
-/** Room levels: the treasure is visible (its room is open), collected or not. */
+/** Room levels: the treasure is visible (its room is open, and its task done), collected or not. */
 export function treasureShown(state: UiState): boolean {
-  const { goal } = state.session.level;
-  return goal.kind === 'treasure' && isCellOpen(state.session, goal.at);
+  return treasureRevealed(state.session);
 }
 
 /** Whether a drop of the item at `from` onto `to` would be accepted (it may still change nothing). */
@@ -143,6 +152,13 @@ function doDrop(state: UiState, from: Pos, to: Pos): UiState {
   }
   const next = applyDrop(session, from, to);
   if (next === session) return state;
+  if (next.done.length > session.done.length) {
+    const { regions } = session.level;
+    const opened = regions!.flatMap((r, i) => (isOpen(next, i) && !isOpen(session, i) ? [i] : []));
+    const progress = { tasks: next.done.slice(session.done.length), regions: opened };
+    const one = opened.length === 1 && (regions![opened[0]].unlock as { tasks: readonly number[] }).tasks.length === 1;
+    return withSession(state, next, one ? { ...lastAction, opened: opened[0], progress } : { ...lastAction, progress });
+  }
   return withSession(state, next, next.unlocked > session.unlocked ? { ...lastAction, opened: next.unlocked } : lastAction);
 }
 

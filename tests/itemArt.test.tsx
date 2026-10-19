@@ -48,12 +48,15 @@ describe('ItemArt', () => {
 
 describe('PrizeArt', () => {
   it('draws each treasure closed and open as one safe svg, the backpack by default', () => {
-    const art = (prize: 'backpack' | 'clarinet' | undefined, open: boolean) => renderToStaticMarkup(<PrizeArt prize={prize} open={open} />);
+    const art = (prize: 'backpack' | 'clarinet' | 'ukulele' | undefined, open: boolean) => renderToStaticMarkup(<PrizeArt prize={prize} open={open} />);
     expect(art(undefined, false)).toContain('data-backpack="closed"');
     expect(art('backpack', true)).toContain('data-backpack="open"');
     expect(art('clarinet', false)).toContain('data-clarinet="closed"');
     expect(art('clarinet', true)).toContain('data-clarinet="open"');
-    for (const m of [art('clarinet', false), art('clarinet', true)]) {
+    expect(art('ukulele', false)).toContain('data-ukulele="closed"');
+    expect(art('ukulele', true)).toContain('data-ukulele="open"');
+    expect(art('ukulele', false)).not.toMatch(/<circle cx="45"/);           // closed: no sound hole showing
+    for (const m of [art('clarinet', false), art('clarinet', true), art('ukulele', false), art('ukulele', true)]) {
       expect(m.match(/<svg/g)).toHaveLength(1);
       expect(m).toContain('aria-hidden="true"');
       for (const bad of ['<image', '<text', 'http', 'href=', 'url(']) expect(m).not.toContain(bad);
