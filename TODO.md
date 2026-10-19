@@ -23,6 +23,8 @@ These resolve older conflicting entries below.
 
 ## Current baseline
 
+- Release build `20261019-210331`: approved level-9 woodland/palace music and independent default-off effects across levels and generated puzzles. Owner authorized commit → push → deploy; live version, history, real-pointer merge cue and music playback verified. Physical iPad/Safari and listening checks remain.
+
 - Level 9 release build `20261019-200030`: The Crystal Palace and scrolling Levels window, reviewed by Codex; owner authorized commit → push → deploy. Approved audio source assets retained; audio integration is now included in release build `20261019-210331` (see Audio).
 
 - Release build `20261019-203516` (October 19, 2026): smooth camera pans and a visible palace opening, from the owner's physical-iPad feedback on `20261019-200030`. Implemented by Claude; reviewed by Codex. Owner authorized commit → push → deploy with the keyboard-focus issue deferred. See Connected regions below and [docs/release-notes.md](docs/release-notes.md).

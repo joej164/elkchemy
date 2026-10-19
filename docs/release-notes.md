@@ -6,7 +6,9 @@ Earlier published builds are not backfilled here. The previous build, `20261018-
 
 ## 20261019-210331 — Approved music and sound effects integration (October 19, 2026)
 
-Release build `20261019-210331`. Owner authorized commit → push → deploy after local verification. The owner explicitly authorized direct Codex implementation and bounded Codex delegation for this audio task only.
+Published release build `20261019-210331`. Owner authorized commit → push → deploy after local verification. The owner explicitly authorized direct Codex implementation and bounded Codex delegation for this audio task only.
+
+Live release verification: Firebase Hosting reported release complete. Chromium confirmed `/version.json` and the footer build, expected JavaScript asset `index-DWN050Lw.js`, the new player-facing history, both controls initially off, level-9 startup, a real-pointer merge with decoded effect, and Woodland Journey decoding/looping with both audio contexts running. No console errors or warnings. Release commits: `3a5c864` and `1cdcaad`.
 
 ### Agreed design
 
