@@ -9,6 +9,8 @@ import { RELEASE_NOTES, ReleaseNotes } from '../src/ui/ReleaseNotes';
 import { SONGS, Scores } from '../src/ui/Scores';
 import { generatePuzzle } from '../src/generator';
 import { LEVELS } from '../src/levels';
+import { Board } from '../src/ui/Board';
+import { initUi, reduceUi, type UiAction, type UiState } from '../src/ui/controller';
 
 const itemGoal: LevelGoal = { kind: 'item', item: { family: 'song', tier: 2 } };
 const html = renderToStaticMarkup(<HelpButton goal={itemGoal} />);
@@ -211,9 +213,34 @@ describe('HelpButton', () => {
     // The backpack stays hidden: its cell reads as an ordinary locked cell.
     expect(game).toContain('aria-label="Row 7, column 5, Treasure Nook, locked: empty"');
     expect(game).not.toMatch(/has-treasure|tap to collect/);
+    expect(game).toContain('data-backpack="closed"');                    // the goal panel: closed until collected
+    expect(game).not.toContain('data-backpack="open"');
     expect(game).toContain('the items shown on its room&#x27;s marked tiles');
     expect(game).toContain('An opened gate is a checkpoint');
     expect(game).toContain('Put Grove, tier 2 of 4 and Song, tier 2 of 4 on the pressure plates in Pressure Hall to open the rune gate to Stone Chamber.');
+  });
+
+  it('the Rune Gates backpack is hidden, then closed, opens on collection; fixed items show a bare padlock', () => {
+    const run = (s: UiState, ...actions: UiAction[]) => actions.reduce(reduceUi, s);
+    const drop = ([fr, fc]: number[], [tr, tc]: number[]): UiAction => ({ type: 'drop', from: { row: fr, col: fc }, to: { row: tr, col: tc } });
+    const board = (s: UiState) => renderToStaticMarkup(<Board state={s} dispatch={() => {}} />);
+    const start = initUi(LEVELS[6].definition);
+    const revealed = run(start, drop([1, 2], [0, 1]), drop([0, 1], [0, 2]), drop([2, 1], [2, 0]), drop([2, 0], [2, 2]),
+      drop([1, 4], [2, 4]), drop([3, 6], [3, 4]), drop([1, 6], [3, 5]), drop([3, 5], [2, 5]));
+    expect(board(start)).not.toContain('data-backpack');
+    const closed = board(revealed);
+    expect(closed).toContain('data-backpack="closed"');
+    expect(closed).toContain('disc-golf backpack, closed, tap to collect');
+    expect((closed.match(/class="fixed-lock"/g) ?? []).length).toBe(3);
+    expect(closed).not.toContain('plate-mark');                            // every plate is fixed: no badges left
+    const won = run(revealed, { type: 'tap', pos: { row: 6, col: 4 } });
+    expect(won.status).toBe('won');
+    expect(board(won)).toContain('data-backpack="open"');
+    expect(board(won)).toContain('disc-golf backpack, open, collected');
+    const undone = run(won, { type: 'undo' });
+    expect(undone.session.unlocked).toBe(2);
+    expect(board(undone)).toContain('data-backpack="closed"');
+    expect(board(run(won, { type: 'retry' }))).not.toContain('data-backpack');
   });
 
   it('a ready gate glows, says so, and is the only gate offered', () => {

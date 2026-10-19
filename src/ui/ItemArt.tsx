@@ -148,22 +148,37 @@ function disc(cx: number, cy: number, tilt: number, fill: string): ReactNode {
 }
 
 /**
- * Room levels' treasure: an open disc-golf backpack, its lid folded back, three discs standing inside and two more
- * beside it. Decorative (callers give the text).
+ * Room levels' treasure: a disc-golf backpack. Closed (until collected): zipped shut under its lid, handle up, no discs
+ * showing. Open (once collected): the lid folded back, three discs standing inside and two more beside it.
+ * Decorative (callers give the text).
  */
-export function BackpackArt() {
+export function BackpackArt({ open }: { open: boolean }) {
   return (
-    <svg viewBox="0 0 100 100" width="100%" height="100%" aria-hidden="true" focusable="false">
-      <path d="M33 38 L27 14 Q50 5 73 14 L67 38 Z" fill="#24576f" {...S} />
-      <path d="M30 39 Q50 29 70 39 Q50 48 30 39 Z" fill="#102a36" {...S} />
-      <ellipse cx="40" cy="40" rx="8" ry="14" fill="#f28c28" {...S} />
-      <ellipse cx="60" cy="40" rx="8" ry="14" fill="#e45a84" {...S} />
-      <ellipse cx="50" cy="38" rx="8" ry="16" fill="#e8d34a" {...S} />
-      <path d="M30 39 Q50 48 70 39 L70 82 Q70 90 62 90 L38 90 Q30 90 30 82 Z" fill="#2f6f8f" {...S} />
-      <rect x="37" y="58" width="26" height="24" rx="7" fill="#24576f" {...S} />
-      <path d="M41 64 H59" {...S} stroke="#f2c14e" strokeWidth={3} />
-      {disc(15, 80, -28, '#8ccf3f')}
-      {disc(85, 80, 28, '#6cc3e8')}
+    <svg viewBox="0 0 100 100" width="100%" height="100%" aria-hidden="true" focusable="false" data-backpack={open ? 'open' : 'closed'}>
+      {open ? (
+        <>
+          <path d="M33 38 L27 14 Q50 5 73 14 L67 38 Z" fill="#24576f" {...S} />
+          <path d="M30 39 Q50 29 70 39 Q50 48 30 39 Z" fill="#102a36" {...S} />
+          <ellipse cx="40" cy="40" rx="8" ry="14" fill="#f28c28" {...S} />
+          <ellipse cx="60" cy="40" rx="8" ry="14" fill="#e45a84" {...S} />
+          <ellipse cx="50" cy="38" rx="8" ry="16" fill="#e8d34a" {...S} />
+          <path d="M30 39 Q50 48 70 39 L70 82 Q70 90 62 90 L38 90 Q30 90 30 82 Z" fill="#2f6f8f" {...S} />
+          <rect x="37" y="58" width="26" height="24" rx="7" fill="#24576f" {...S} />
+          <path d="M41 64 H59" {...S} stroke="#f2c14e" strokeWidth={3} />
+          {disc(15, 80, -28, '#8ccf3f')}
+          {disc(85, 80, 28, '#6cc3e8')}
+        </>
+      ) : (
+        <>
+          <path d="M42 24 Q50 9 58 24" fill="none" {...S} strokeWidth={4} />
+          <rect x="27" y="22" width="46" height="68" rx="14" fill="#2f6f8f" {...S} />
+          <path d="M27 40 Q27 22 41 22 H59 Q73 22 73 40 Q50 49 27 40 Z" fill="#24576f" {...S} />
+          <path d="M31 42 Q50 49 69 42" fill="none" stroke="#f2c14e" strokeWidth={3} strokeLinecap="round" />
+          <rect x="63" y="41" width="6" height="10" rx="2" fill="#f2c14e" {...S} strokeWidth={1.5} />
+          <rect x="36" y="58" width="28" height="24" rx="7" fill="#24576f" {...S} />
+          <path d="M40 64 H60" {...S} stroke="#f2c14e" strokeWidth={3} />
+        </>
+      )}
     </svg>
   );
 }

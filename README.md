@@ -36,8 +36,8 @@ Seven levels (`src/levels.ts`). Levels on the home screen lists them all; tap an
 7. The Rune Gates (experimental): three small rooms in forest terrain, joined by passages closed by rune gates.
    - **Pressure Hall:** put exactly Grove tier 2 of 4 and Song tier 2 of 4 on the two pressure plates at once; the elk may stay.
    - **Stone Chamber:** merge its crystals down to one Crystal tier 3 of 4, alone on the stone.
-   - **Gates:** each opens by itself on the move that meets its tiles, a plain move included, and consumes nothing. Opening is a checkpoint: the items on those tiles stay fixed (padlock badge) and Undo can't go back past it.
-   - **Goal:** the Treasure Nook hides a disc-golf backpack until its gate opens; tap it (or press Enter or Space on it) to win.
+   - **Gates:** each opens by itself on the move that meets its tiles, a plain move included, and consumes nothing. Opening is a checkpoint: the items on those tiles stay fixed (a small padlock) and Undo can't go back past it.
+   - **Goal:** the Treasure Nook hides a disc-golf backpack until its gate opens. It appears closed; tap it (or press Enter or Space on it) to open it and win.
    - **Failure:** none; the level can't be stranded. Items never leave their room.
 
 Winning offers Next level (after the last level: play again from level 1). Progress is kept in memory only: the Levels page and the home screen note show where the sequence is up to, and reloading starts at level 1.

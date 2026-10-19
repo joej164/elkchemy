@@ -23,8 +23,9 @@ These resolve older conflicting entries below.
 
 ## Current baseline
 
-- Unreleased (uncommitted, not deployed): the Rune Gates tile and backpack visual pass the owner requested, and the level's in-game Release notes entry. See Connected regions below and [docs/release-notes.md](docs/release-notes.md).
-- Latest deployment `20261019-132651` (commit `99bbd6d`): level 7, The Rune Gates (experimental), and four Hidden Hollow gate fixes. See Connected regions below and [docs/release-notes.md](docs/release-notes.md).
+- Unreleased (uncommitted, not deployed): owner-requested Rune Gates corrections: a bare padlock on completed tiles, and a closed backpack that opens on collection. See Connected regions below and [docs/release-notes.md](docs/release-notes.md).
+- Latest deployment `20261019-161758` (commit `b95a4b1`): the Rune Gates tile and backpack visual pass, and the level's in-game Release notes entry.
+- Previous deployment `20261019-132651` (commit `99bbd6d`): level 7, The Rune Gates (experimental), and four Hidden Hollow gate fixes. See Connected regions below and [docs/release-notes.md](docs/release-notes.md).
 - Previous deployment `20261019-055257`: tappable wooden gates on The Hidden Hollow's locked areas. See Connected regions below and [docs/release-notes.md](docs/release-notes.md).
 - Previous deployment `20261019-052826`: level 6, The Hidden Hollow, the first connected-region level (three areas unlocked in order), and a Levels page that can start any level. See Connected regions below and [docs/release-notes.md](docs/release-notes.md).
 - Previous deployment `20261019-021029` (live `/version.json` checked October 18, 2026): gameplay background behind levels and generated puzzles; board layout unchanged, but the cheering characters are largely behind the controls (open decision under Gameplay presentation).
@@ -172,10 +173,11 @@ From [docs/game-vision.md](docs/game-vision.md); investigate and prototype befor
 - [x] Level 7, The Rune Gates (experimental, published `20261019-132651`). Three rooms in terrain, with rune gates in the passages: pressure plates (exact items, together), then a stone (one exact item, nothing else in its room), then a hidden disc-golf backpack to tap. Gates open on the move that meets them, and opening is a checkpoint (tile items fixed, Undo cleared). It never reports a loss and can't be stranded. Details, winning line and checks: [docs/release-notes.md](docs/release-notes.md).
 - [x] Codex review of the Rune Gates and Hollow fixes.
 - [x] Owner playtest of The Rune Gates (October 19): the gate and path design looks nice and works.
-- [x] Visual pass the owner requested after reviewing the original art (uncommitted): completed plate and stone tiles keep their item and badge inside the marked square, and the backpack is drawn open with discs inside and two beside it. Codex found no blocking code issue.
-- [x] In-game Release notes entry for The Rune Gates (`src/ui/ReleaseNotes.tsx`, dated October 19, 2026; uncommitted).
-- [ ] With owner authorization, in this order: commit → push → deploy the visual pass and the release-note entry.
-- [ ] Owner review of the revised tiles and backpack.
+- [x] Visual pass the owner requested after reviewing the original art (published `20261019-161758`): completed plate and stone tiles keep their item and badge inside the marked square, and the backpack is drawn open with discs inside and two beside it. Codex found no blocking code issue.
+- [x] In-game Release notes entry for The Rune Gates (`src/ui/ReleaseNotes.tsx`, dated October 19, 2026; published `20261019-161758`).
+- [x] Owner review of `20261019-161758`: the completed tiles still looked bigger than their tiles. Owner-requested corrections (unreleased): the lock badge replaced by a bare 14px padlock in the corner, item art at an explicit inset inside the ring, and the backpack shown closed until collected, then open with its discs. Chromium-checked at 390×844 and 820×1180; details in [docs/release-notes.md](docs/release-notes.md).
+- [ ] With owner authorization, in this order: commit → push → deploy these corrections.
+- [ ] Owner review of the corrected tiles and backpack on the iPad (Safari's rendering is unchecked here).
 - [ ] Alisha playtest of The Rune Gates: whether plates, the stone and checkpoints are clear without instructions.
 - [ ] Physical iPad/Safari for The Rune Gates: touch on plates and the backpack, panning from terrain, VoiceOver labels; Chromium was checked at 820×1180 and 390×844 only.
 - Option for future levels, not an implementation request (owner, October 19, 2026): longer paths between rooms.

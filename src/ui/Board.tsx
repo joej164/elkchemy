@@ -344,7 +344,7 @@ export function Board({ state, dispatch, onOverflowChange }: {
             const isOutput = !!merge && has(merge.outputs, pos);
             const isConsumed = !!merge && !isOutput && has(merge.cells, pos);
             const label = treasure
-              ? `${TREASURE_NAME}${state.session.collected ? ', collected' : ', tap to collect'}`
+              ? `${TREASURE_NAME}${state.session.collected ? ', open, collected' : ', closed, tap to collect'}`
               : item ? itemLabel(item) : 'empty';
             const mark = plate ? `, ${plate.kind === 'stone' ? 'stone' : 'pressure plate'} for ${itemLabel(plate.item)}${fixed ? ', fixed' : ''}` : '';
             const place = region ? `, ${region.name}${locked ? ', locked' : ''}${mark}` : '';
@@ -372,10 +372,12 @@ export function Board({ state, dispatch, onOverflowChange }: {
                 }}
               >
                 {plate && (
-                  <span className="plate-mark" aria-hidden="true">{fixed ? <LockIcon /> : <ItemArt item={plate.item} />}</span>
+                  fixed
+                    ? <span className="fixed-lock" aria-hidden="true"><LockIcon /></span>
+                    : <span className="plate-mark" aria-hidden="true"><ItemArt item={plate.item} /></span>
                 )}
                 {item && <span className="cell-art"><ItemArt item={item} /></span>}
-                {treasure && <span className="cell-art"><BackpackArt /></span>}
+                {treasure && <span className="cell-art"><BackpackArt open={state.session.collected} /></span>}
                 {merge && isConsumed && (
                   <span key={`consumed-${seq}`} data-fx="consumed" aria-hidden="true"><ItemArt item={merge.input} /></span>
                 )}

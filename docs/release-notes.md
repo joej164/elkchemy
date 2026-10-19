@@ -4,9 +4,26 @@ Each entry records what changed, how it was verified, and known limitations. **U
 
 Earlier published builds are not backfilled here. The previous build, `20261018-195510`, has five handcrafted levels and optional looping music; its verification is recorded in TODO.md under Current baseline and Audio.
 
-## Unreleased — Rune Gates tile and backpack visual pass, and its in-game release note (October 19, 2026)
+## Unreleased — Rune Gates: bare padlock on completed tiles, and a backpack that opens on collection (October 19, 2026)
 
-Not committed or deployed. The owner reviewed the published art and requested these changes; Claude implemented them, and Codex reviewed the CSS and backpack changes and found no blocking code issue. The revised visuals still await owner review.
+Not committed or deployed. Requested by the owner after reviewing build `20261019-161758`, where the fixed tree, bird and tier-3 crystal still looked bigger than their tiles. Implemented by Claude; awaiting Codex review and owner review.
+
+- **Completed tiles.** In Chromium the cells were never larger than their 64px (phone) or 92px (iPad) grid tracks, and the art was already smaller than on plain tiles; what reached the tile's frame was the dark round lock badge with its gold border. Now:
+  - the badge is gone: a bare 14px padlock (dark brown, no background, border, halo or padding) is tucked inside the ring's top-right corner;
+  - the item is placed at an explicit 11px inset inside the ring (38px on a 64px tile, 66px on a 92px tile, 5px clear of the ring) instead of being sized from the button's padding, so its size doesn't depend on how a browser lays out button padding.
+
+  Empty-tile requirement markers, the badge on an occupied tile before its gate opens, and the fixed-item rules are unchanged.
+- **Backpack opens on collection.** The final room reveals a closed backpack: zipped lid, handle, pocket, no discs. Tapping it, or Enter or Space, opens it (lid back, discs inside, two beside it) and wins. The session's `collected` state chooses the art, in the room and in the goal panel, which also shows the closed bag until then. Labels read "closed, tap to collect", then "open, collected". Undo closes it again with the room still open; Retry hides it again. No animation.
+- **Unchanged:** room layout, requirements, checkpoints and cross-room rules.
+- **Checks** (Claude): typecheck, 452 tests (1 new rendering test: hidden, closed, open, Undo and Retry states, and three bare padlocks with no badges) and production build pass. Playwright Chromium against the production build, at 390×844 and 820×1180:
+  - In the completed state, close-up screenshots showed the tree, bird and crystal inside their rings, visibly smaller than the elk on its plain tile, each with only the small padlock. Measured: cells exactly their grid track, art 5px and lock 3px inside the ring, no badges.
+  - On room reveal, the bag was closed in the room and the goal panel. Collecting it by Enter (390×844) or tap (820×1180) opened both and won. Undo closed it again with the gate still open. Retry hid it, closed both gates, removed the padlocks and restored the starting view.
+  - No horizontal page overflow and no console errors.
+- **Not verified:** physical iPad/Safari. WebKit isn't installed for Playwright here, so Safari's rendering of the tiles is unchecked; the owner's Safari report was not reproduced in Chromium.
+
+## 20261019-161758 — Rune Gates tile and backpack visual pass, and its in-game release note (October 19, 2026)
+
+Published October 19, 2026 in build `20261019-161758`, from commit `b95a4b1`. The owner reviewed the published art and requested these changes; Claude implemented them, and Codex reviewed the CSS and backpack changes and found no blocking code issue. On review, the owner found the completed tiles still looked oversized (see the Unreleased entry above).
 
 - **Completed tiles fit their square.** The item on a pressure plate or the stone, and its corner badge (the needed item, then a padlock), now sit inside the tile's bronze or slate ring instead of spilling over it. The ring, its colours and the empty-tile ghost are unchanged.
 - **Open backpack.** The treasure is redrawn open, with its lid folded back, three discs standing inside and two lying beside it.
@@ -18,7 +35,7 @@ Not committed or deployed. The owner reviewed the published art and requested th
 
 Published October 19, 2026 in build `20261019-132651`, from commit `99bbd6d`. Implemented by Claude and reviewed by Codex.
 
-Owner playtest (October 19, 2026): the gate and path design looks nice and works. Longer paths between rooms are an option for future levels, not an implementation request. After reviewing the original art, the owner requested the tile and backpack changes in the Unreleased entry above.
+Owner playtest (October 19, 2026): the gate and path design looks nice and works. Longer paths between rooms are an option for future levels, not an implementation request. After reviewing the original art, the owner requested the tile and backpack changes published in `20261019-161758`.
 
 ### The Rune Gates (level 7, experimental)
 
@@ -85,7 +102,7 @@ Owner playtest (October 19, 2026): the gate and path design looks nice and works
 ### Known limitations
 
 - On phones the 7×7 map pans, like The Hidden Hollow.
-- This build's in-game Release notes page has no entry for The Rune Gates; one is added in the Unreleased entry above.
+- This build's in-game Release notes page has no entry for The Rune Gates; one was added in `20261019-161758`.
 - The gates, plates and backpack are new artwork drawn in code. The owner's feedback on them is recorded above.
 
 ## 20261019-055257 — On-board gates for The Hidden Hollow (October 18, 2026)

@@ -217,7 +217,7 @@ export function Game({ definition, label, musicControl, onHome, winLabel, onWin,
             </div>
           ) : (
             <div className="art">
-              {rooms ? <BackpackArt /> : single ? <ItemArt item={single} /> : <span className="art-glyph" aria-hidden="true">1</span>}
+              {rooms ? <BackpackArt open={state.session.collected} /> : single ? <ItemArt item={single} /> : <span className="art-glyph" aria-hidden="true">1</span>}
             </div>
           )}
           <p>
