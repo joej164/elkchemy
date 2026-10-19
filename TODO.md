@@ -23,6 +23,7 @@ These resolve older conflicting entries below.
 
 ## Current baseline
 
+- Release build `20261019-175745`: The Hidden Cache's resource area is now a concealed part of one irregular clearing: plain forest with a faint clue at E2 until the D1 plate reveals E2 and the pocket. Codex reviewed; owner authorized commit → push → deploy. See Connected regions below and [docs/release-notes.md](docs/release-notes.md).
 - Level 8 release build `20261019-171209`: The Hidden Cache, a clearing whose hidden alcove shares its items, and a clarinet case to open. Codex reviewed; owner authorized commit → push → deploy. Physical-iPad playtesting follows publication. See Connected regions below and [docs/release-notes.md](docs/release-notes.md).
 - Previous deployment `20261019-163932` (commit `d271347`): cell art placed by insets, so ordinary items and the backpack fit their cells. The owner reports the build and confirms the fix on the physical iPad; Claude checked only that the live `/version.json` reports it.
 - Previous deployment `20261019-162807` (commit `47bf582`): a bare padlock on completed Rune Gates tiles, and a closed backpack that opens on collection.
@@ -188,17 +189,27 @@ From [docs/game-vision.md](docs/game-vision.md); investigate and prototype befor
   - 470 tests, typecheck and build pass; Chromium-checked at 390×844, 844×390, 820×1180, 1180×820 and 1024×768. Details: [docs/release-notes.md](docs/release-notes.md).
 - [x] Codex review of level 8; independent checks recorded in release notes.
 - Owner authorized level 8 release in this order: commit → push → deploy (`20261019-171209`).
-- [ ] Owner and Alisha playtest of The Hidden Cache: whether the unmergeable crystal pair signals the missing alcove resources, whether the hidden alcove reads as part of the clearing, and the clarinet case art.
-- [ ] Physical iPad/Safari for The Hidden Cache: touch across the clearing and alcove, the hidden silhouette, case activation, VoiceOver labels.
+- [x] Owner review of `20261019-171209`: the alcove was too obvious (silhouette, name, gate and path). Approved direction: a concealed extension of one irregular room with a subtle clue.
+- [x] Concealed revision (release build `20261019-175745`):
+  - the pocket and its E2 link are plain forest with one lighter foliage cluster at E2;
+  - D1 reveals both as one irregular clearing, with E2 as ordinary floor and one outline;
+  - no advance text names the pocket.
+  - A region `link` cell replaces the pocket's passage.
+  - 471 tests, typecheck and build pass; Chromium-checked at 390×844, 844×390, 820×1180 and 1180×820. Details: [docs/release-notes.md](docs/release-notes.md).
+- [x] Codex review of the concealed revision; independent checks recorded in release notes.
+- Owner authorized commit → push → deploy the revision (`20261019-175745`).
+- [ ] Owner judgment on the E2 clue: subtle enough, or too subtle, on the iPad.
+- [ ] Owner and Alisha playtest of The Hidden Cache: whether the unmergeable crystal pair and the clue lead to the discovery, whether the revealed shape reads as one clearing, and the clarinet case art.
+- [ ] Physical iPad/Safari for The Hidden Cache: touch across the clearing, E2 and pocket, panning from concealed forest, case activation, VoiceOver labels.
 - [ ] Alisha playtest of The Rune Gates: whether plates, the stone and checkpoints are clear without instructions.
 - [ ] Physical iPad/Safari for The Rune Gates: touch on plates and the backpack, panning from terrain, VoiceOver labels; Chromium was checked at 820×1180 and 390×844 only.
 - Option for future levels, not an implementation request (owner, October 19, 2026): longer paths between rooms.
 - [ ] If rooms with real choices are wanted, design a room-aware loss rule first; room levels currently never report a loss.
-- [ ] Decide from playtesting whether to build more region levels, generated multi-room puzzles, or neither. Not built: non-rectangular areas, out-of-order unlocks, supply in region levels, transfers between separate rooms (The Hidden Cache's alcove is part of its clearing's room, not a transfer), elk movement, unlock sounds.
+- [ ] Decide from playtesting whether to build more region levels, generated multi-room puzzles, or neither. Not built: non-rectangular areas, out-of-order unlocks, supply in region levels, transfers between separate rooms (The Hidden Cache's pocket is part of its clearing's room, not a transfer), elk movement, unlock sounds.
 
 - [ ] Larger maps of smaller connected rooms, paths, and clearings (not necessarily rectangles), opened by merged runes, keys, tunnels, machines, or bridges. Bombs opening barriers were an example, not a committed recipe.
 - [ ] Settled resource boundary: items may only be consumed or used toward objectives within their room of origin; movement between rooms (if any) and merging must not bypass that. Whether keys are consumed is a per-mechanic detail.
-- [ ] Resupply as a world object (for example a chest in an unlocked cave) rather than an always-available button. The Hidden Cache tries a simpler form: authored resources behind an alcove door, revealed on opening, with no chest or random contents. The whole puzzle needs at least one winning sequence; wrong choices may still fail. Do not require every gate to be independently solvable in every state.
+- [ ] Resupply as a world object (for example a chest in an unlocked cave) rather than an always-available button. The Hidden Cache tries a simpler form: authored resources in a concealed part of the clearing, revealed by a plate, with no chest or random contents. The whole puzzle needs at least one winning sequence; wrong choices may still fail. Do not require every gate to be independently solvable in every state.
 - [ ] Optional: the elk walks through cleared routes automatically and waits at the next obstacle; cutscenes between sections.
 
 ## Diagnostics and feedback — proposed, not yet implemented

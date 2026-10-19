@@ -243,42 +243,64 @@ describe('HelpButton', () => {
     expect(board(run(won, { type: 'retry' }))).not.toContain('data-backpack');
   });
 
-  it('the Hidden Cache shows its alcove only by outline and name until its gate opens, and names the clarinet case', () => {
+  it('the Hidden Cache starts as one clearing in plain forest, with only a faint clue at E2 and nothing named', () => {
     const level = LEVELS[7];
     const game = renderToStaticMarkup(<Game definition={level.definition} label={`Level 8 of 8 · ${level.name}`}
       musicControl={null} onHome={() => {}} winLabel="Play again from level 1" onWin={() => {}} />);
     expect(game).toContain('Level 8 of 8 · The Hidden Cache');
     expect(game).toContain('Goal: find the clarinet case in Lantern Nook');
-    expect(game).toContain('<strong>Rune gate: Hidden Alcove</strong><br/>Needs Grove, tier 2 of 4 on the pressure plate in Fern Clearing');
+    expect(game).toContain('<strong>Marked tile in Fern Clearing</strong><br/>Needs Grove, tier 2 of 4');
+    expect(game).toContain('Put Grove, tier 2 of 4 on the marked tile.');
     expect(game).toContain('data-clarinet="closed"');                    // the goal panel: closed until opened
     expect(game).not.toMatch(/data-backpack|data-clarinet="open"|data-action="unlock"|class="gate/);
-    expect(game).toContain('<div class="passage is-across" data-passage="1" role="img" aria-label="Rune gate to Hidden Alcove, closed">');
+    // Help names the one visible rune gate and says nothing of what is concealed.
+    expect(game).toContain('Goal: open the rune gate and open the clarinet case in Lantern Nook.');
+    expect(game).toContain('A marked tile that has done its job is a checkpoint');
+    expect(game).not.toMatch(/a stone must hold|More of Fern Clearing|An opened gate is a checkpoint/);
+    const text = game.split('The Hidden Cache').join('');                // the approved title may stay
+    expect(text).not.toMatch(/alcove|pocket|cache|resource|secret/i);
+    expect(text).not.toMatch(/Hidden/);                                  // case-sensitive: aria-hidden is fine
+    // Only the nook's rune gate and passage; the pocket and E2 are terrain like the rest, E2 with a faint clue.
+    expect((game.match(/data-passage=/g) ?? []).length).toBe(1);
     expect(game).toContain('<div class="passage" data-passage="2" role="img" aria-label="Rune gate to Lantern Nook, closed">');
-    expect(game).toContain('Hidden Alcove is part of Fern Clearing&#x27;s room: once its gate opens, items move, swap and merge');
-    expect(game).not.toContain('a stone must hold');
-    // Hidden: six placeholders, no alcove cell, label or item; the clearing's crystals and the nook's cells still show.
-    expect((game.match(/class="hidden-cell"/g) ?? []).length).toBe(6);
-    expect(game).toMatch(/class="region is-locked is-room is-hidden" data-region="1"[^>]*><span class="hidden-name">.*?Hidden Alcove<\/span>/);
-    expect(game).not.toMatch(/data-row="[0-2]" data-col="[56]"/);
-    expect(game).not.toMatch(/column \d, Hidden Alcove/);
+    const tiles = [...game.matchAll(/<(?:button|div)[^>]*? class="(cell[^"]*|terrain[^"]*|passage[^"]*)"/g)].map((m) => m[1]);
+    expect(tiles).toHaveLength(49);
+    expect(tiles.filter((t) => t === 'terrain')).toHaveLength(27);
+    expect(tiles.map((t, i) => (t === 'terrain is-clue' ? i : -1)).filter((i) => i >= 0)).toEqual([1 * 7 + 4]);
+    expect(game).not.toMatch(/data-row="[0-2]" data-col="[456]"/);
     expect((game.match(/: Crystal, tier 1 of 4"/g) ?? []).length).toBe(2);
     expect(game).not.toContain('Crystal, tier 2 of 4');
+    // The clearing is outlined edge by edge as a plain rectangle; no outline at all marks the pocket.
+    expect(game).not.toMatch(/data-region="[01]"|notch-/);
+    expect(game).toContain('<div class="room-edge edge-r" aria-hidden="true" style="grid-row:2 / span 1;grid-column:4 / span 1"></div>');
+    expect(game).toContain('class="region is-locked is-room" data-region="2"');
     expect(game).toContain('aria-label="Row 7, column 2, Lantern Nook, locked: empty"');
   });
 
-  it('the Hidden Cache reveals its alcove on opening; the clarinet case is hidden, closed, then open; Undo and Retry', () => {
+  it('the Hidden Cache reveals E2 and the pocket as one irregular room; the clarinet case; Undo and Retry', () => {
     const run = (s: UiState, ...actions: UiAction[]) => actions.reduce(reduceUi, s);
     const drop = ([fr, fc]: number[], [tr, tc]: number[]): UiAction => ({ type: 'drop', from: { row: fr, col: fc }, to: { row: tr, col: tc } });
     const board = (s: UiState) => renderToStaticMarkup(<Board state={s} dispatch={() => {}} />);
     const start = initUi(LEVELS[7].definition);
-    const alcove = run(start, drop([1, 2], [0, 1]), drop([0, 1], [0, 3]));
-    const open = board(alcove);
-    expect(open).not.toMatch(/hidden-cell|is-hidden/);
-    expect(open).toContain('aria-label="Row 1, column 6, Hidden Alcove: Crystal, tier 1 of 4"');
-    expect((open.match(/Hidden Alcove: Crystal, tier 2 of 4"/g) ?? []).length).toBe(2);
+    const found = run(start, drop([1, 2], [0, 1]), drop([0, 1], [0, 3]));
+    const open = board(found);
+    expect(open).not.toContain('is-clue');
+    expect((open.match(/class="terrain"/g) ?? []).length).toBe(21);
+    // E2 and the pocket are cells of Fern Clearing, each glowing once as it is revealed.
+    expect(open).toContain('aria-label="Row 2, column 5, Fern Clearing: empty"');
+    expect(open).toContain('aria-label="Row 1, column 6, Fern Clearing: Crystal, tier 1 of 4"');
+    expect((open.match(/Fern Clearing: Crystal, tier 2 of 4"/g) ?? []).length).toBe(2);
+    expect(open).not.toMatch(/pocket/i);
+    expect((open.match(/data-fx="unlock"/g) ?? []).length).toBe(7);
     expect(open).toContain('aria-label="Row 1, column 4, Fern Clearing, pressure plate for Grove, tier 2 of 4, fixed: Grove, tier 2 of 4"');
+    // One outline around the whole shape: none between the clearing, E2 and the pocket; notches fill its four bends.
+    expect(open).not.toMatch(/data-region="[01]"/);
+    expect(open).toContain('<div class="room-edge edge-t edge-b" aria-hidden="true" style="grid-row:2 / span 1;grid-column:5 / span 1"></div>');
+    expect(open).toContain('<div class="room-edge" aria-hidden="true" style="grid-row:2 / span 1;grid-column:4 / span 1"><i class="notch-tr"></i><i class="notch-br"></i></div>');
+    expect(open).toContain('<div class="room-edge edge-r" aria-hidden="true" style="grid-row:2 / span 1;grid-column:7 / span 1"></div>');
+    expect((open.match(/class="notch-/g) ?? []).length).toBe(4);
     expect(open).not.toContain('data-clarinet');
-    const revealed = run(alcove, drop([0, 5], [2, 0]), drop([2, 0], [2, 5]), drop([2, 5], [3, 2]));
+    const revealed = run(found, drop([0, 5], [2, 0]), drop([2, 0], [2, 5]), drop([2, 5], [3, 2]));
     const closed = board(revealed);
     expect(closed).toContain('data-clarinet="closed"');
     expect(closed).toContain('aria-label="Row 7, column 2, Lantern Nook: clarinet case, closed, tap to open"');
@@ -291,9 +313,8 @@ describe('HelpButton', () => {
     expect(undone.session.unlocked).toBe(2);
     expect(board(undone)).toContain('data-clarinet="closed"');
     const retried = board(run(won, { type: 'retry' }));
-    expect(retried).not.toContain('data-clarinet');
-    expect((retried.match(/class="hidden-cell"/g) ?? []).length).toBe(6);
-    expect(retried).not.toContain('fixed-lock');
+    expect(retried).not.toMatch(/data-clarinet|fixed-lock|notch-|data-row="1" data-col="4"/);
+    expect((retried.match(/class="terrain is-clue"/g) ?? []).length).toBe(1);
   });
 
   it('a ready gate glows, says so, and is the only gate offered', () => {

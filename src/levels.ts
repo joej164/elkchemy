@@ -212,21 +212,23 @@ export const RUNE_LEVEL: LevelDefinition = {
   goal: { kind: 'treasure', at: { row: 6, col: 4 } },
 };
 
-// Level 8: a clearing whose hidden alcove holds the crystals it lacks, and a separate final room. Both gates are pressure
-// plates in the clearing (exact items; others may stay), each opening a checkpoint as in level 7. The alcove is part of
-// the clearing's room (`joins`): once open, items move, swap and merge between them. Until then its tiles and items
-// are hidden. The final room is a room of its own.
-//   g0 g0 .  [P] ~  c0 .      [P] pressure plate: exactly Grove tier 1 (shown as 2 of 4); opens the Hidden Alcove
-//   .  .  g0 .   =  .  .      =   rune gate to the Hidden Alcove (columns 5-6, rows 0-2)
+// Level 8: one irregular clearing, part of it concealed, and a separate final room. Both are opened by pressure plates
+// in the clearing (exact items; others may stay), each a checkpoint as in level 7. Until the first plate holds its
+// item, the clearing's pocket (columns 5-6, rows 0-2) and the floor tile linking it (1,4) are drawn as plain forest,
+// with a faint clue in the link's foliage. They belong to the pocket region, which joins the clearing's room: once
+// revealed, items move, swap and merge anywhere in the clearing, including through the link. The final room keeps
+// its own rune gate.
+//   g0 g0 .  [P] ~  c0 .      [P] pressure plate: exactly Grove tier 1 (shown as 2 of 4); reveals the pocket and link
+//   .  .  g0 .   *  .  .      *   the link: forest with a faint clue, then floor
 //   c0 c0 .  .   ~  c1 c1
 //   .  .  [S] .  ~  ~  ~      [S] pressure plate: exactly Crystal tier 2 (shown as 3 of 4); opens the Lantern Nook
 //   ~  ~  ‖  ~   ~  ~  ~      ‖   rune gate to the Lantern Nook
 //   ~  .  .  ~   ~  ~  ~
 //   ~  $  .  ~   ~  ~  ~      $   the clarinet case, hidden until the Lantern Nook opens
-// The clearing's two crystal-0 can't merge on their own: the alcove's crystal-0 and two crystal-1 are needed. Exact
+// The clearing's two crystal-0 can't merge on their own: the pocket's crystal-0 and two crystal-1 are needed. Exact
 // inventories, so it cannot be stranded and never reports a loss: three grove-0 make the one grove-1; three crystal-0
-// make a crystal-1, and with the alcove's two, the one crystal-2.
-// Winning line: (1,2)→(0,1) merge, (0,1)→(0,3) opens the alcove; (0,5)→(2,0) merge, (2,0)→(2,5) merge,
+// make a crystal-1, and with the pocket's two, the one crystal-2.
+// Winning line: (1,2)→(0,1) merge, (0,1)→(0,3) reveals the pocket; (0,5)→(2,0) merge, (2,0)→(2,5) merge,
 // (2,5)→(3,2) opens the Lantern Nook; tap (6,1).
 const CACHE_ITEMS: [number, number, Item][] = [
   [0, 0, g0], [0, 1, g0], [1, 2, g0], [2, 0, c0], [2, 1, c0],
@@ -242,8 +244,8 @@ export const CACHE_LEVEL: LevelDefinition = {
   regions: [
     { name: 'Fern Clearing', row: 0, col: 0, rows: 4, cols: 4 },
     {
-      name: 'Hidden Alcove', row: 0, col: 5, rows: 3, cols: 2, joins: 0, hidden: true,
-      unlock: { kind: 'pressure', in: 0, plates: [{ row: 0, col: 3, item: g1 }], passage: { row: 1, col: 4 } },
+      name: 'Fern Clearing pocket', row: 0, col: 5, rows: 3, cols: 2, joins: 0, hidden: true, link: { row: 1, col: 4 },
+      unlock: { kind: 'pressure', in: 0, plates: [{ row: 0, col: 3, item: g1 }] },
     },
     {
       name: 'Lantern Nook', row: 5, col: 1, rows: 2, cols: 2,

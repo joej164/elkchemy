@@ -13,14 +13,15 @@ import { helpObjective, objectiveText, roomsHelp, statusMessage, unlockNeed } fr
 const p = (row: number, col: number): Pos => ({ row, col });
 const it_ = (family: Family, tier: Tier): Item => ({ family, tier });
 const regions = CACHE_LEVEL.regions!;
-const [CLEARING, ALCOVE, NOOK] = [0, 1, 2];
+const [CLEARING, POCKET, NOOK] = [0, 1, 2];
 const GROVE_PLATE = p(0, 3);     // D1
 const CRYSTAL_PLATE = p(3, 2);   // C4
 const CASE = p(6, 1);            // B7
+const LINK = p(1, 4);            // E2: forest with a faint clue, then the floor joining the clearing and its pocket
 
 type Move = [Pos, Pos];
-// The approved winning sequence: C2 → B1, B1 → D1 (opens the alcove), F1 → A3, A3 → F3, F3 → C4 (opens the nook).
-const OPEN_ALCOVE: Move[] = [[p(1, 2), p(0, 1)], [p(0, 1), GROVE_PLATE]];
+// The approved winning sequence: C2 → B1, B1 → D1 (reveals the pocket), F1 → A3, A3 → F3, F3 → C4 (opens the nook).
+const REVEAL: Move[] = [[p(1, 2), p(0, 1)], [p(0, 1), GROVE_PLATE]];
 const OPEN_NOOK: Move[] = [[p(0, 5), p(2, 0)], [p(2, 0), p(2, 5)], [p(2, 5), CRYSTAL_PLATE]];
 
 function play(s: SessionState, moves: readonly Move[]): SessionState {
@@ -46,15 +47,16 @@ const itemsIn = (s: SessionState, r: Region): Item[] => {
 };
 
 describe('The Hidden Cache: layout', () => {
-  it('is level 8: a clearing, its hidden alcove and a separate final room in terrain', () => {
+  it('is level 8: one clearing with a concealed pocket joined by a link tile, and a separate final room in terrain', () => {
     expect(LEVELS[7]).toEqual({ name: 'The Hidden Cache', definition: CACHE_LEVEL });
     expect(() => validateRegions(CACHE_LEVEL)).not.toThrow();
     expect(regions.map((r) => [r.name, r.row, r.col, r.rows, r.cols])).toEqual([
-      ['Fern Clearing', 0, 0, 4, 4], ['Hidden Alcove', 0, 5, 3, 2], ['Lantern Nook', 5, 1, 2, 2],
+      ['Fern Clearing', 0, 0, 4, 4], ['Fern Clearing pocket', 0, 5, 3, 2], ['Lantern Nook', 5, 1, 2, 2],
     ]);
-    // The alcove is part of the clearing's room and hidden; the nook is a room of its own, only darkened.
-    expect([regions[ALCOVE].joins, regions[ALCOVE].hidden]).toEqual([CLEARING, true]);
-    expect([regions[NOOK].joins, regions[NOOK].hidden]).toEqual([undefined, undefined]);
+    // The pocket and its link are part of the clearing's room and hidden; the nook is a room of its own, only darkened.
+    expect([regions[POCKET].joins, regions[POCKET].hidden, regions[POCKET].link]).toEqual([CLEARING, true, LINK]);
+    expect(regionAt(regions, LINK)).toBe(POCKET);
+    expect([regions[NOOK].joins, regions[NOOK].hidden, regions[NOOK].link]).toEqual([undefined, undefined, undefined]);
     expect([0, 1, 2].map((i) => roomOf(regions, i))).toEqual([CLEARING, CLEARING, NOOK]);
     expect(CACHE_LEVEL.goal).toEqual({ kind: 'treasure', at: CASE, prize: 'clarinet' });
     const s = startSession(CACHE_LEVEL);
@@ -64,18 +66,18 @@ describe('The Hidden Cache: layout', () => {
       terrain++;
       expect(c).toBeNull();
     }));
-    expect(terrain).toBe(49 - 16 - 6 - 4);
-    expect(regions[ALCOVE].unlock).toEqual({ kind: 'pressure', in: CLEARING, plates: [{ ...GROVE_PLATE, item: it_('grove', 1) }], passage: p(1, 4) });
+    expect(terrain).toBe(49 - 16 - 7 - 4);
+    expect(regions[POCKET].unlock).toEqual({ kind: 'pressure', in: CLEARING, plates: [{ ...GROVE_PLATE, item: it_('grove', 1) }] });
     expect(regions[NOOK].unlock).toEqual({ kind: 'pressure', in: CLEARING, plates: [{ ...CRYSTAL_PLATE, item: it_('crystal', 2) }], passage: p(4, 2) });
-    expect(unlockNeed(regions, ALCOVE)).toBe('Grove, tier 2 of 4 on the pressure plate in Fern Clearing');
+    expect(unlockNeed(regions, POCKET)).toBe('Grove, tier 2 of 4 on the pressure plate in Fern Clearing');
     expect(unlockNeed(regions, NOOK)).toBe('Crystal, tier 3 of 4 on the pressure plate in Fern Clearing');
   });
 
-  it('starts the clearing with an unmergeable crystal pair; the alcove holds the rest', () => {
+  it('starts the clearing with an unmergeable crystal pair; the pocket holds the rest', () => {
     const s = startSession(CACHE_LEVEL);
     const sort = (list: Item[]) => list.map((i) => `${i.family}${i.tier}`).sort();
     expect(sort(itemsIn(s, regions[CLEARING]))).toEqual(['crystal0', 'crystal0', 'grove0', 'grove0', 'grove0']);
-    expect(sort(itemsIn(s, regions[ALCOVE]))).toEqual(['crystal0', 'crystal1', 'crystal1']);
+    expect(sort(itemsIn(s, regions[POCKET]))).toEqual(['crystal0', 'crystal1', 'crystal1']);
     expect(itemsIn(s, regions[NOOK])).toEqual([]);
     expect(previewDrop(s, p(2, 0), p(2, 1))).toEqual([]);   // two crystal-0 alone never merge
   });
@@ -85,7 +87,7 @@ describe('The Hidden Cache: layout', () => {
       ({ ...CACHE_LEVEL, regions: regions.map((r, j) => (j === i ? { ...r, ...change } : r)) });
     expect(() => validateRegions(at(CLEARING, { hidden: true }))).toThrow(/region 0 cannot be joined or hidden/);
     expect(() => validateRegions(at(NOOK, { joins: NOOK }))).toThrow(/must join an earlier region that joins nothing/);
-    expect(() => validateRegions(at(NOOK, { joins: ALCOVE }))).toThrow(/must join an earlier region that joins nothing/);
+    expect(() => validateRegions(at(NOOK, { joins: POCKET }))).toThrow(/must join an earlier region that joins nothing/);
     expect(() => validateRegions(at(NOOK, { joins: 0.5 }))).toThrow(/must join an earlier region/);
     // Item-goal region levels keep one region per room.
     const hollow = LEVELS[5].definition;
@@ -96,25 +98,39 @@ describe('The Hidden Cache: layout', () => {
     expect(() => validateRegions({ ...RUNE_LEVEL, regions: [rune[0], rune[1], { ...rune[2], joins: 1 }] }))
       .toThrow(/stone must be in a room without joined regions/);
     expect(() => validateRegions(at(NOOK, { joins: CLEARING }))).not.toThrow();
+    // A link replaces the passage of a hidden joined region, and must be a free cell beside both.
+    const pocket = regions[POCKET];
+    const noLink = { ...pocket, link: undefined };
+    expect(() => validateRegions(at(POCKET, { link: undefined }))).toThrow(/region 1 needs a passage or a link, not both/);
+    expect(() => validateRegions(at(POCKET, { unlock: { ...pocket.unlock!, passage: LINK } as Region['unlock'] })))
+      .toThrow(/region 1 needs a passage or a link, not both/);
+    expect(() => validateRegions(at(POCKET, { link: p(3, 4) }))).toThrow(/link must be a free cell beside it and the region it joins/);
+    expect(() => validateRegions(at(POCKET, { link: p(1, 3) }))).toThrow(/link must be a free cell beside it and the region it joins/);
+    expect(() => validateRegions(at(POCKET, { hidden: false }))).toThrow(/link must be .* on a hidden joined region/);
+    expect(() => validateRegions(at(POCKET, { joins: undefined }))).toThrow(/link must be .* on a hidden joined region/);
+    expect(() => validateRegions(at(POCKET, { ...noLink, unlock: { ...pocket.unlock!, passage: LINK } as Region['unlock'] }))).not.toThrow();
+    expect(() => validateRegions({ ...hollow, regions: hollow.regions!.map((r, j) => (j === 1 ? { ...r, link: p(2, 3) } : r)) }))
+      .toThrow(/region 1 cannot be joined or hidden/);
   });
 });
 
 describe('The Hidden Cache: rules', () => {
   it('wins along the approved sequence with the stated items, each gate opening on a plain move', () => {
     let s = startSession(CACHE_LEVEL);
-    s = play(s, OPEN_ALCOVE.slice(0, 1));
+    s = play(s, REVEAL.slice(0, 1));
     expect(s.board[0][1]).toEqual(it_('grove', 1));                   // three Grove tier 1 → Grove tier 2 on B1
     expect(s.unlocked).toBe(CLEARING);
-    s = play(s, OPEN_ALCOVE.slice(1));                                // a plain move onto D1
-    expect(s.unlocked).toBe(ALCOVE);
+    s = play(s, REVEAL.slice(1));                                     // a plain move onto D1 reveals the pocket and link
+    expect(s.unlocked).toBe(POCKET);
+    expect([isCellOpen(s, LINK), isCellOpen(s, p(0, 5))]).toEqual([true, true]);
     s = play(s, OPEN_NOOK.slice(0, 1));
     expect(s.board[2][0]).toEqual(it_('crystal', 1));                 // F1 joins the clearing's pair: Crystal tier 2 on A3
     expect([s.board[0][5], s.board[2][1]]).toEqual([null, null]);
     s = play(s, OPEN_NOOK.slice(1, 2));
-    expect(s.board[2][5]).toEqual(it_('crystal', 2));                 // with the alcove's two: Crystal tier 3 on F3
+    expect(s.board[2][5]).toEqual(it_('crystal', 2));                 // with the pocket's two: Crystal tier 3 on F3
     expect([s.board[2][0], s.board[2][6]]).toEqual([null, null]);
-    expect(s.unlocked).toBe(ALCOVE);
-    s = play(s, OPEN_NOOK.slice(2));                                  // a plain move from the alcove onto C4
+    expect(s.unlocked).toBe(POCKET);
+    s = play(s, OPEN_NOOK.slice(2));                                  // a plain move from the pocket onto C4
     expect(s.unlocked).toBe(NOOK);
     expect(evaluateStatus(s)).toBe('playing');
     const won = collect(s);
@@ -123,15 +139,19 @@ describe('The Hidden Cache: rules', () => {
     expect(won.moves).toBe(6);
   });
 
-  it('hides nothing usable: the alcove takes no drops, gives none and joins no merge group until it opens', () => {
+  it('hides nothing usable: the pocket and link take no drops, give none and join no merge group until revealed', () => {
     const s = startSession(CACHE_LEVEL);
-    for (const [row, col] of [[0, 5], [0, 6], [1, 5], [2, 5], [2, 6]]) expect(isCellOpen(s, p(row, col))).toBe(false);
-    expect(canDrop(s, p(0, 5), p(0, 6))).toBe(false);                 // within the alcove
+    for (const [row, col] of [[0, 5], [0, 6], [1, 5], [1, 6], [2, 5], [2, 6], [1, 4]]) expect(isCellOpen(s, p(row, col))).toBe(false);
+    expect(canDrop(s, p(0, 5), p(0, 6))).toBe(false);                 // within the pocket
     expect(canDrop(s, p(0, 5), p(2, 0))).toBe(false);                 // out of it
     expect(canDrop(s, p(2, 0), p(1, 5))).toBe(false);                 // into it
     expect(canDrop(s, p(2, 0), p(2, 5))).toBe(false);                 // swap with a hidden item
+    expect(canDrop(s, p(2, 0), LINK)).toBe(false);                    // onto the link
     expect(applyDrop(s, p(0, 5), p(2, 0))).toBe(s);
     expect(collect(s)).toBe(s);
+    // Even matching items on the hidden link and in the pocket would not join a clearing merge group.
+    const lined = withBoard(s, [[1, 2, it_('crystal', 0)], [1, 3, it_('crystal', 0)], [1, 4, it_('crystal', 0)], [1, 5, it_('crystal', 0)]]);
+    expect(previewDrop(lined, p(2, 0), p(1, 2))).toEqual([p(2, 0), p(1, 2), p(1, 3)]);
   });
 
   it('opens each gate only for its exact item on its own plate', () => {
@@ -145,17 +165,17 @@ describe('The Hidden Cache: rules', () => {
     expect(applyDrop(withBoard(open, [[3, 0, it_('crystal', 2)]]), p(3, 0), CRYSTAL_PLATE).unlocked).toBe(CLEARING);
     // A swap onto the plate counts like a move.
     const blocked = withBoard(open, [[0, 3, it_('crystal', 0)], [3, 0, it_('grove', 1)]]);
-    expect(applyDrop(blocked, p(3, 0), GROVE_PLATE).unlocked).toBe(ALCOVE);
-    const alcove = play(open, OPEN_ALCOVE);
+    expect(applyDrop(blocked, p(3, 0), GROVE_PLATE).unlocked).toBe(POCKET);
+    const alcove = play(open, REVEAL);
     for (const wrong of [it_('crystal', 1), it_('crystal', 3)]) {
-      expect(applyDrop(withBoard(alcove, [[3, 0, wrong]]), p(3, 0), CRYSTAL_PLATE).unlocked).toBe(ALCOVE);
+      expect(applyDrop(withBoard(alcove, [[3, 0, wrong]]), p(3, 0), CRYSTAL_PLATE).unlocked).toBe(POCKET);
     }
   });
 
   it('each opening is a checkpoint: its item is fixed, Undo is cleared, and later moves get a fresh Undo', () => {
-    const before = play(startSession(CACHE_LEVEL), OPEN_ALCOVE.slice(0, 1));
+    const before = play(startSession(CACHE_LEVEL), REVEAL.slice(0, 1));
     expect(before.undo).not.toBeNull();
-    const alcove = play(before, OPEN_ALCOVE.slice(1));
+    const alcove = play(before, REVEAL.slice(1));
     expect(alcove.undo).toBeNull();
     expect(undo(alcove)).toBe(alcove);
     expect(isFixed(alcove, GROVE_PLATE)).toBe(true);
@@ -174,8 +194,8 @@ describe('The Hidden Cache: rules', () => {
     expect(undo(later).unlocked).toBe(NOOK);
   });
 
-  it('once open, the alcove and clearing are one room: moves and swaps go both ways', () => {
-    const s = play(startSession(CACHE_LEVEL), OPEN_ALCOVE);
+  it('once revealed, the clearing, link and pocket are one room: moves and swaps go both ways', () => {
+    const s = play(startSession(CACHE_LEVEL), REVEAL);
     const out = applyDrop(s, p(0, 5), p(3, 3));                       // alcove → clearing
     expect([out.board[3][3], out.board[0][5]]).toEqual([it_('crystal', 0), null]);
     const back = applyDrop(out, p(3, 3), p(1, 6));                    // clearing → alcove
@@ -184,19 +204,38 @@ describe('The Hidden Cache: rules', () => {
     expect([swapIn.board[2][6], swapIn.board[2][0]]).toEqual([it_('crystal', 0), it_('crystal', 1)]);
     const swapOut = applyDrop(s, p(2, 5), p(2, 1));                   // alcove crystal-1 ⇄ clearing crystal-0
     expect([swapOut.board[2][1], swapOut.board[2][5]]).toEqual([it_('crystal', 1), it_('crystal', 0)]);
-    // Merges in both directions are steps 3 (alcove → clearing) and 4 (clearing → alcove) of the winning sequence.
+    // Merges in both directions are steps 3 (pocket → clearing) and 4 (clearing → pocket) of the winning sequence.
+  });
+
+  it('the link is ordinary floor once revealed: moves, swaps and merge groups pass through it', () => {
+    const s = play(startSession(CACHE_LEVEL), REVEAL);
+    const onto = applyDrop(s, p(0, 5), LINK);                         // pocket → link
+    expect([onto.board[1][4], onto.board[0][5]]).toEqual([it_('crystal', 0), null]);
+    const off = applyDrop(onto, LINK, p(3, 3));                       // link → clearing
+    expect([off.board[3][3], off.board[1][4]]).toEqual([it_('crystal', 0), null]);
+    const swap = applyDrop(onto, p(2, 5), LINK);                      // pocket crystal-1 ⇄ link crystal-0
+    expect([swap.board[1][4], swap.board[2][5]]).toEqual([it_('crystal', 1), it_('crystal', 0)]);
+    // A five-merge whose group runs from the clearing through the link into the pocket.
+    const lined = withBoard(s, [[1, 2, it_('crystal', 0)], [1, 3, it_('crystal', 0)], [1, 4, it_('crystal', 0)], [1, 5, it_('crystal', 0)]]);
+    const group = [p(2, 0), p(1, 2), p(1, 3), p(1, 4), p(1, 5)];
+    expect(previewDrop(lined, p(2, 0), p(1, 2))).toEqual(group);
+    const merged = applyDrop(lined, p(2, 0), p(1, 2));
+    expect([merged.board[1][2], merged.board[2][0]]).toEqual([it_('crystal', 1), it_('crystal', 1)]);
+    expect([merged.board[1][3], merged.board[1][4], merged.board[1][5], merged.board[0][5]]).toEqual([null, null, null, it_('crystal', 0)]);
   });
 
   it('keeps the nook a separate room: nothing moves, swaps or merges across, even with every gate open', () => {
-    const s = play(play(startSession(CACHE_LEVEL), OPEN_ALCOVE), OPEN_NOOK);
+    const s = play(play(startSession(CACHE_LEVEL), REVEAL), OPEN_NOOK);
     const t = withBoard(s, [[5, 2, it_('crystal', 0)], [3, 3, it_('crystal', 0)], [1, 6, it_('crystal', 0)], [5, 1, it_('crystal', 0)]]);
     expect(canDrop(t, p(3, 3), p(6, 2))).toBe(false);                 // clearing → nook (empty cell)
-    expect(canDrop(t, p(1, 6), p(6, 2))).toBe(false);                 // alcove → nook
+    expect(canDrop(t, p(1, 6), p(6, 2))).toBe(false);                 // pocket → nook
     expect(canDrop(t, p(5, 2), p(3, 0))).toBe(false);                 // nook → clearing
-    expect(canDrop(t, p(5, 2), p(0, 6))).toBe(false);                 // nook → alcove
+    expect(canDrop(t, p(5, 2), p(0, 6))).toBe(false);                 // nook → pocket
+    expect(canDrop(t, p(5, 2), LINK)).toBe(false);                    // nook → link
     expect(canDrop(t, p(3, 3), p(5, 2))).toBe(false);                 // a merge or swap across
     expect(canDrop(t, p(3, 3), p(4, 2))).toBe(false);                 // onto the passage
-    expect(canDrop(t, p(3, 3), p(1, 4))).toBe(false);                 // onto the alcove's passage
+    expect(canDrop(t, p(3, 3), p(4, 3))).toBe(false);                 // onto terrain
+    expect(canDrop(t, p(3, 3), LINK)).toBe(true);                     // the link is the clearing's floor
     expect(canDrop(t, p(5, 1), p(5, 2))).toBe(true);                  // inside the nook is fine
     expect(previewDrop(t, p(3, 3), p(5, 2))).toEqual([]);
   });
@@ -204,7 +243,7 @@ describe('The Hidden Cache: rules', () => {
   it('the case is hidden until the nook opens; opening it is one undoable move; Retry restores the start', () => {
     const start = startSession(CACHE_LEVEL);
     expect(collect(start)).toBe(start);
-    const alcove = play(start, OPEN_ALCOVE);
+    const alcove = play(start, REVEAL);
     expect(collect(alcove)).toBe(alcove);
     const nook = play(alcove, OPEN_NOOK);
     const won = collect(nook);
@@ -266,22 +305,24 @@ describe('The Hidden Cache: input and text', () => {
   const drop = ([from, to]: Move): UiAction => ({ type: 'drop', from, to });
   const tap = (pos: Pos): UiAction => ({ type: 'tap', pos });
 
-  it('ignores taps and drags on the hidden alcove, then plays it after the gate opens', () => {
+  it('ignores taps and drags on the hidden pocket and link, then plays them once revealed', () => {
     const start = initUi(CACHE_LEVEL);
     expect(canPickUp(start, p(0, 5))).toBe(false);
     expect(run(start, tap(p(0, 5)))).toBe(start);
+    expect(run(start, tap(LINK))).toBe(start);
     expect(run(start, drop([p(0, 5), p(2, 0)]))).toBe(start);
     expect(run(start, tap(p(2, 0)), tap(p(1, 5))).session).toBe(start.session);
-    let s = run(start, ...OPEN_ALCOVE.map(drop));
-    expect(s.lastAction).toEqual({ kind: 'move', opened: ALCOVE });
+    expect(run(start, tap(p(2, 0)), tap(LINK)).session).toBe(start.session);
+    let s = run(start, ...REVEAL.map(drop));
+    expect(s.lastAction).toEqual({ kind: 'move', opened: POCKET });
     expect(canPickUp(s, p(0, 5))).toBe(true);
     expect(canPickUp(s, GROVE_PLATE)).toBe(false);
-    s = run(s, tap(p(0, 5)), tap(p(2, 0)));                           // tap-tap across the two areas merges
+    s = run(s, tap(p(0, 5)), tap(p(2, 0)));                           // tap-tap from the pocket into the clearing merges
     expect(s.lastAction?.kind).toBe('merge');
   });
 
   it('wins by taps alone, with the case closed until tapped', () => {
-    const taps = [...OPEN_ALCOVE, ...OPEN_NOOK].flatMap(([from, to]) => [tap(from), tap(to)]);
+    const taps = [...REVEAL, ...OPEN_NOOK].flatMap(([from, to]) => [tap(from), tap(to)]);
     const s = run(initUi(CACHE_LEVEL), ...taps);
     expect(s.session.unlocked).toBe(NOOK);
     expect([treasureShown(s), s.status]).toEqual([true, 'playing']);
@@ -290,18 +331,25 @@ describe('The Hidden Cache: input and text', () => {
     expect(run(won, { type: 'undo' }).status).toBe('playing');
   });
 
-  it('names the clarinet case and explains the shared alcove', () => {
+  it('names nothing concealed before the reveal, then says more of the clearing was found; names the clarinet case', () => {
     let s = initUi(CACHE_LEVEL);
-    expect(objectiveText(CACHE_LEVEL.goal, regions)).toBe('Goal: find the clarinet case in Lantern Nook');
-    expect(helpObjective(CACHE_LEVEL.goal, regions)).toBe('Goal: open the rune gates and open the clarinet case in Lantern Nook.');
-    expect(roomsHelp(regions)).toBe('Each rune gate opens by itself on the move that puts exactly the items shown on its room\'s ' +
-      'marked tiles. Hidden Alcove is part of Fern Clearing\'s room: once its gate opens, items move, swap and merge between ' +
-      'the two. Items never leave their own room.');
-    expect(statusMessage(s, false))
-      .toBe('Put Grove, tier 2 of 4 on the pressure plate in Fern Clearing to open the rune gate to Hidden Alcove.');
-    s = run(s, ...OPEN_ALCOVE.map(drop));
+    const concealed = /alcove|pocket|cache|hidden|secret|resource/i;
+    const before = [
+      objectiveText(CACHE_LEVEL.goal, regions), helpObjective(CACHE_LEVEL.goal, regions), roomsHelp(regions, 0), statusMessage(s, true),
+    ];
+    expect(before).toEqual([
+      'Goal: find the clarinet case in Lantern Nook',
+      'Goal: open the rune gate and open the clarinet case in Lantern Nook.',
+      'Each rune gate opens by itself on the move that puts exactly the items shown on its room\'s marked tiles. Items never leave their own room.',
+      'Put Grove, tier 2 of 4 on the marked tile. Drag empty ground to pan.',
+    ]);
+    for (const text of before) expect(text).not.toMatch(concealed);
+    s = run(s, ...REVEAL.map(drop));
+    expect(roomsHelp(regions, s.session.unlocked)).toBe('Each rune gate opens by itself on the move that puts exactly the items ' +
+      'shown on its room\'s marked tiles. More of Fern Clearing has been revealed: items move, swap and merge anywhere in it. ' +
+      'Items never leave their own room.');
     expect(statusMessage(s, true)).toBe('Put Crystal, tier 3 of 4 on the pressure plate in Fern Clearing to open the rune gate to ' +
-      'Lantern Nook. Items move and merge between Fern Clearing and Hidden Alcove. Drag empty ground to pan.');
+      'Lantern Nook. More of Fern Clearing has been revealed, with more items to use. Drag empty ground to pan.');
     s = run(s, ...OPEN_NOOK.map(drop));
     expect(statusMessage(s, false)).toBe('Lantern Nook is open. Tap the clarinet case to open it.');
     expect(statusMessage(run(s, tap(CASE)), false)).toBe('Goal complete! You opened the clarinet case and found an assembled clarinet.');

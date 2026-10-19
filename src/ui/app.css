@@ -254,6 +254,30 @@ body {
     #1c3020;
   box-shadow: inset 0 0 0 2px rgb(0 0 0 / 0.25);
 }
+/* The only clue to a hidden link (The Hidden Cache): one cluster of its foliage a slightly lighter, yellower green. */
+.terrain.is-clue {
+  background:
+    radial-gradient(circle at 28% 32%, #3d6b35 0 16%, transparent 17%),
+    radial-gradient(circle at 70% 64%, #3e6a2e 0 19%, transparent 20%),
+    radial-gradient(circle at 68% 22%, #35612f 0 10%, transparent 11%),
+    #1c3020;
+}
+/* A room with a joined part is outlined edge by edge (the same line as .region), so its revealed shape reads as one
+   room. Each piece covers its cell plus half the gap around it; a notch fills the gap corner inside a bend. */
+.room-edge { position: absolute; inset: calc(var(--gap) / -2); pointer-events: none; border: 0 solid rgb(244 236 216 / 0.85); }
+.room-edge.edge-t { border-top-width: 3px; }
+.room-edge.edge-r { border-right-width: 3px; }
+.room-edge.edge-b { border-bottom-width: 3px; }
+.room-edge.edge-l { border-left-width: 3px; }
+.room-edge.edge-t.edge-l { border-top-left-radius: 13px; }
+.room-edge.edge-t.edge-r { border-top-right-radius: 13px; }
+.room-edge.edge-b.edge-r { border-bottom-right-radius: 13px; }
+.room-edge.edge-b.edge-l { border-bottom-left-radius: 13px; }
+.room-edge i { position: absolute; width: 3px; height: 3px; background: rgb(244 236 216 / 0.85); }
+.room-edge .notch-tl { top: 0; left: 0; }
+.room-edge .notch-tr { top: 0; right: 0; }
+.room-edge .notch-br { bottom: 0; right: 0; }
+.room-edge .notch-bl { bottom: 0; left: 0; }
 /* The path runs on through the gaps to both rooms. The gate is drawn for a path running top to bottom. */
 .passage::before {
   content: ""; position: absolute; left: 24%; right: 24%; top: calc(var(--gap) * -1); bottom: calc(var(--gap) * -1);
@@ -280,23 +304,6 @@ body {
 .cell.is-plate-met .plate-mark { border-color: var(--moss); box-shadow: inset 0 0 0 2px var(--gold); }
 .cell.is-fixed { cursor: default; }
 .fixed-lock { position: absolute; top: 9px; right: 9px; z-index: 1; width: 14px; height: 14px; color: var(--bark-dark); }
-/* A hidden region (The Hidden Cache's alcove): solid rock over placeholder cells until its gate opens, so neither its
-   tiles nor its items show; only its outline and a small name plate. */
-.region.is-room.is-hidden {
-  border-style: solid;
-  background:
-    radial-gradient(ellipse 42% 22% at 30% 18%, #5d6157 0 70%, transparent 72%),
-    radial-gradient(ellipse 40% 20% at 72% 50%, #53584d 0 70%, transparent 72%),
-    radial-gradient(ellipse 44% 22% at 32% 84%, #585c52 0 70%, transparent 72%),
-    #353a32;
-  box-shadow: inset 0 0 12px rgb(0 0 0 / 0.55);
-}
-.hidden-name {
-  display: inline-flex; align-items: center; gap: 4px; max-width: 100%; padding: 3px 8px; border-radius: 8px;
-  border: 2px solid var(--bark-dark); background: var(--parchment); color: var(--bark-dark);
-  font-size: 0.85rem; font-weight: 700; line-height: 1.2; text-align: center;
-}
-.hidden-name svg { width: 14px; height: 14px; flex: none; }
 .cell.has-treasure { background: radial-gradient(circle, #fff3c4, var(--earth) 70%); }
 .cell.has-treasure .cell-art { filter: drop-shadow(0 0 6px rgb(242 193 78 / 0.95)); }
 

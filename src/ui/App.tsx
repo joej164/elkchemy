@@ -18,7 +18,7 @@ import gameLandscapeArt from '../assets/art/woodland-cheering-landscape-v1.webp'
 import gamePortraitArt from '../assets/art/woodland-cheering-portrait-v1.webp';
 import { ItemArt, itemLabel, PrizeArt } from './ItemArt';
 import { UpdateControl } from './UpdateControl';
-import { isLargeBoard, itemCount, objectiveText, prizeText, statusMessage, unlockNeed } from './messages';
+import { isConcealed, isLargeBoard, itemCount, objectiveText, plateItems, prizeText, statusMessage, unlockNeed } from './messages';
 import { useMusic } from './useMusic';
 import { PUZZLE_MUSIC, WOODLAND_MUSIC } from '../music';
 import {
@@ -32,11 +32,13 @@ function plural(n: number): string {
 
 function describeAction(a: LastAction | null, noun: string, goal: LevelGoal, regions?: readonly Region[]): string {
   if (!a) return '';
-  // Room levels: a drop that opened a gate says so, and whose room an opened alcove belongs to.
+  // Room levels: a drop that opened a gate says so; one that revealed a concealed part of a room says that instead.
   const opened = a.kind !== 'unlock' && openedRegion(a);
   const area = opened ? regions?.[opened] : undefined;
-  const joined = area?.joins !== undefined ? ` Its items join ${regions![area.joins].name}'s.` : '';
-  const gate = opened ? ` The rune gate to ${area?.name ?? 'the next room'} opened.${joined}` : '';
+  const host = area?.joins !== undefined ? regions![area.joins].name : '';
+  const gate = !opened ? ''
+    : area && isConcealed(area) ? ` More of ${host} was revealed, with more items to use.`
+    : ` The rune gate to ${area?.name ?? 'the next room'} opened.${host ? ` Its items join ${host}'s.` : ''}`;
   switch (a.kind) {
     case 'move': return `Moved an item.${gate}`;
     case 'swap': return `Swapped two items.${gate}`;
@@ -164,6 +166,10 @@ export function Game({ definition, label, musicControl, onHome, winLabel, onWin,
   const puzzle = puzzleId !== undefined;
   const { goal, regions } = state.session.level;
   const nextArea = regions ? nextLocked(state.session) : null;
+  const nextUnlock = nextArea !== null ? regions![nextArea].unlock : undefined;
+  const concealedPlates = nextArea !== null && isConcealed(regions![nextArea]) && nextUnlock && 'plates' in nextUnlock
+    ? nextUnlock.plates : null;
+  const plateRoom = nextUnlock ? regions![nextUnlock.in].name : '';
   const unlockable = canUnlock(state);
   // Room levels: gates open by themselves, so there is no Unlock button; the goal is the treasure.
   const rooms = goal.kind === 'treasure';
@@ -199,7 +205,7 @@ export function Game({ definition, label, musicControl, onHome, winLabel, onWin,
           <h1>Elkchemy</h1>
           <div className="title-controls">
             {musicControl}
-            <HelpButton goal={goal} largeBoard={pannable} puzzle={puzzle} regions={regions} />
+            <HelpButton goal={goal} largeBoard={pannable} puzzle={puzzle} regions={regions} unlocked={state.session.unlocked} />
           </div>
         </div>
         <p className="level-label">{label}</p>
@@ -233,11 +239,15 @@ export function Game({ definition, label, musicControl, onHome, winLabel, onWin,
           <div className="panel next-area" data-next-area>
             <div className="art">
               {nextArea === null ? <span className="art-glyph" aria-hidden="true">✓</span>
+                : concealedPlates ? <ItemArt item={concealedPlates[0].item} />
                 : rooms ? <RuneGate />
                 : <ItemArt item={(regions[nextArea].unlock as { item: Item }).item} />}
             </div>
             <p>
-              {nextArea !== null ? (
+              {/* A concealed part of a room is not named: only its marked tile and item are. */}
+              {nextArea !== null && concealedPlates ? (
+                <><strong>Marked {concealedPlates.length > 1 ? 'tiles' : 'tile'} in {plateRoom}</strong><br />Needs {plateItems(concealedPlates)}</>
+              ) : nextArea !== null ? (
                 <><strong>{rooms ? 'Rune gate' : 'Locked'}: {regions[nextArea].name}</strong><br />Needs {unlockNeed(regions, nextArea)}</>
               ) : <strong>{rooms ? 'All gates open' : 'All areas open'}</strong>}
             </p>

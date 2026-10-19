@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type Dispatch, type KeyboardEvent, type PointerEvent } from 'react';
 import type { Item, Pos } from '../board';
-import { isFixed, regionAt, type PlateUnlock, type Region } from '../regions';
+import { isFixed, regionAt, roomOf, type PlateUnlock, type Region } from '../regions';
 import { isCellOpen } from '../session';
 import { ItemArt, itemLabel, PrizeArt } from './ItemArt';
 import { prizeText, unlockNeed } from './messages';
@@ -280,7 +280,32 @@ export function Board({ state, dispatch, onOverflowChange }: {
     return map;
   }, [regions]);
   const passageAt = (pos: Pos) =>
-    regions?.findIndex((r) => !!r.unlock && 'passage' in r.unlock && same(r.unlock.passage, pos)) ?? -1;
+    regions?.findIndex((r) => !!r.unlock && 'passage' in r.unlock && !!r.unlock.passage && same(r.unlock.passage, pos)) ?? -1;
+  // Room levels: a room with a joined part is outlined edge by edge around its open cells, so it reads as one shape;
+  // other regions keep their rectangular outline. A notch fills the gap corner inside a bend, where two edges meet.
+  const shaped = (i: number) => !!regions && regions.some((r, j) => r.joins !== undefined && roomOf(regions, j) === roomOf(regions, i));
+  const opened = state.session.unlocked;
+  const edges = useMemo(() => {
+    const out: { row: number; col: number; sides: string[]; notches: string[] }[] = [];
+    if (!regions) return out;
+    const roomAt = (row: number, col: number) => {
+      const i = regionAt(regions, { row, col });
+      return i !== -1 && i <= opened ? roomOf(regions, i) : -1;
+    };
+    for (let row = 0; row < rows; row++) {
+      for (let col = 0; col < cols; col++) {
+        const room = roomAt(row, col);
+        if (room === -1 || !shaped(room)) continue;
+        const inside = (dr: number, dc: number) => roomAt(row + dr, col + dc) === room;
+        const sides = ([['t', -1, 0], ['r', 0, 1], ['b', 1, 0], ['l', 0, -1]] as const)
+          .filter(([, dr, dc]) => !inside(dr, dc)).map(([side]) => side);
+        const notches = ([['tl', -1, -1], ['tr', -1, 1], ['br', 1, 1], ['bl', 1, -1]] as const)
+          .filter(([, dr, dc]) => inside(dr, 0) && inside(0, dc) && !inside(dr, dc)).map(([corner]) => corner);
+        if (sides.length + notches.length > 0) out.push({ row, col, sides, notches });
+      }
+    }
+    return out;
+  }, [regions, opened, rows, cols]);
   const { goal } = state.session.level;
   const roomLevel = goal.kind === 'treasure';
   const prize = prizeText(goal);
@@ -314,9 +339,14 @@ export function Board({ state, dispatch, onOverflowChange }: {
           rowCells.map((item, c) => {
             const pos = { row: r, col: c };
             const cls = ['cell'];
-            const region = regions?.[regionAt(regions, pos)];
-            // A hidden region's cells are placeholders under its outline until it opens: no item, label or focus.
-            if (region && !isCell(pos)) return <div key={`${r}-${c}`} className="hidden-cell" aria-hidden="true" />;
+            const ri = regions ? regionAt(regions, pos) : -1;
+            const region = regions?.[ri];
+            // A hidden region's cells, its link included, are plain forest until it opens: no tile, item, label or focus.
+            // The link's foliage differs faintly, the only clue.
+            if (region && !isCell(pos)) {
+              const clue = !!region.link && same(region.link, pos);
+              return <div key={`${r}-${c}`} className={`terrain${clue ? ' is-clue' : ''}`} aria-hidden="true" />;
+            }
             if (regions && !region) {
               // Room levels: terrain, or a passage with its rune gate. Never a cell, never focused.
               const gate = passageAt(pos);
@@ -356,7 +386,8 @@ export function Board({ state, dispatch, onOverflowChange }: {
               ? `${prize.name}, ${state.session.collected ? prize.opened : `closed, tap to ${prize.verb}`}`
               : item ? itemLabel(item) : 'empty';
             const mark = plate ? `, ${plate.kind === 'stone' ? 'stone' : 'pressure plate'} for ${itemLabel(plate.item)}${fixed ? ', fixed' : ''}` : '';
-            const place = region ? `, ${region.name}${locked ? ', locked' : ''}${mark}` : '';
+            // Cells are named after their room, so a joined part reads as the room it belongs to.
+            const place = region ? `, ${regions![roomOf(regions!, ri)].name}${locked ? ', locked' : ''}${mark}` : '';
             return (
               <button
                 key={`${r}-${c}`}
@@ -402,6 +433,7 @@ export function Board({ state, dispatch, onOverflowChange }: {
                     <span>{merge.consumed === 3 ? '3 → 1' : '5 → 2'}</span>
                   </span>
                 )}
+                {unlocked === ri && shaped(ri) && <span key={`unlock-${seq}`} data-fx="unlock" aria-hidden="true" />}
                 {isGoal && same(goals[0], pos) && (
                   <span key={`celebrate-${seq}`} data-fx="celebrate" aria-hidden="true">
                     {BURST.map((i) => <i key={i} className="fx-spark" />)}
@@ -414,19 +446,23 @@ export function Board({ state, dispatch, onOverflowChange }: {
         {/* Region outlines over the gaps (never taking input). A locked region is shaded, with a wooden gate carrying
             its sign: tapping or pressing the gate asks the session to unlock that region, which it does only when it
             is next and its item is made. A drag across a gate pans like locked ground and never unlocks. */}
+        {edges.map(({ row, col, sides, notches }) => (
+          <div key={`edge-${row}-${col}`} className={['room-edge', ...sides.map((side) => `edge-${side}`)].join(' ')}
+            aria-hidden="true" style={{ gridRow: `${row + 1} / span 1`, gridColumn: `${col + 1} / span 1` }}>
+            {notches.map((corner) => <i key={corner} className={`notch-${corner}`} />)}
+          </div>
+        ))}
         {regions?.map((r, i) => {
           const locked = i > state.session.unlocked;
+          // Outlined edge by edge above instead; a hidden region shows nothing at all until it opens.
+          if (shaped(i) || (locked && r.hidden)) return null;
           const ready = locked && canUnlock(state, i);
           const need = r.unlock ? unlockNeed(regions, i) : '';
-          // Room levels have no wooden gate: a locked room is only darkened, and its rune gate stands in its passage. A
-          // hidden one is drawn solid, showing only its outline and name.
+          // Room levels have no wooden gate: a locked room is only darkened, and its rune gate stands in its passage.
           const key = r.unlock && 'item' in r.unlock ? r.unlock : null;
-          const hidden = locked && !!r.hidden;
           return (
-            <div key={r.name} className={`region${locked ? ' is-locked' : ''}${roomLevel ? ' is-room' : ''}${hidden ? ' is-hidden' : ''}`}
-              data-region={i}
+            <div key={r.name} className={`region${locked ? ' is-locked' : ''}${roomLevel ? ' is-room' : ''}`} data-region={i}
               style={{ gridRow: `${r.row + 1} / span ${r.rows}`, gridColumn: `${r.col + 1} / span ${r.cols}` }}>
-              {hidden && <span className="hidden-name"><LockIcon /> {r.name}</span>}
               {locked && key && (
                 <button type="button" className={`gate${ready ? ' is-ready' : ''}`} data-gate={i}
                   aria-disabled={ready ? undefined : true}

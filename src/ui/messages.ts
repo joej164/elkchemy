@@ -1,4 +1,4 @@
-import { isOpen, nextLocked, unlockReady, type Region } from '../regions';
+import { isOpen, nextLocked, unlockReady, type Plate, type Region } from '../regions';
 import type { LevelGoal, Prize } from '../session';
 import { FAMILY_NAMES, itemLabel } from './ItemArt';
 import type { UiState } from './controller';
@@ -56,7 +56,8 @@ export function objectiveText(goal: LevelGoal, regions?: readonly Region[]): str
 export function helpObjective(goal: LevelGoal, regions?: readonly Region[]): string {
   if (goal.kind === 'treasure') {
     const { verb, name } = prizeText(goal);
-    return `Goal: open the rune gates and ${verb} the ${name}${goalPlace(goal, regions)}.`;
+    const gates = regions?.filter((r) => !!r.unlock && 'passage' in r.unlock && !!r.unlock.passage).length ?? 0;
+    return `Goal: open the rune ${gates === 1 ? 'gate' : 'gates'} and ${verb} the ${name}${goalPlace(goal, regions)}.`;
   }
   if (goal.kind === 'item') return `Goal: make ${itemLabel(goal.item)}${goalPlace(goal, regions)}.`;
   if (goal.kind === 'items') return `Goal: have ${allOf(goal.items.length)} goal items on the board at once.`;
@@ -82,19 +83,35 @@ export function unlockNeed(regions: readonly Region[], index: number): string {
   const room = regions[u.in].name;
   if ('item' in u) return `${itemLabel(u.item)} in ${room}`;
   if (u.kind === 'stone') return `${itemLabel(u.plates[0].item)} alone on the stone in ${room}`;
-  const items = u.plates.map((pl) => itemLabel(pl.item));
-  const list = items.length > 1 ? `${items.slice(0, -1).join(', ')} and ${items[items.length - 1]}` : items[0];
-  return `${list} on the pressure ${items.length > 1 ? 'plates' : 'plate'} in ${room}`;
+  return `${plateItems(u.plates)} on the pressure ${u.plates.length > 1 ? 'plates' : 'plate'} in ${room}`;
+}
+
+/** Room levels: the items some plates need, e.g. "Grove, tier 2 of 4 and Song, tier 2 of 4". */
+export function plateItems(plates: readonly Plate[]): string {
+  const items = plates.map((pl) => itemLabel(pl.item));
+  return items.length > 1 ? `${items.slice(0, -1).join(', ')} and ${items[items.length - 1]}` : items[0];
 }
 
 /**
- * Room levels: the help dialog's rule for gates and rooms, naming any alcove that is part of another room. The stone's
- * rule appears only where there is a stone.
+ * Room levels: a hidden region joining another room is a concealed part of that room. Nothing names or describes it
+ * before it opens; afterwards it is spoken of as more of that room.
  */
-export function roomsHelp(regions: readonly Region[]): string {
+export function isConcealed(region: Region): boolean {
+  return !!region.hidden && region.joins !== undefined;
+}
+
+/**
+ * Room levels: the help dialog's rule for gates and rooms. The stone's rule appears only where there is a stone; a
+ * concealed part of a room is mentioned only once `unlocked` has opened it.
+ */
+export function roomsHelp(regions: readonly Region[], unlocked = 0): string {
   const stone = regions.some((r) => !!r.unlock && 'kind' in r.unlock && r.unlock.kind === 'stone');
-  const shared = regions.map((r) => r.joins === undefined ? ''
-    : ` ${r.name} is part of ${regions[r.joins].name}'s room: once its gate opens, items move, swap and merge between the two.`);
+  const shared = regions.map((r, i) => {
+    if (r.joins === undefined) return '';
+    const host = regions[r.joins].name;
+    if (!isConcealed(r)) return ` ${r.name} is part of ${host}'s room: once its gate opens, items move, swap and merge between the two.`;
+    return i <= unlocked ? ` More of ${host} has been revealed: items move, swap and merge anywhere in it.` : '';
+  });
   return 'Each rune gate opens by itself on the move that puts exactly the items shown on its room\'s marked tiles' +
     `${stone ? '; a stone must hold the only item left in its room' : ''}.${shared.join('')} Items never leave their own room.`;
 }
@@ -108,10 +125,16 @@ function regionStep(state: UiState): string {
     const { name, verb } = prizeText(goal);
     if (n === null) return `${regions![regions!.length - 1].name} is open. Tap the ${name} to ${verb} it.`;
     const u = regions![n].unlock!;
+    // A concealed part of the clearing: only the marked tile is asked for.
+    if (isConcealed(regions![n]) && 'plates' in u) {
+      return `Put ${plateItems(u.plates)} on the marked ${u.plates.length > 1 ? 'tiles' : 'tile'}.`;
+    }
     const how = 'kind' in u && u.kind === 'stone' ? 'Merge down to' : 'Put';
-    // An open alcove that is part of another room: say its items can be used there.
-    const shared = regions!.filter((r, i) => r.joins !== undefined && isOpen(session, i))
-      .map((r) => ` Items move and merge between ${regions![r.joins!].name} and ${r.name}.`).join('');
+    const shared = regions!.map((r, i) => {
+      if (r.joins === undefined || !isOpen(session, i)) return '';
+      const host = regions![r.joins].name;
+      return isConcealed(r) ? ` More of ${host} has been revealed, with more items to use.` : ` Items move and merge between ${host} and ${r.name}.`;
+    }).join('');
     return `${how} ${unlockNeed(regions!, n)} to open the rune gate to ${regions![n].name}.${shared}`;
   }
   if (n === null) return `Merge items to make ${goal.kind === 'item' ? itemLabel(goal.item) : 'the goal'}${goalPlace(goal, regions)}.`;

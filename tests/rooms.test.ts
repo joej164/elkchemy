@@ -61,7 +61,7 @@ describe('The Rune Gates: layout', () => {
     expect(terrain).toBe(49 - 9 - 9 - 4);
     for (const i of [CHAMBER, NOOK]) {
       const u = regions[i].unlock!;
-      expect('passage' in u && regionAt(regions, u.passage)).toBe(-1);
+      expect('passage' in u && !!u.passage && regionAt(regions, u.passage)).toBe(-1);
     }
     expect(unlockNeed(regions, CHAMBER)).toBe('Grove, tier 2 of 4 and Song, tier 2 of 4 on the pressure plates in Pressure Hall');
     expect(unlockNeed(regions, NOOK)).toBe('Crystal, tier 3 of 4 alone on the stone in Stone Chamber');

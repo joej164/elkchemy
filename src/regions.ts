@@ -10,18 +10,18 @@ export interface ItemUnlock { readonly item: Item; readonly in: number }
 /**
  * Room levels: opens by itself, as part of the move that leaves exactly each plate's item on its plate in region `in`.
  * `pressure` plates allow other items in that room; a `stone` (one plate) must hold the only item left in it. The rune
- * gate stands in `passage`, a terrain cell beside both rooms. Opening is a checkpoint: the plate items stay fixed in
- * place and Undo history is cleared.
+ * gate stands in `passage`, a terrain cell beside both rooms; a region reached through its `link` has none. Opening is
+ * a checkpoint: the plate items stay fixed in place and Undo history is cleared.
  */
 export interface PlateUnlock {
   readonly kind: 'pressure' | 'stone';
   readonly plates: readonly Plate[];
   readonly in: number;
-  readonly passage: Pos;
+  readonly passage?: Pos;
 }
 
 /**
- * A rectangular area of a region level's board, without overlap. Item-goal levels split the board exactly; in room
+ * A rectangular area of a region level's board (plus, in room levels, an optional `link` cell), without overlap. Item-goal levels split the board exactly; in room
  * levels (a treasure goal) the cells outside every region are empty terrain. Region 0 is open from the start. The
  * others open in list order from an earlier region `unlock.in`; opening consumes and moves nothing.
  * Items never leave their room: drops stay inside one room's open regions and merge groups stop at its border. Each
@@ -35,15 +35,21 @@ export interface Region {
   readonly cols: number;
   readonly unlock?: ItemUnlock | PlateUnlock;
   /**
-   * Room levels: this region is part of an earlier region's room (an alcove), so once both are open, items move, swap
-   * and merge between them as within one room. Opening it still follows its own `unlock`.
+   * Room levels: this region is part of an earlier region's room, so once both are open, items move, swap and merge
+   * between them as within one room. Opening it still follows its own `unlock`.
    */
   readonly joins?: number;
-  /** Room levels: until it opens, neither its tiles nor its items are shown, only its outline and name. */
+  /** Room levels: until it opens, its cells (link included) are drawn as plain terrain: no tiles, items or outline. */
   readonly hidden?: boolean;
+  /**
+   * Room levels, hidden joined regions: one cell outside the rectangle, beside it and the region it joins, that belongs
+   * to this region (hidden, opened and owned with it) and connects the two as ordinary floor. It replaces a passage.
+   */
+  readonly link?: Pos;
 }
 
 export function inRegion(r: Region, p: Pos): boolean {
+  if (r.link && r.link.row === p.row && r.link.col === p.col) return true;
   return p.row >= r.row && p.row < r.row + r.rows && p.col >= r.col && p.col < r.col + r.cols;
 }
 
@@ -119,7 +125,9 @@ export function isFixed(state: SessionState, p: Pos): boolean {
  * covering the whole board; or (room levels) a treasure on an empty cell of the last region, with plate unlocks whose
  * plates lie in the room they open from and whose passage is a terrain cell beside both rooms, and empty terrain.
  * Only room levels may join or hide regions (never the first); a joined region names an earlier region that joins
- * nothing, and a stone's room has no joined part, since it counts only its own region's items.
+ * nothing, and a stone's room has no joined part, since it counts only its own region's items. A hidden joined region
+ * may have a `link` instead of a passage: a free cell beside it and the region it joins. (Only room-level code reads
+ * links; the item-goal status checks still see rectangles.)
  */
 export function validateRegions(level: LevelDefinition): void {
   const { regions, board, goal } = level;
@@ -151,16 +159,24 @@ export function validateRegions(level: LevelDefinition): void {
       fail(`region ${i} must unlock from an earlier region`);
     }
     if (r.unlock && ('plates' in r.unlock) !== rooms) fail(rooms ? `region ${i} must open by plates` : `region ${i} needs an unlock item`);
-    if ((r.joins !== undefined || r.hidden) && (!rooms || i === 0)) fail(`region ${i} cannot be joined or hidden`);
+    if ((r.joins !== undefined || r.hidden || r.link) && (!rooms || i === 0)) fail(`region ${i} cannot be joined or hidden`);
     if (r.joins !== undefined && !(Number.isInteger(r.joins) && r.joins >= 0 && r.joins < i && regions[r.joins].joins === undefined)) {
       fail(`region ${i} must join an earlier region that joins nothing`);
     }
   });
   if (!rooms && owner.some((r) => r.includes(-1))) fail('regions must cover the whole board');
   if (rooms) {
-    if (board.some((r, row) => r.some((c, col) => c !== null && owner[row][col] === -1))) fail('terrain must be empty');
     const beside = (p: Pos, region: number) =>
       [[-1, 0], [1, 0], [0, -1], [0, 1]].some(([dr, dc]) => owner[p.row + dr]?.[p.col + dc] === region);
+    regions.forEach((r, i) => {
+      if (!r.link) return;
+      const { row, col } = r.link;
+      if (r.joins === undefined || !r.hidden || owner[row]?.[col] !== -1 || !beside(r.link, i) || !beside(r.link, r.joins)) {
+        fail(`region ${i}'s link must be a free cell beside it and the region it joins, on a hidden joined region`);
+      }
+      owner[row][col] = i;
+    });
+    if (board.some((r, row) => r.some((c, col) => c !== null && owner[row][col] === -1))) fail('terrain must be empty');
     regions.forEach((r, i) => {
       const u = r.unlock;
       if (!u || !('plates' in u)) return;
@@ -169,6 +185,8 @@ export function validateRegions(level: LevelDefinition): void {
       if (u.kind === 'stone' && regions.some((_, j) => j !== u.in && roomOf(regions, j) === roomOf(regions, u.in))) {
         fail(`region ${i}'s stone must be in a room without joined regions`);
       }
+      if (!u.passage === !r.link) fail(`region ${i} needs a passage or a link, not both`);
+      if (!u.passage) return;
       const { row, col } = u.passage;
       if (owner[row]?.[col] !== -1 || !beside(u.passage, u.in) || !beside(u.passage, i)) {
         fail(`region ${i}'s passage must be terrain beside both rooms`);

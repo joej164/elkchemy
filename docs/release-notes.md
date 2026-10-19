@@ -4,9 +4,92 @@ Each entry records what changed, how it was verified, and known limitations. **U
 
 Earlier published builds are not backfilled here. The previous build, `20261018-195510`, has five handcrafted levels and optional looping music; its verification is recorded in TODO.md under Current baseline and Audio.
 
+## 20261019-175745 — The Hidden Cache: a concealed part of the clearing (October 19, 2026)
+
+Release build `20261019-175745`; owner authorized commit → push → deploy. The owner found the published alcove too obvious: its silhouette, name, gate and path announced another room. The approved direction makes the resource area a concealed extension of one irregular room, with a subtle clue. Implemented by Claude; reviewed by Codex. Independent verification: 471 tests, typecheck, production build and diff checks passed; Chromium full wins at 390×844, 820×1180 and 1180×820, including reveal, playable E2, checkpoints, clarinet case, Undo and Retry. No page overflow or console warnings/errors. Physical iPad/Safari remains unverified.
+
+### Changes
+
+- **Before discovery:**
+  - The pocket (F1–G3) and the tile linking it to the clearing (E2) are drawn as the ordinary green-dot forest. There is no gate, path, outline, rock silhouette or sign.
+  - The only clue: at E2, one foliage cluster is a slightly lighter, yellower green (`.terrain.is-clue`). No glow, lock, arrow or door.
+  - These cells are plain decorative terrain: no buttons, labels, focus, taps or drops. Arrow keys skip them, and a drag on them pans.
+- **Discovery:**
+  - Grove tier 2 on the D1 plate reveals E2 and the pocket together, on the same move, as a checkpoint: the Grove item is fixed and Undo is cleared, and later moves get a fresh Undo.
+  - E2 becomes one ordinary floor tile of the clearing.
+  - The clearing, E2 and pocket get a single outline with no internal border. Each revealed tile glows once (the existing unlock effect).
+  - On boards that pan, the pocket is scrolled into view.
+- **Unchanged:**
+  - starting pieces, the pocket's crystals and both plate requirements;
+  - shared ownership between clearing and pocket, now including E2;
+  - the separate Lantern Nook with its rune gate and Crystal tier 3 plate;
+  - every cross-room prohibition, and the clarinet case, Undo and Retry.
+  - Retry hides E2 and the pocket again, restores the clue and the starting view, closes the nook and restores the starting pieces.
+- **Model** (`src/regions.ts`):
+  - A region may have a `link`: one cell outside its rectangle that belongs to it. The link is hidden, opened and owned with the region, through `inRegion`.
+  - A link is allowed only on a hidden region that `joins` another. It must be a free cell beside both regions, and it replaces a passage: `PlateUnlock.passage` is now optional, and a region needs exactly one of the two.
+  - Session rules are unchanged: E2 accepts moves, swaps and merges like any open cell of the room, and merge groups pass through it.
+- **Rendering** (`src/ui/Board.tsx`, `src/ui/app.css`):
+  - A hidden region's cells render as terrain, the link with the clue; the rock silhouette and name plate are gone.
+  - A room with a joined part is outlined edge by edge around its open cells (`.room-edge`, with small notch fillers at inside bends) instead of per-region rectangles. Levels without joined regions keep their rectangles.
+  - Cell labels name the room, so revealed cells read "Fern Clearing".
+- **Text** (nothing names or describes the pocket before discovery):
+  - Banner: "Put Grove, tier 2 of 4 on the marked tile." The next-step panel reads "Marked tile in Fern Clearing / Needs Grove, tier 2 of 4".
+  - Help now counts the visible rune gates ("open the rune gate…"). Its checkpoint line reads "A marked tile that has done its job is a checkpoint…".
+  - Help adds "More of Fern Clearing has been revealed: items move, swap and merge anywhere in it" only after discovery; Help now receives the open-region count.
+  - After discovery the banner adds "More of Fern Clearing has been revealed, with more items to use," and the live region announces "More of Fern Clearing was revealed, with more items to use."
+  - The in-game "The Hidden Cache" note, first published in `20261019-171209`, is reworded so it no longer describes an alcove. The published build still shows the old wording until the next deploy.
+  - Level 7's text is unchanged.
+- **Names:** the pocket region is now "Fern Clearing pocket", an internal name that is never shown. The level title is unchanged.
+
+### Verification (Claude)
+
+- **Automated:** 471 tests, typecheck and production build pass.
+  - `tests/cache.test.ts` (16):
+    - layout and the link's validation (missing link, link plus passage, link not beside both regions, link on a visible or unjoined region, link on an item-goal level);
+    - the winning sequence through session rules, with exact items;
+    - before discovery, E2 and the pocket take no drops, give none, refuse collection, and stay out of merge groups;
+    - discovery as a checkpoint, with a fresh Undo;
+    - moves and swaps onto and off E2, and a five-merge whose group runs from the clearing through E2 into the pocket;
+    - the nook blocking transfers from clearing, E2 and pocket;
+    - the case, Undo and Retry;
+    - text before and after discovery, with no text before it matching alcove, pocket, cache, hidden, secret or resource.
+  - Two rewritten rendering tests in `tests/helpButton.test.tsx`:
+    - before discovery: 27 plain terrain tiles plus the clue at E2, no cells, labels or outline for the pocket, the clearing outlined as a rectangle, and only the nook's rune gate;
+    - after discovery: E2 and pocket cells labelled Fern Clearing, seven reveal glows, one outline with four notches, and no internal border;
+    - the case states, Undo and Retry.
+  - One test-typing change in `tests/rooms.test.ts`.
+  - Mutation checks: dropping the link from `inRegion` failed 6 tests; dropping the notches failed the outline test.
+- **Playwright Chromium against the production build** (`vite preview`):
+  - The browser check found a bug, now fixed: absolutely positioned grid items with only a start line stretch to the board's far edge, so the first outline pieces made the board overflow (wrongly showing the pan hint at 820×1180). They now span one cell.
+  - **820×1180, mouse drags:**
+    - before discovery, drags and taps on the clue and pocket did nothing;
+    - the reveal by a plain move added E2 and six pocket cells, with seven glows, disabled Undo, and the new banner, panel and announcement;
+    - pocket → E2 and E2 → clearing moves, an Undo, and a pocket ⇄ E2 swap all worked;
+    - a merge group through E2 was previewed and merged;
+    - the authored steps 3–5 worked, then the case opened and won; Undo closed it, and Enter opened it;
+    - with focus on E2, Retry re-concealed E2 and the pocket, restored the clue, moved the tab stop to A1 and closed the nook;
+    - arrow keys crossed E2 when revealed and skipped it when hidden;
+    - Help before and after discovery read as above.
+  - **390×844, taps:** a drag on the clue tile panned the board. The reveal scrolled E2 and the whole pocket into view, and the nook's opening did the same for the nook. A full win, Undo, and Retry to the exact start view.
+  - **844×390, taps:** the same, except no concealed tile is in view at the start there, so panning from one wasn't exercised.
+  - **1180×820, taps:** the whole map fits; a full win.
+  - **Screenshots** of start and revealed maps at all four sizes, plus close-ups of the clue against plain terrain and of a bend in the outline. Concealed areas look like the rest of the forest, and the revealed shape reads as one room.
+  - **Sizing at 820×1180:** ordinary items, pocket items, an item on E2 and the case (closed and open) were 6px inside their cells, and plate items 13px inside.
+  - **Level 7:** gates, backpack and text unchanged, with no edge outline. Level 6 is unchanged.
+  - No horizontal page overflow, no control outside the board under 44px, and no console errors or warnings.
+- **Not verified:** physical iPad/Safari, VoiceOver and Home Screen mode; Chromium emulation does not establish them. Also unverified: whether the clue is subtle enough, or too subtle, on the real screen; that is the owner's call.
+
+### Known limitations
+
+- The clue sits at the right edge of the phone-portrait start view, and outside the start view in phone landscape.
+- Inside bends of the outline are square (3px fillers), not rounded.
+- Tapping concealed terrain doesn't clear a selection, like any terrain.
+- Room levels still never report a loss; exact inventories keep this level from being stranded.
+
 ## 20261019-171209 — Level 8, The Hidden Cache (October 19, 2026)
 
-Release build `20261019-171209`. Owner-approved design; implemented by Claude and reviewed by Codex. Owner authorized commit → push → deploy on October 19, 2026. Physical-iPad playtesting follows publication.
+Release build `20261019-171209`. Owner-approved design; implemented by Claude and reviewed by Codex. Owner authorized commit → push → deploy on October 19, 2026. Physical-iPad playtesting follows publication. On review, the owner found the alcove too obvious; an unreleased revision (above) conceals it.
 
 ### Changes
 

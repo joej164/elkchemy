@@ -9,8 +9,8 @@ export const RELEASE_NOTES: readonly ReleaseNote[] = [
     title: 'The Hidden Cache',
     date: 'October 19, 2026',
     notes: [
-      'A new level: a clearing with a hidden alcove behind a rune gate. Put the right item on the marked tile and the alcove opens, with the crystals the clearing is missing.',
-      'Items move and merge between the clearing and its alcove. The last gate leads to a closed clarinet case—tap it to open it.',
+      'A new level in a forest clearing. Put the item shown on each marked tile, and find your way to a closed clarinet case.',
+      'Tap the case to open it.',
     ],
   },
   {
