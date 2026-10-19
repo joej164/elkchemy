@@ -179,17 +179,34 @@ describe('HelpButton', () => {
     expect(game).toMatch(/<button type="button" class="btn btn-unlock" data-action="unlock" disabled=""[^>]*>/);
     expect(game).toContain('<span>Unlock Songbird Glade</span>');
     expect(game).not.toMatch(/data-action="supply"|Add supply|Next supply|Supply left/);
-    // Both locked regions carry a readable sign; every region is outlined.
+    // Both locked regions carry a gate showing what opens them, unavailable until ready; every region is outlined.
     expect((game.match(/class="region(?: is-locked)?"/g) ?? []).length).toBe(3);
     expect((game.match(/class="region is-locked"/g) ?? []).length).toBe(2);
     expect(game).toContain('Needs Song, tier 3 of 4 in Songbird Glade');
+    expect(game).toContain('<button type="button" class="gate" data-gate="1" aria-disabled="true" aria-label="Songbird Glade gate, locked. Needs Grove, tier 3 of 4 in Mossy Clearing.">');
+    expect(game).toContain('<button type="button" class="gate" data-gate="2" aria-disabled="true" aria-label="Crystal Hollow gate, locked. Needs Song, tier 3 of 4 in Songbird Glade.">');
+    expect(game).not.toMatch(/Ready: tap to open|gate-ready/);
     // Locked cells say so and are disabled; open cells name their region.
     expect(game).toContain('aria-label="Row 1, column 1, Crystal Hollow, locked: Crystal, tier 1 of 4"');
     expect(game).toMatch(/aria-label="Row 4, column 5, Songbird Glade, locked: Song, tier 1 of 4" aria-pressed="false" aria-disabled="true"/);
     expect(game).toMatch(/aria-label="Row 4, column 1, Mossy Clearing: Grove, tier 1 of 4" aria-pressed="false" tabindex/);
-    expect(game).toContain('press Unlock; the item stays');
+    expect(game).toContain('tap the gate or press Unlock; the item stays');
     expect(game).toContain('Undo takes back your last action, even an unlock');
     expect(game).toContain('Make Grove, tier 3 of 4 in Mossy Clearing to unlock Songbird Glade.');
+  });
+
+  it('a ready gate glows, says so, and is the only gate offered', () => {
+    // The Clearing's key already made: the Glade's gate is ready; the Hollow's is not (it is not next).
+    const board = LEVELS[5].definition.board.map((r) => [...r]);
+    board[4][3] = { family: 'grove', tier: 2 };
+    const game = renderToStaticMarkup(<Game definition={{ ...LEVELS[5].definition, board }} label="Level 6 of 6"
+      musicControl={null} onHome={() => {}} winLabel="Play again from level 1" onWin={() => {}} />);
+    expect(game).toContain('<button type="button" class="gate is-ready" data-gate="1" aria-label="Songbird Glade gate. Needs Grove, tier 3 of 4 in Mossy Clearing. Ready: tap to open.">');
+    expect(game).toContain('<span class="gate-ready">Tap to open</span>');
+    expect((game.match(/class="gate-ready"/g) ?? []).length).toBe(1);
+    expect(game).toContain('data-gate="2" aria-disabled="true"');
+    expect(game).toMatch(/data-action="unlock"(?![^>]*disabled)/);
+    expect(game).toContain('Songbird Glade is ready. Tap its gate or press Unlock Songbird Glade.');
   });
 
   it('uses no external assets', () => {

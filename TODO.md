@@ -23,7 +23,8 @@ These resolve older conflicting entries below.
 
 ## Current baseline
 
-- Latest deployment `20261019-052826`: level 6, The Hidden Hollow, the first connected-region level (three areas unlocked in order), and a Levels page that can start any level. See Connected regions below and [docs/release-notes.md](docs/release-notes.md).
+- Latest deployment `20261019-055257`: tappable wooden gates on The Hidden Hollow's locked areas. See Connected regions below and [docs/release-notes.md](docs/release-notes.md).
+- Previous deployment `20261019-052826`: level 6, The Hidden Hollow, the first connected-region level (three areas unlocked in order), and a Levels page that can start any level. See Connected regions below and [docs/release-notes.md](docs/release-notes.md).
 - Previous deployment `20261019-021029` (live `/version.json` checked October 18, 2026): gameplay background behind levels and generated puzzles; board layout unchanged, but the cheering characters are largely behind the controls (open decision under Gameplay presentation).
 - Previous deployment `20261019-011024`: woodland Home and Alisha Play artwork (full-scene backgrounds with HTML controls; Chromium-checked at phone and iPad sizes). See [docs/release-notes.md](docs/release-notes.md).
 - Published in `20261019-011024`: Music / Scores page with clarinet and ukulele arrangements of both loops. See [docs/release-notes.md](docs/release-notes.md).
@@ -154,9 +155,16 @@ From [docs/game-vision.md](docs/game-vision.md); investigate and prototype befor
 - [x] Settled boundary applied as "items never leave their region": the session refuses moves, swaps and merges across region borders and into locked regions, merge groups stop at borders, and goals and keys count only in their own open region. Transferable ownership was not added.
 - [x] Region-level status: no early loss. "No useful merges left—Undo or Retry." appears only when no unlock is ready and no open area can still merge toward its target. It is exhaustively checked to be exact on this level.
 - [x] Owner request (October 18): a Levels page lists every level and can start any of them; none are gated, since nothing is saved.
-- [ ] Owner and Alisha playtest of The Hidden Hollow: whether unlocking is understandable without a tutorial, whether the Hollow's required 5 → 2 merge (the only losing choice) is fair, and whether the map is worth extending.
-- [ ] Physical iPad/Safari: touch panning from locked areas, sign readability, VoiceOver reading of signs and cell labels, Home Screen mode.
-- [ ] Add a player-facing entry to the in-game Release notes when this ships (covering the new level and the Levels page).
+- [x] On-board gates (published `20261019-055257`; owner-approved).
+  - Each locked area carries a wooden gate showing its requirement; it glows (steadily under reduced motion) when that area is next and ready.
+  - A tap or Enter/Space on the gate unlocks through the session. The session refuses a gate that isn't for the next area, and the Unlock button stays.
+  - Dragging across a gate pans and never unlocks.
+  - Details and Chromium results: [docs/release-notes.md](docs/release-notes.md).
+- [ ] Owner and Alisha playtest of The Hidden Hollow: whether the gates make unlocking understandable without a tutorial, whether the Hollow's required 5 → 2 merge (the only losing choice) is fair, and whether the map is worth extending.
+- [ ] Physical iPad/Safari: touch panning from locked areas and across gates, gate taps under real touch (tap vs. small drags), gate readability, VoiceOver reading of gates and cell labels, Home Screen mode.
+- [x] Player-facing in-game Release notes entry for the level and the Levels page ("The Hidden Hollow", shipped in `20261019-052826`).
+- [ ] Add an in-game Release notes line for the gates when they ship.
+- [ ] Optional, only if wanted: at 844×390 the Hollow's gate (300px) is wider than the 228px board view, and on phones the Glade's gate hides most of its locked pieces.
 - [ ] Optional, only if wanted: at 844×390 the 234px-tall board viewport cannot show the whole 4×4 Clearing at once; a phone-landscape layout change would be separate work.
 - [ ] Decide from playtesting whether to build more region levels, generated multi-room puzzles, or neither. Not built: non-rectangular areas, out-of-order unlocks, supply in region levels, transferable items, elk movement, unlock sounds.
 

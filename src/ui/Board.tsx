@@ -5,7 +5,7 @@ import { isCellOpen } from '../session';
 import { ItemArt, itemLabel } from './ItemArt';
 import { unlockNeed } from './messages';
 import { centerScroll, exceedsThreshold, moveFocus, panScroll } from './navigation';
-import { canDropAt, canPickUp, goalCells, previewCells, type UiAction, type UiState } from './controller';
+import { canDropAt, canPickUp, canUnlock, goalCells, previewCells, type UiAction, type UiState } from './controller';
 
 // A click arriving this soon after a drag is the browser's follow-up click, not a tap.
 const SUPPRESS_CLICK_MS = 500;
@@ -129,8 +129,15 @@ export function Board({ state, dispatch, onOverflowChange }: {
   // (instantly, so input is never delayed). Undo leaves the view where it is.
   const unlocked = state.lastAction?.kind === 'unlock' ? state.lastAction.region : null;
   const shown = state.lastAction?.kind === 'retry' ? 0 : unlocked;
+  // A gate that had focus disappears when its region opens; focus then moves to that region's first cell.
+  const focusOpened = useRef<number | null>(null);
   useLayoutEffect(() => {
     if (shown !== null && regions && overflowing) showRegion(regions[shown]);
+    if (unlocked !== null && regions && focusOpened.current === unlocked) {
+      const { row, col } = regions[unlocked];
+      cellRefs.current[row * cols + col]?.focus({ preventScroll: true });
+    }
+    focusOpened.current = null;
   }, [state.actionSeq]);
 
   const preview = useMemo(() => {
@@ -150,16 +157,17 @@ export function Board({ state, dispatch, onOverflowChange }: {
     if (!e.isPrimary || e.button !== 0) return;
     interrupted.current = null;
     const cell = (e.target as HTMLElement).closest<HTMLElement>('[data-cell]');
+    const gate = (e.target as HTMLElement).closest<HTMLElement>('[data-gate]');
     const pos = cell ? { row: Number(cell.dataset.row), col: Number(cell.dataset.col) } : null;
-    // Locked cells and empty ground pan; only items that can be picked up drag.
+    // Locked cells, gates and empty ground pan; only items that can be picked up drag.
     const item = !!pos && canPickUp(state, pos);
     const v = e.currentTarget;
     pending.current = {
       kind: item ? 'item' : 'pan', origin: item ? pos : null, x: e.clientX, y: e.clientY,
       pointerId: e.pointerId, dragging: false, scrollLeft: v.scrollLeft, scrollTop: v.scrollTop,
     };
-    // Capture on the element pressed: capturing the viewport would retarget a cell's click.
-    try { (cell ?? v).setPointerCapture(e.pointerId); } catch { /* ignore */ }
+    // Capture on the element pressed: capturing the viewport would retarget a cell's or gate's click.
+    try { (cell ?? gate ?? v).setPointerCapture(e.pointerId); } catch { /* ignore */ }
   };
 
   const onPointerMove = (e: PointerEvent) => {
@@ -310,20 +318,35 @@ export function Board({ state, dispatch, onOverflowChange }: {
             );
           }),
         )}
-        {/* Region outlines over the gaps; a locked region is shaded with a sign saying what opens it. Never takes input. */}
+        {/* Region outlines over the gaps (never taking input). A locked region is shaded, with a wooden gate carrying
+            its sign: tapping or pressing the gate asks the session to unlock that region, which it does only when it
+            is next and its item is made. A drag across a gate pans like locked ground and never unlocks. */}
         {regions?.map((r, i) => {
           const locked = i > state.session.unlocked;
+          const ready = locked && canUnlock(state, i);
+          const need = r.unlock ? unlockNeed(regions, i) : '';
           return (
             <div key={r.name} className={`region${locked ? ' is-locked' : ''}`} data-region={i}
               style={{ gridRow: `${r.row + 1} / span ${r.rows}`, gridColumn: `${r.col + 1} / span ${r.cols}` }}>
               {locked && r.unlock && (
-                <p className="region-sign">
-                  <span className="region-name"><LockIcon /> {r.name}</span>
-                  <span className="region-need">
-                    <span className="region-need-art" aria-hidden="true"><ItemArt item={r.unlock.item} /></span>
-                    Needs {unlockNeed(regions, i)}
+                <button type="button" className={`gate${ready ? ' is-ready' : ''}`} data-gate={i}
+                  aria-disabled={ready ? undefined : true}
+                  aria-label={ready ? `${r.name} gate. Needs ${need}. Ready: tap to open.` : `${r.name} gate, locked. Needs ${need}.`}
+                  onKeyDown={() => { suppressClickUntil.current = 0; }}
+                  onClick={(e) => {
+                    if (performance.now() < suppressClickUntil.current) { suppressClickUntil.current = 0; return; }
+                    if (ready && document.activeElement === e.currentTarget) focusOpened.current = i;
+                    dispatch({ type: 'unlock', region: i });
+                  }}>
+                  <span className="region-sign">
+                    <span className="region-name"><LockIcon open={ready} /> {r.name}</span>
+                    <span className="region-need">
+                      <span className="region-need-art" aria-hidden="true"><ItemArt item={r.unlock.item} /></span>
+                      Needs {need}
+                    </span>
+                    {ready && <span className="gate-ready">Tap to open</span>}
                   </span>
-                </p>
+                </button>
               )}
               {unlocked === i && <span key={`unlock-${seq}`} data-fx="unlock" aria-hidden="true" />}
             </div>

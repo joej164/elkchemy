@@ -58,7 +58,7 @@ function regionStep(state: UiState): string {
   const n = nextLocked(session);
   if (n === null) return `Merge items to make ${goal.kind === 'item' ? itemLabel(goal.item) : 'the goal'}${goalPlace(goal, regions)}.`;
   const name = regions![n].name;
-  if (unlockReady(session)) return `${name} is ready. Press Unlock ${name}.`;
+  if (unlockReady(session)) return `${name} is ready. Tap its gate or press Unlock ${name}.`;
   return `Make ${unlockNeed(regions!, n)} to unlock ${name}.`;
 }
 

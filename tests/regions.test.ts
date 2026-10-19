@@ -164,6 +164,24 @@ describe('unlocking', () => {
     expect(afterHollow.board[5][5]).toEqual(it_('song', 2));
   });
 
+  it('a gate unlock opens only its own region, and only when that region is next', () => {
+    const level = variant([[6, 5, it_('song', 2)]]);  // the Hollow's key is already in the Glade
+    let s = startSession(level);
+    for (const st of CLEARING_STEPS.slice(0, 2)) s = step(s, st);
+    expect(unlockReady(s)).toBe(true);           // the Glade is ready
+    for (const wrong of [2, 0, -1, 3, 1.5]) expect(unlock(s, wrong)).toBe(s);
+    s = unlock(s, 1);
+    expect(s.unlocked).toBe(1);
+    expect(unlock(s, 1)).toBe(s);                // already open
+    s = unlock(s, 2);
+    expect(s.unlocked).toBe(2);
+    expect(unlock(s, 2)).toBe(s);
+    expect(unlock(s)).toBe(s);
+    // Not ready: the Glade's own gate is refused too.
+    const start = startSession(HOLLOW_LEVEL);
+    expect(unlock(start, 1)).toBe(start);
+  });
+
   it('goes in order: the Hollow cannot open before the Glade, even with its key already made', () => {
     const level = variant([[6, 5, it_('song', 2)]]);
     let s = startSession(level);

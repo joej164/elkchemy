@@ -1,5 +1,5 @@
 import { drop, previewMerge, type Board, type Item, type Pos } from './board';
-import { isOpen, regionAt, unlockReady, validateRegions, type Region } from './regions';
+import { isOpen, nextLocked, regionAt, unlockReady, validateRegions, type Region } from './regions';
 
 /**
  * `item`: make `item` (its family at its tier or higher) anywhere on the board; with `region` (region levels),
@@ -106,8 +106,12 @@ export function applyDrop(state: SessionState, from: Pos, to: Pos): SessionState
   return { ...state, board: result.board, moves: state.moves + 1, undo: snapshot(state) };
 }
 
-/** Region levels: opens the next region once its unlock item is present. One undoable move; the item stays put. */
-export function unlock(state: SessionState): SessionState {
+/**
+ * Region levels: opens the next region once its unlock item is present. One undoable move; the item stays put.
+ * `region` (a gate's own region): refused unless it is that next region, so a later gate never opens another.
+ */
+export function unlock(state: SessionState, region?: number): SessionState {
+  if (region !== undefined && region !== nextLocked(state)) return state;
   if (!unlockReady(state)) return state;
   return { ...state, unlocked: state.unlocked + 1, moves: state.moves + 1, undo: snapshot(state) };
 }

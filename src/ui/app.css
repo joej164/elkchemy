@@ -181,21 +181,47 @@ body {
 .cell.is-locked { cursor: default; }
 
 /* Region levels: each region is outlined over the gaps around it (grid-placed, never taking input); a locked
-   region is shaded and hatched, with a sign naming the item that opens it. */
+   region is shaded and hatched, with a wooden gate carrying a sign naming the item that opens it. */
 .region {
   position: absolute; inset: calc(var(--gap) / -2); pointer-events: none;
   border: 3px solid rgb(244 236 216 / 0.85); border-radius: 13px;
 }
 .region.is-locked {
-  z-index: 2; display: flex; align-items: center; justify-content: center; padding: 8px;
+  z-index: 2; display: flex; align-items: center; justify-content: center; padding: 4px;
   border-style: dashed;
   background: repeating-linear-gradient(135deg, rgb(14 24 16 / 0.74) 0 10px, rgb(14 24 16 / 0.58) 10px 20px);
 }
+/* The gate: vertical planks with two rails and a rounded top, the parchment sign nailed to it. Only the gate takes
+   input in a locked region; when it can open, it glows gently (a steady glow under reduced motion). */
+.gate {
+  /* No wider than the board viewport (less a margin) where that leaves 300px, so a gate on a wide locked region stays
+     readable on phones; narrower still would make it taller than its region. */
+  pointer-events: auto; max-width: min(100%, max(300px, calc(var(--board-size) - 48px))); min-width: 44px; min-height: 44px;
+  margin: 0; padding: 10px clamp(8px, 5%, 18px) 8px;
+  font: inherit; color: var(--ink); cursor: default; touch-action: none;
+  border: 3px solid var(--bark-dark); border-radius: 26px 26px 8px 8px;
+  background:
+    linear-gradient(transparent 16%, #3a2616 16% 25%, transparent 25% 75%, #3a2616 75% 84%, transparent 84%),
+    repeating-linear-gradient(90deg, #8b6139 0 15px, #5e3f26 15px 17px);
+  box-shadow: 0 4px 10px rgb(0 0 0 / 0.55);
+}
+.gate.is-ready {
+  cursor: pointer; border-color: var(--gold);
+  box-shadow: 0 0 0 3px var(--gold), 0 0 18px 6px rgb(242 193 78 / 0.75);
+  animation: gate-glow 1.6s ease-in-out infinite alternate;
+}
+@keyframes gate-glow {
+  from { box-shadow: 0 0 0 2px var(--gold), 0 0 6px 2px rgb(242 193 78 / 0.45); }
+  to { box-shadow: 0 0 0 4px var(--gold), 0 0 22px 8px rgb(242 193 78 / 0.9); }
+}
 .region-sign {
   margin: 0; max-width: 100%; display: grid; justify-items: center; gap: 4px;
-  padding: 6px 10px; border-radius: 10px; border: 2px solid var(--bark-dark);
-  background: var(--parchment); color: var(--ink); box-shadow: 0 3px 8px rgb(0 0 0 / 0.5);
+  padding: 6px 10px; border-radius: 8px; border: 2px solid var(--bark-dark);
+  background: var(--parchment); color: var(--ink);
   font-size: 0.95rem; line-height: 1.25; text-align: center;
+}
+.gate-ready {
+  padding: 2px 10px; border-radius: 999px; background: var(--forest-1); color: var(--gold); font-weight: 700;
 }
 .region-name { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; color: var(--bark-dark); }
 .region-name svg { width: 18px; height: 18px; flex: none; }
@@ -443,6 +469,7 @@ body {
   *, *::before, *::after { transition: none !important; }
   .cell.is-selected, .cell.is-drop-target { transform: none; }
   .banner.is-won { animation: none !important; }
+  .gate.is-ready { animation: none !important; }
   [data-fx], [data-fx] * {
     animation-name: fx-fade !important;
     transform: none !important;

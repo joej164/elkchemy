@@ -142,7 +142,7 @@ describe('region level text (The Hidden Hollow)', () => {
     expect(statusMessage(initUi(HOLLOW), false)).toBe('Make Grove, tier 3 of 4 in Mossy Clearing to unlock Songbird Glade.');
     expect(statusMessage(initUi(HOLLOW), true))
       .toBe('Make Grove, tier 3 of 4 in Mossy Clearing to unlock Songbird Glade. Drag empty ground to pan.');
-    expect(statusMessage(after(...makeKey), false)).toBe('Songbird Glade is ready. Press Unlock Songbird Glade.');
+    expect(statusMessage(after(...makeKey), false)).toBe('Songbird Glade is ready. Tap its gate or press Unlock Songbird Glade.');
     expect(statusMessage(after(...makeKey, { type: 'unlock' }), false))
       .toBe('Make Song, tier 3 of 4 in Songbird Glade to unlock Crystal Hollow.');
     const allOpen = { ...initUi(HOLLOW), session: { ...initUi(HOLLOW).session, unlocked: 2 } };

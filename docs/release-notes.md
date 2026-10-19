@@ -4,6 +4,78 @@ Each entry records what changed, how it was verified, and known limitations. **U
 
 Earlier published builds are not backfilled here. The previous build, `20261018-195510`, has five handcrafted levels and optional looping music; its verification is recorded in TODO.md under Current baseline and Audio.
 
+## 20261019-055257 — On-board gates for The Hidden Hollow (October 18, 2026)
+
+Published October 18, 2026 with owner authorization in build `20261019-055257`. Owner-approved: opening an area should feel like an action on the board.
+
+Codex release verification: 439 tests, typecheck and production build passed. Independent Chromium checks covered full victory via gates, unavailable/out-of-order activation, keyboard focus transfer, Undo/Retry, reduced-motion steady highlighting, gate dragging versus small-wobble taps, and gate bounds at all seven requested sizes. After deployment, verified live build `20261019-055257` and opened the ready Glade gate by tapping it. Physical Safari and owner playtesting remain pending.
+
+### Changes
+
+- **Wooden gates.** Each locked area's sign is now a gate on the board (`src/ui/Board.tsx`, `src/ui/app.css`): vertical planks, two rails and a rounded top drawn in CSS, carrying the existing parchment sign with the padlock, the area's name and "Needs ⟨item⟩ in ⟨area⟩". No new images.
+- **Ready state.** When the area is next and its item is made, the gate shows three cues, not colour alone:
+  - a gold ring and glow that gently pulses (1.6s, alternating);
+  - an open padlock;
+  - a "Tap to open" chip.
+
+  Under reduced motion the glow is steady.
+- **Unlocking.**
+  - Tapping the gate, or pressing Enter or Space on it, performs the same non-consuming, undoable unlock as the Unlock button, which stays. Nothing unlocks automatically.
+  - A gate's unlock names its own area. The session (`unlock(state, region)`) refuses it unless that area is the next to open and its item is made. So a later gate can never open another area, and order and eligibility stay enforced by the session, not the UI.
+- **Accessibility.**
+  - Each gate is a focusable button, reached with Tab after the board's cells.
+  - A gate that isn't ready is `aria-disabled`, labelled for example "Crystal Hollow gate, locked. Needs Song, tier 3 of 4 in Songbird Glade."
+  - When ready it reads "Songbird Glade gate. Needs Grove, tier 3 of 4 in Mossy Clearing. Ready: tap to open."
+  - The gate disappears when its area opens. After a keyboard unlock, focus moves to the opened area's first cell, so it isn't lost.
+- **Pointer behaviour.**
+  - Pressing a gate starts the same pending gesture as locked ground. A drag past the 8px threshold pans the board, and its click is suppressed, so it never unlocks; a tap unlocks.
+  - Gates never select, drag or receive pieces.
+  - Locked ground around them still pans.
+- **Placement.** Gates sit inside their own locked area and vanish once it opens, so they never cover playable cells. On phones a gate is no wider than the board view less 48px, but at least 300px, so the Hollow's gate stays readable at 390px wide.
+- **Text.** The banner says "Songbird Glade is ready. Tap its gate or press Unlock Songbird Glade.", and Help explains the gate.
+- **Unchanged:**
+  - board and tile sizes, scrolling and panning;
+  - unlock auto-centring, Undo leaving the view in place, and Retry returning to the Clearing;
+  - rules, artwork, music, and all other levels and modes.
+
+### Verification
+
+- 439 tests (3 new; four existing assertions updated for the new wording), typecheck, and production build pass.
+  - **Session:** gate unlocks are refused for the wrong area (a later area, one already open, out of range, fractional, or not ready) and accepted for the next area.
+  - **Reducer:** tapping the Hollow's gate while the Glade is next does nothing. A gate unlock records the action and clears the selection. Gates do nothing once the game is lost.
+  - **Rendering:** gates show their labels and stay `aria-disabled` until ready, and only one gate is ever marked ready.
+- Claude, Playwright Chromium against the production build (`vite preview`):
+  - **820×1180, full win through both gates.**
+    - Tapping either gate before it was ready, or the Hollow's gate while the Glade was next, did nothing.
+    - The ready gate's glow animation ran.
+    - A drag starting on the ready gate did not unlock and left the selected piece selected.
+    - A tap with a 3px wobble unlocked, and the cells under the former gate took taps again.
+    - Undo brought back the ready gate, and Retry restored both waiting gates.
+  - **Keyboard, with reduced motion.**
+    - Tab from the board reached the Glade gate, showing the 4px white focus outline and a steady, non-animated glow.
+    - Enter on the not-ready Hollow gate did nothing. Enter on the Glade gate unlocked it and moved focus, with a visible ring, to the Glade's first cell.
+    - Space on the Hollow gate unlocked it, and the unlock effect was fade-only.
+    - After a mouse unlock, focus moved without a ring.
+  - **390×844 and 844×390.**
+    - Dragging from a waiting gate panned the board without unlocking or moving the page, and locked ground beside the gates still panned.
+    - Tap, pan across a gate, tap still merged, with the selection kept.
+    - Tapping a ready gate unlocked and centred the opened area.
+    - Undo left the view in place, and Retry returned to the starting view.
+    - A full win through both gates at 390×844 on the final build.
+  - **All seven sizes** (390×844, 844×390, 820×1180, 1180×820, 1024×1366, 1366×1024, 1024×768):
+    - gates stayed inside their own areas, waiting and ready, and covered no other area's cells;
+    - no horizontal overflow, and no button, input or link under 44px;
+    - measured text contrast was 13.4:1 for the sign, 10.1:1 for the area name and 7.3:1 for the "Tap to open" chip.
+  - No console errors or warnings.
+- **Not verified:** physical iPad/Safari touch on the gates, VoiceOver, and Home Screen mode. Chromium emulation does not establish them. Not yet playtested.
+
+### Known limitations
+
+- At 844×390 the Hollow's gate (300px) is wider than the 228px board view; the player pans to read all of it.
+- On phones the Glade's gate covers most of that locked area (196×158px of 210×280px), and so most of its pieces, until it opens.
+- Only this level's woodland gate exists; other gate looks (vines, bridges, rune doors) are ideas, not built.
+- The in-game Release notes page has no entry for the gates yet; add one at deployment.
+
 ## 20261019-052826 — The Hidden Hollow (region level) and level picker (October 18, 2026)
 
 Published October 18, 2026 with owner authorization in build `20261019-052826`. A gameplay experiment before any generated multi-room puzzles: one handcrafted map whose areas unlock in order. The owner also asked mid-task for a level picker.

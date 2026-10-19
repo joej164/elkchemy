@@ -6,6 +6,14 @@ export interface ReleaseNote { readonly title: string; readonly date: string; re
 
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    title: 'Open the woodland gates',
+    date: 'October 18, 2026',
+    notes: [
+      'The Hidden Hollow now has wooden gates on its locked areas. When the requested item is ready, the gate glows—tap it to open the area.',
+      'The Unlock button still works, and Undo can close the area again.',
+    ],
+  },
+  {
     title: 'The Hidden Hollow',
     date: 'October 18, 2026',
     notes: [

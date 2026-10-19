@@ -465,6 +465,31 @@ describe('region level input (The Hidden Hollow)', () => {
     expect(canPickUp(s, p(3, 4))).toBe(true);
   });
 
+  it('a gate tap unlocks only its own region: a later gate never opens the next one', () => {
+    let s = start();
+    const gate = (region: number): UiAction => ({ type: 'unlock', region });
+    expect(canUnlock(s, 1)).toBe(false);
+    expect(reduceUi(s, gate(1))).toBe(s);       // not ready yet
+    s = run(s, ...CLEARING, tap(p(4, 3)));
+    expect(canUnlock(s, 1)).toBe(true);
+    expect(canUnlock(s, 2)).toBe(false);
+    expect(reduceUi(s, gate(2))).toBe(s);       // the Hollow's gate while the Glade is next: nothing
+    s = reduceUi(s, gate(1));
+    expect(s.session.unlocked).toBe(1);
+    expect(s.lastAction).toEqual({ kind: 'unlock', region: 1 });
+    expect(s.selected).toBeNull();
+    expect(reduceUi(s, gate(1))).toBe(s);       // already open
+    s = run(s, ...GLADE, gate(2));
+    expect(s.session.unlocked).toBe(2);
+    s = run(s, { type: 'undo' });
+    expect(s.session.unlocked).toBe(1);
+    expect(canUnlock(s, 2)).toBe(true);
+    // Once over, gates do nothing.
+    const lost = run(s, gate(2), drop(p(1, 6), p(0, 0)));
+    expect(lost.status).toBe('lost');
+    expect(canUnlock(lost, 2)).toBe(false);
+  });
+
   it('Undo across an unlock relocks it and leaves nothing selected, previewed or celebrating', () => {
     let s = run(start(), ...CLEARING, unlockAction, tap(p(3, 4)));
     expect(s.selected).toEqual(p(3, 4));

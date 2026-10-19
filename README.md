@@ -26,7 +26,10 @@ Six levels (`src/levels.ts`). Levels on the home screen lists them all; tap any 
 5. The Faraway Grove: a 12x16 scrolling board; have Grove, Song, Elk and Crystal, each tier 4 of 4, on the board at once. Each target shows its own completion; plain 3-merges suffice, with spare supply. Pan by dragging empty ground; for far moves, tap an item, pan, then tap its destination.
 6. The Hidden Hollow: a 7x7 map in three areas.
    - **Start:** you begin in Mossy Clearing; Songbird Glade and Crystal Hollow are locked, shaded, and signed with what opens them.
-   - **Unlocking:** make Grove tier 3 of 4 in the Clearing, press Unlock Songbird Glade, then make Song tier 3 of 4 in the Glade and unlock Crystal Hollow. Unlocking uses up nothing.
+   - **Unlocking:** each locked area has a wooden gate showing what opens it.
+     - Make Grove tier 3 of 4 in the Clearing, and the Glade's gate glows. Tap it, or press Enter or Space on it, or use the Unlock Songbird Glade button.
+     - Then make Song tier 3 of 4 in the Glade and open Crystal Hollow the same way.
+     - Unlocking uses up nothing and never happens on its own. A gate for an area that isn't next does nothing, and dragging across a gate pans the board.
    - **Goal:** Crystal tier 4 of 4 in the Hollow, which needs one 5→2 merge.
    - **Areas:** items never leave their own area, and only an area's own items count toward its unlock or goal.
    - **Failure:** only when no unlock is ready and no merge toward the current target is left: "No useful merges left—Undo or Retry."
@@ -40,7 +43,7 @@ Winning offers Next level (after the last level: play again from level 1). Progr
 - Levels only: press "Add supply" to place the next item in a random empty cell. Placement is seeded, so Undo then Add supply again lands in the same place, and Retry replays the same sequence.
 - Undo reverses the last action; Retry restarts the current level or puzzle.
 - Level status is exact within the supported resource bounds (`src/status.ts`): single-item and distinct-family multi-item goals use resource counts; Leave one uses an exact per-tier merge check and needs two free cells beyond all items and supply. Handcrafted levels 1–5 report a loss as soon as the goal becomes unreachable; generated puzzles report one only when no merges are left.
-- Region levels (`src/regions.ts`): rectangular areas that split the board exactly and unlock in order, each when its item (that tier or higher) is in a named earlier area. The session enforces them: no drops into or out of locked areas or across area borders, merge groups stop at borders, and Unlock is an ordinary undoable move. They have no supply, and the goal is one item in the last area. Their status counts each area's own items and reports a loss only when nothing useful can change. Other region configurations are rejected with an "Unsupported region level" error.
+- Region levels (`src/regions.ts`): rectangular areas that split the board exactly and unlock in order, each when its item (that tier or higher) is in a named earlier area. The session enforces them: no drops into or out of locked areas or across area borders, merge groups stop at borders, and Unlock (the button, or the next area's gate) is an ordinary undoable move; a gate's unlock names its area, and the session refuses it unless that area is next. They have no supply, and the goal is one item in the last area. Their status counts each area's own items and reports a loss only when nothing useful can change. Other region configurations are rejected with an "Unsupported region level" error.
 - Tap "?" next to the title for a short how-to-play dialog.
 - Boards larger than the screen scroll inside a framed viewport with finger-sized (64px) tiles. Drag an item to move it; drag empty ground to pan; a tap never pans or drops. Center board recenters; arrow keys scroll the focused cell into view. Levels 1–4 are 4x4 and fit without scrolling; level 5 scrolls. Generated boards up to 8x8 fit iPad screens in Chromium checks (except slight scrolling at 1024x768 landscape). Whenever a board overflows its frame, the status banner and Help show how to pan.
 

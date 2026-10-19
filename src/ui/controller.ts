@@ -1,5 +1,5 @@
 import type { Item, Pos, Tier } from '../board';
-import { inRegion, unlockReady } from '../regions';
+import { inRegion, nextLocked, unlockReady } from '../regions';
 import {
   applyDrop, canDrop, chooseSupplyCell, isCellOpen, placeSupplyRandom, previewDrop, retry, startSession, undo, unlock,
   type LevelDefinition, type SessionState,
@@ -31,7 +31,7 @@ export type UiAction =
   | { readonly type: 'tap'; readonly pos: Pos }
   | { readonly type: 'drop'; readonly from: Pos; readonly to: Pos }
   | { readonly type: 'placeSupply' }
-  | { readonly type: 'unlock' }
+  | { readonly type: 'unlock'; readonly region?: number }
   | { readonly type: 'undo' }
   | { readonly type: 'retry' }
   | { readonly type: 'clearSelection' };
@@ -67,9 +67,9 @@ export function canPlaceSupply(state: UiState): boolean {
     state.session.board.some((r) => r.some((c) => c === null));
 }
 
-/** Region levels: whether Unlock would open the next region now. */
-export function canUnlock(state: UiState): boolean {
-  return state.status === 'playing' && unlockReady(state.session);
+/** Region levels: whether Unlock (or, with `region`, that region's gate) would open the next region now. */
+export function canUnlock(state: UiState, region?: number): boolean {
+  return state.status === 'playing' && unlockReady(state.session) && (region === undefined || region === nextLocked(state.session));
 }
 
 /** Whether the item at `pos` can be picked up (tapped to select, or dragged): playing, and not in a locked region. */
@@ -152,7 +152,7 @@ export function reduceUi(state: UiState, action: UiAction): UiState {
     }
     case 'unlock': {
       if (isOver(state)) return state;
-      const next = unlock(state.session);
+      const next = unlock(state.session, action.region);
       return next === state.session ? state : withSession(state, next, { kind: 'unlock', region: next.unlocked });
     }
     case 'undo':

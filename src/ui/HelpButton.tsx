@@ -56,8 +56,8 @@ export function HelpButton({ goal, largeBoard = false, puzzle = false, regions }
             <li>Dropping onto a different item swaps them; nothing merges on its own.</li>
             {regions ? (
               <li>
-                Locked areas show the item that opens them. Make it in the area named, then press Unlock; the item stays
-                where it is. Items never leave their own area.
+                Each locked area's gate shows the item that opens it. Make it in the area named, then tap the gate or press
+                Unlock; the item stays where it is. Items never leave their own area.
               </li>
             ) : puzzle ? (
               <li>Everything you need is already on the board; there is no supply.</li>
