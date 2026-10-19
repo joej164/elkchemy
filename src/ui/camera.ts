@@ -131,14 +131,14 @@ export function direct(shots: readonly Shot[], view: View, frames: Frames, insta
  * opening ends, and shows no stages: the board draws the open gate and its lit symbols throughout.
  */
 export function palaceShots(instant: boolean, gate: () => Point | null, inside: () => Point | null,
-  show: (phase: Phase | null) => void): Shot[] {
-  if (instant) return [{ pan: gate }, { pan: inside }];
+  show: (phase: Phase | null) => void, opening?: () => void): Shot[] {
+  if (instant) return [{ pan: gate }, { then: () => opening?.() }, { pan: inside }];
   return [
     { then: () => show('travel') },
     { pan: gate },
     { then: () => show('glow') },
     { hold: GLOW_MS },
-    { then: () => show('opening') },
+    { then: () => { show('opening'); opening?.(); } },
     { hold: OPEN_MS },
     { pan: inside },
     { then: () => show(null) },

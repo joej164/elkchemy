@@ -145,9 +145,15 @@ function PalaceWall() {
 const SIDES = [['t', -1, 0], ['r', 0, 1], ['b', 1, 0], ['l', 0, -1]] as const;
 
 /** `onOverflowChange` reports whether the board overflows its viewport (so it needs panning), whenever that changes. */
-export function Board({ state, dispatch, onOverflowChange }: {
+export function Board({ state, dispatch, onOverflowChange, onPalaceOpening, onPresentationCancel }: {
   state: UiState; dispatch: Dispatch<UiAction>; onOverflowChange?: (overflowing: boolean) => void;
+  onPalaceOpening?: (seq: number) => void;
+  onPresentationCancel?: () => void;
 }) {
+  const palaceOpeningRef = useRef(onPalaceOpening);
+  palaceOpeningRef.current = onPalaceOpening;
+  const presentationCancelRef = useRef(onPresentationCancel);
+  presentationCancelRef.current = onPresentationCancel;
   const board = state.session.board;
   const { regions, tasks } = state.session.level;
   const roomLevel = state.session.level.goal.kind === 'treasure';
@@ -196,6 +202,7 @@ export function Board({ state, dispatch, onOverflowChange }: {
     const c = camera.current;
     if (!c?.playing()) return;
     c.stop();
+    presentationCancelRef.current?.();
     setShow(null);
   };
   useEffect(() => () => camera.current?.stop(), []);
@@ -319,6 +326,7 @@ export function Board({ state, dispatch, onOverflowChange }: {
   // A gate that had focus disappears when its region opens; focus then moves to that region's first cell.
   const focusOpened = useRef<number | null>(null);
   useLayoutEffect(() => {
+    if (camera.current?.playing()) presentationCancelRef.current?.();
     camera.current?.stop();
     camera.current = null;
     setShow(null);
@@ -352,7 +360,8 @@ export function Board({ state, dispatch, onOverflowChange }: {
         const b = regionBox(r);
         return b && reveal(view.read(), b);
       };
-      shots = palaceShots(instant, toGate, inside, (p) => setShow(p && { seq, phase: p }));
+      shots = palaceShots(instant, toGate, inside, (p) => setShow(p && { seq, phase: p }),
+        () => palaceOpeningRef.current?.(seq));
     } else {
       const r = regions[cue.kind === 'start' ? 0 : cue.region];
       shots = [{
@@ -363,7 +372,7 @@ export function Board({ state, dispatch, onOverflowChange }: {
         },
       }];
     }
-    camera.current = direct(shots, view, frames, instant, () => setShow(null));
+    camera.current = direct(shots, view, frames, instant, () => { presentationCancelRef.current?.(); setShow(null); });
   }, [state.actionSeq]);
 
   const preview = useMemo(() => {

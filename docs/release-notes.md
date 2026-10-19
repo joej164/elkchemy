@@ -4,9 +4,35 @@ Each entry records what changed, how it was verified, and known limitations. **U
 
 Earlier published builds are not backfilled here. The previous build, `20261018-195510`, has five handcrafted levels and optional looping music; its verification is recorded in TODO.md under Current baseline and Audio.
 
+## 20261019-210331 — Approved music and sound effects integration (October 19, 2026)
+
+Release build `20261019-210331`. Owner authorized commit → push → deploy after local verification. The owner explicitly authorized direct Codex implementation and bounded Codex delegation for this audio task only.
+
+### Agreed design
+
+- Level 9 starts with Woodland Journey. Tapping a fixed item, selecting an item or successfully acting on an item inside the playable palace selects Crystal Palace; tapping a fixed item, selecting an item or successfully acting in a woodland room returns to Woodland Journey. Opening the palace, camera travel and arbitrary panning do not change tracks. Other levels retain their existing assignments. Music stays default off, with a short gentle transition and sample-contiguous looping.
+- Sound effects have an independent toggle, default off on reload as confirmed by the owner. Neither option initializes or fetches audio before it is enabled, and enabling one must not fetch the other's files. Settings are not persisted.
+- Successful three- and five-piece merges use their respective cues; concealed terrain reveals use discovery; gate openings and branch completions use completion; opening final treasure uses case-victory. An ordinary puzzle win retains its merge cue. At most one cue per action, in priority order: treasure victory > discovery > completion > merge. Opening three entrances together or completing the third branch and opening the palace gives one completion cue.
+- The palace completion cue starts at its visible gate-opening stage, or immediately under reduced motion. Cancelling the visual sequence also stops active effects and invalidates pending playback, including a cue still downloading. Undo, Retry, startup, selection and rendering do not replay effects. At most three effect voices play together; disabling effects stops them promptly. Audio failures and timing never determine game progress.
+- Ship only the two approved full loops and five approved effects as new production audio. Keep their source scores, renderers and measurements; preserve the original tracks. No new dependency, persistence or unrelated camera/focus fix.
+
+### Verification and limitations
+
+- Final integrated verification: 531 tests, typecheck, production build and `git diff --check` pass. SHA-256 checks confirm all seven new production WAVs are byte-for-byte copies of the approved sources.
+- Production-build Playwright Chromium at 820×1180: a full level-9 win; merge-three, discovery, completion and case-victory decoded; Undo and Retry did not replay cues. Board sequences used DOM clicks for off-screen cells; controls used native browser actions. This verifies handler/event integration, not real touch or pointer geometry for those board moves.
+- At 820×1180, controls stayed visible through the win (lowest edge 1160.42px). Five phone/iPad viewport sizes had no horizontal overflow, with audio buttons at least 44px tall. Phone page scrolling remains allowed.
+- Reduced-motion opening produced exactly one immediate completion cue. With completion's response deliberately held until the visible opening, Center board cancelled the sequence; releasing the response decoded the file but started zero voices. This covers cancellation after the opening callback, as well as earlier camera-stage cancellation covered by automated tests.
+- Both generated modes reached a win via witness sequences applied with DOM clicks, exercising three- and five-piece merge cues. Undo and Retry in goal mode started zero effects. A fresh final production build also passed a real-pointer initial three-piece merge on level 9.
+- Initially zero audio contexts or audio requests. Effects alone loaded no music; Music alone loaded only the selected Woodland Stroll track. Disabling either option suspended only its own context while the other kept running. A deliberately corrupt effects response showed retry while gameplay stayed playing with Undo enabled; removing the failed response and retrying recovered playback.
+- Final-build selection and fixed-item taps switched actual decoded loops Woodland Journey → Crystal Palace → Woodland Journey (70.2439s → 56.4706s → 70.2439s); arbitrary panning started zero new tracks. The fixed Starting Glade item provides a woodland return even after its items are fixed. No console errors or warnings were observed.
+
+Browser decoding, loading and context checks cannot establish subjective mixing, seamlessness to a listener, physical-iPad/Safari behavior or actual background interruptions. Owner listening and real-device checks follow a separately authorized deployment; local iPad testing is not an available route.
+
 ## 20261019-203516 — Smooth camera pans and a visible palace opening (October 19, 2026)
 
 Release build `20261019-203516`, implemented by Claude after the owner's physical-iPad feedback on `20261019-200030`. Codex reviewed and independently verified 515 tests, typecheck, build, smooth Songbird pan, palace travel/glow/opening and Retry; no console errors. Owner authorized commit → push → deploy with the keyboard-focus issue deferred: after a keyboard-triggered palace opening, focus remains on the old branch and an arrow key can snap back. Physical iPad/Safari remains unverified.
+
+Owner response after deployment: the camera behavior is good. No device, browser or specific interaction checks were supplied with that response; the physical-device limitations below remain open.
 
 ### Owner feedback (physical iPad, build `20261019-200030`)
 

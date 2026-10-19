@@ -55,8 +55,9 @@ body {
 .app-footer { grid-area: footer; width: 100%; max-width: 720px; }
 
 .info { width: 100%; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-.title-row { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.title-controls { display: flex; align-items: center; gap: 10px; }
+.title-row { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
+.title-controls { display: flex; align-items: center; gap: 6px; }
+.effects-short { display: none; }
 .music-button {
   min-height: 44px; padding: 6px 12px; border: 2px solid var(--gold); border-radius: 12px;
   background: transparent; color: var(--gold); font: inherit; font-size: 0.95rem;
@@ -699,7 +700,7 @@ body {
 }
 .scene-top {
   position: absolute; top: 12px; left: var(--gutter); right: var(--gutter);
-  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px;
 }
 .scene-main { margin-top: auto; width: min(100%, 560px); }
 .scene-top .back-button, .scene-top .music-button:not([aria-pressed="true"]) { background: rgb(10 24 16 / 0.8); }
@@ -778,3 +779,13 @@ body {
 .app.is-game .puzzle-id-row label, .app.is-game .copy-status { justify-self: start; }
 /* Disabled buttons fade with opacity elsewhere; over the art that would show it through, so use the same look, opaque. */
 .app.is-game .btn:disabled { opacity: 1; background: #74785c; border-color: #393a28; color: #293224; }
+
+/* Compact audio labels keep both independent 44px controls within narrow headers. */
+@media (max-width: 600px), (orientation: landscape) and (min-width: 900px) {
+  .effects-full { display: none; }
+  .effects-short { display: inline; }
+  .music-button { padding-inline: 8px; font-size: 0.85rem; }
+}
+@media (max-width: 600px) {
+  .info .title-controls { margin-left: auto; }
+}

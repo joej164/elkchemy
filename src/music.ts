@@ -6,6 +6,8 @@ export interface MusicState {
 
 export const WOODLAND_MUSIC = '/audio/woodland-stroll.wav';
 export const PUZZLE_MUSIC = '/audio/curious-clearing.wav';
+export const JOURNEY_MUSIC = '/audio/woodland-journey.wav';
+export const PALACE_MUSIC = '/audio/crystal-palace.wav';
 
 /** One looping voice; no audio context or requests until the player enables music. */
 export class BackgroundMusic {
@@ -19,6 +21,9 @@ export class BackgroundMusic {
   private context: AudioContext | null = null;
   private gain: GainNode | null = null;
   private source: AudioBufferSourceNode | null = null;
+  private sourceTrack: string | null = null;
+  private sourceGain: GainNode | null = null;
+  private retiring: AudioBufferSourceNode | null = null;
   private buffers = new Map<string, Promise<AudioBuffer>>();
 
   constructor(private changed: (state: MusicState) => void) {}
@@ -42,7 +47,6 @@ export class BackgroundMusic {
     if (this.disposed || this.track === track) return;
     this.track = track;
     this.revision++;
-    this.stopSource();
     if (this.enabled && this.visible) void this.play();
   }
 
@@ -92,15 +96,31 @@ export class BackgroundMusic {
       // Called immediately from the enable button, before awaiting a network request.
       await this.context.resume();
       if (revision !== this.revision || !this.enabled || !this.visible || this.disposed) return;
-      if (!this.source) {
+      if (!this.source || this.sourceTrack !== this.track) {
         const buffer = await this.buffer(this.track);
         if (revision !== this.revision || !this.enabled || !this.visible || this.disposed) return;
         const source = this.context.createBufferSource();
         source.buffer = buffer;
         source.loop = true;
-        source.connect(this.gain!);
+        const gain = this.context.createGain();
+        const now = this.context.currentTime;
+        gain.gain.setValueAtTime(this.source ? 0 : 1, now);
+        gain.gain.linearRampToValueAtTime(1, now + 0.25);
+        source.connect(gain);
+        gain.connect(this.gain!);
+        source.onended = () => { source.disconnect(); gain.disconnect(); };
+        this.retiring?.stop();
+        this.retiring = this.source;
+        if (this.source && this.sourceGain) {
+          this.sourceGain.gain.cancelScheduledValues(now);
+          this.sourceGain.gain.setValueAtTime(this.sourceGain.gain.value, now);
+          this.sourceGain.gain.linearRampToValueAtTime(0, now + 0.25);
+          this.source.stop(now + 0.25);
+        }
         source.start();
         this.source = source;
+        this.sourceGain = gain;
+        this.sourceTrack = this.track;
       }
       if (revision !== this.revision || this.disposed) return;
       this.loading = false;
@@ -120,6 +140,12 @@ export class BackgroundMusic {
     this.source?.stop();
     this.source?.disconnect();
     this.source = null;
+    this.sourceGain?.disconnect();
+    this.sourceGain = null;
+    this.sourceTrack = null;
+    this.retiring?.stop();
+    this.retiring?.disconnect();
+    this.retiring = null;
   }
 
   dispose(): void {

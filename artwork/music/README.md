@@ -18,3 +18,7 @@ Numerical validation cannot establish subjective quality; owner listening approv
 ## Clarinet and ukulele scores
 
 `scores.mjs` turns `score.json` into playable arrangements for B♭ clarinet and ukulele: editable MusicXML (both parts) and a one-page engraved SVG for each instrument part in `docs/music/`, shown on the game's Music / Scores page. Regenerate with `npm run music:scores`; arrangement choices and verification are described in [docs/music/README.md](../../docs/music/README.md). The scripts never touch the WAV files.
+
+## Approved full loops
+
+The owner approved Woodland Journey and Crystal Palace on October 19, 2026; reproducible source assets are retained in [finished-loops/README.md](finished-loops/README.md). Level-9 integration is included in release build `20261019-210331`; the original tracks and existing levels' assignments are preserved. The original scores above remain arrangements of the original eight-bar loops. See `docs/release-notes.md` for the agreed audio design.

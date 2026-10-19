@@ -1,4 +1,4 @@
-import { useReducer, useState, type ReactNode } from 'react';
+import { useEffect, useReducer, useRef, useState, type ReactNode } from 'react';
 import { LEVELS, nextLevelIndex, type Level } from '../levels';
 import type { Item } from '../board';
 import { generatePuzzle, type GeneratedPuzzle, type PuzzleConfig } from '../generator';
@@ -22,7 +22,10 @@ import {
   branchPlates, isConcealed, isLargeBoard, itemCount, objectiveText, plateItems, prizeText, progressText, statusMessage, taskNeed, unlockNeed,
 } from './messages';
 import { useMusic } from './useMusic';
-import { PUZZLE_MUSIC, WOODLAND_MUSIC } from '../music';
+import { JOURNEY_MUSIC, PALACE_MUSIC, PUZZLE_MUSIC, WOODLAND_MUSIC } from '../music';
+import { useEffects } from './useEffects';
+import { actionEffect, palaceOpeningPending } from './audioEvents';
+import type { EffectCue } from '../effects';
 import {
   canPlaceSupply, canUndo, canUnlock, initUi, nextSupplyItem, openedRegion, reduceUi, supplyRemaining,
   type LastAction,
@@ -87,7 +90,11 @@ export function App({ levels = LEVELS }: { levels?: readonly Level[] }) {
   const [index, setIndex] = useState(0);
   const [config, setConfig] = useState<PuzzleConfig>({ mode: 'goals', tier: 3, goals: 1 });
   const active = screen.kind === 'levels' ? levels[index].definition : screen.kind === 'puzzle' ? screen.puzzle.definition : null;
-  const music = useMusic(active && isSongGoal(active) ? PUZZLE_MUSIC : WOODLAND_MUSIC);
+  const [musicArea, setMusicArea] = useState<'woodland' | 'palace'>('woodland');
+  const palaceLevel = active?.regions?.some((r) => r.building === 'palace');
+  const music = useMusic(palaceLevel ? musicArea === 'palace' ? PALACE_MUSIC : JOURNEY_MUSIC
+    : active && isSongGoal(active) ? PUZZLE_MUSIC : WOODLAND_MUSIC);
+  const effects = useEffects();
   const musicControl = (
     <>
       <button type="button" className="music-button" data-action="music"
@@ -96,6 +103,14 @@ export function App({ levels = LEVELS }: { levels?: readonly Level[] }) {
         onClick={music.toggle}>
         <span aria-hidden="true">♪</span> Music: {music.error ? 'retry' : music.enabled ? 'on' : 'off'}
       </button>
+      <button type="button" className="music-button effects-button" data-action="effects"
+        aria-label={effects.error ? 'Retry sound effects' : effects.enabled ? 'Turn sound effects off' : 'Turn sound effects on'}
+        aria-pressed={effects.enabled} aria-busy={effects.loading} onClick={effects.toggle}>
+        <span className="effects-full">Sound effects</span><span className="effects-short" aria-hidden="true">Effects</span>: {effects.error ? 'retry' : effects.enabled ? 'on' : 'off'}
+      </button>
+      <span className="sr-only" role="status">
+        {effects.error ? 'Sound effects could not play. Tap Sound effects to try again.' : effects.loading ? 'Loading sound effects.' : ''}
+      </span>
       <span className="sr-only" role="status">
         {music.error ? 'Music could not play. Tap Music to try again.' : music.loading ? 'Loading music.' : ''}
       </span>
@@ -103,7 +118,7 @@ export function App({ levels = LEVELS }: { levels?: readonly Level[] }) {
   );
   // Bumped on every screen change, Next level and New puzzle, so the game remounts even when the definition repeats.
   const [run, setRun] = useState(0);
-  const show = (next: Screen) => { setScreen(next); setRun((r) => r + 1); };
+  const show = (next: Screen) => { setMusicArea('woodland'); effects.stop(); setScreen(next); setRun((r) => r + 1); };
   // Generation is bounded and only returns verified puzzles; if it fails, nothing unverified is shown.
   const startPuzzle = (cfg: PuzzleConfig, avoid?: number) => {
     try {
@@ -137,13 +152,13 @@ export function App({ levels = LEVELS }: { levels?: readonly Level[] }) {
           onPick={(i) => { setIndex(i); show({ kind: 'levels' }); window.scrollTo(0, 0); }} />
       )}
       {screen.kind === 'levels' && (
-        <Game key={run} definition={levels[index].definition} musicControl={musicControl} onHome={toHome}
+        <Game key={run} onMusicAreaChange={setMusicArea} playEffect={effects.play} stopEffects={effects.stop} definition={levels[index].definition} musicControl={musicControl} onHome={toHome}
           label={`Level ${index + 1} of ${levels.length} · ${levels[index].name}`}
           winLabel={nextLevelIndex(index, levels.length) === 0 ? 'Play again from level 1' : 'Next level'}
-          onWin={() => { setIndex(nextLevelIndex(index, levels.length)); setRun((r) => r + 1); }} />
+          onWin={() => { setMusicArea('woodland'); setIndex(nextLevelIndex(index, levels.length)); setRun((r) => r + 1); }} />
       )}
       {screen.kind === 'puzzle' && (
-        <Game key={run} definition={screen.puzzle.definition} musicControl={musicControl} onHome={toHome}
+        <Game key={run} onMusicAreaChange={setMusicArea} playEffect={effects.play} stopEffects={effects.stop} definition={screen.puzzle.definition} musicControl={musicControl} onHome={toHome}
           label={puzzleLabel(screen.puzzle.config)} puzzleId={screen.puzzle.id}
           onNewPuzzle={() => startPuzzle(screen.puzzle.config, screen.puzzle.seed)} />
       )}
@@ -212,6 +227,9 @@ export function TaskPanel({ session }: { session: SessionState }) {
 }
 
 interface GameProps {
+  onMusicAreaChange?: (area: 'woodland' | 'palace') => void;
+  playEffect?: (cue: EffectCue) => void;
+  stopEffects?: () => void;
   definition: LevelDefinition;
   label: string;
   musicControl: ReactNode;
@@ -224,8 +242,26 @@ interface GameProps {
   onNewPuzzle?: () => void;
 }
 
-export function Game({ definition, label, musicControl, onHome, winLabel, onWin, puzzleId, onNewPuzzle }: GameProps) {
+export function Game({ definition, label, musicControl, onHome, winLabel, onWin, puzzleId, onNewPuzzle, onMusicAreaChange, playEffect, stopEffects }: GameProps) {
   const [state, dispatch] = useReducer(reduceUi, definition, initUi);
+  const handled = useRef(0);
+  const palacePlayed = useRef(0);
+  useEffect(() => { onMusicAreaChange?.(state.musicArea); }, [state.musicArea, onMusicAreaChange]);
+  useEffect(() => () => stopEffects?.(), [stopEffects]);
+  useEffect(() => {
+    if (handled.current === state.actionSeq) return;
+    handled.current = state.actionSeq;
+    if (state.lastAction?.kind === 'undo' || state.lastAction?.kind === 'retry') stopEffects?.();
+    if (!palaceOpeningPending(state)) {
+      const cue = actionEffect(state);
+      if (cue) playEffect?.(cue);
+    }
+  }, [state.actionSeq, playEffect, stopEffects]);
+  const palaceOpening = (seq: number) => {
+    if (seq !== state.actionSeq || palacePlayed.current === seq || !palaceOpeningPending(state)) return;
+    palacePlayed.current = seq;
+    playEffect?.('completion');
+  };
   const puzzle = puzzleId !== undefined;
   const { goal, regions, tasks } = state.session.level;
   const nextArea = regions ? nextLocked(state.session) : null;
@@ -335,7 +371,7 @@ export function Game({ definition, label, musicControl, onHome, winLabel, onWin,
         )}
       </header>
 
-      <Board state={state} dispatch={dispatch} onOverflowChange={setPannable} />
+      <Board state={state} dispatch={dispatch} onOverflowChange={setPannable} onPalaceOpening={palaceOpening} onPresentationCancel={stopEffects} />
 
       <div className={`banner is-${state.status}`} data-status={state.status}>
         {state.status === 'won' && <span className="banner-icon" aria-hidden="true">★</span>}

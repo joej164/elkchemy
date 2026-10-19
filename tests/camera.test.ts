@@ -51,9 +51,10 @@ function palace(instant: boolean) {
   v.scrollTo({ x: 1000, y: 700 });
   const shown: { phase: Phase | null; t: number; at: Point }[] = [];
   let interrupted = 0;
-  const shots = palaceShots(instant, () => GATE, () => INSIDE, (phase) => shown.push({ phase, t: clock.time(), at: v.at() }));
+  const openings: number[] = [];
+  const shots = palaceShots(instant, () => GATE, () => INSIDE, (phase) => shown.push({ phase, t: clock.time(), at: v.at() }), () => openings.push(clock.time()));
   const camera = direct(shots, v.view, clock.frames, instant, () => { interrupted++; });
-  return { clock, v, shown, camera, interrupted: () => interrupted };
+  return { clock, v, shown, camera, openings, interrupted: () => interrupted };
 }
 
 describe('Automatic camera moves', () => {
@@ -79,7 +80,7 @@ describe('Automatic camera moves', () => {
   });
 
   it('stopped mid-pan (a new action, Retry or leaving the level), it moves and shows nothing more, however long', () => {
-    const { clock, v, shown, camera } = palace(false);
+    const { clock, v, shown, camera, openings } = palace(false);
     clock.advance(200);
     const at = v.at();
     camera.stop();
@@ -90,7 +91,7 @@ describe('Automatic camera moves', () => {
   });
 
   it('when the player pans meanwhile, it stops where the player left the view, without snapping back, and says so once', () => {
-    const { clock, v, shown, interrupted } = palace(false);
+    const { clock, v, shown, openings, interrupted } = palace(false);
     clock.advance(200);
     v.scrollTo({ x: 900, y: 650 });                          // a drag, a scrollbar or a focus scroll
     const writes = v.writes.length;
@@ -102,13 +103,14 @@ describe('Automatic camera moves', () => {
 
 describe('The palace opening', () => {
   it('reaches the gate, lets the lit symbols glow, opens the gate, then moves on to the palace: in about two seconds', () => {
-    const { clock, v, shown, interrupted } = palace(false);
+    const { clock, v, shown, openings, interrupted } = palace(false);
     expect(shown).toEqual([{ phase: 'travel', t: 0, at: { x: 1000, y: 700 } }]);   // at once: the gate is drawn closed
     clock.advance(5000);
     const [travel, glow, opening, done] = shown;
     expect(shown.map((s) => s.phase)).toEqual(['travel', 'glow', 'opening', null]);
     expect(glow.at).toEqual(GATE);                            // the symbols glow only once the gate is in view
     expect(opening.t - glow.t).toBeGreaterThanOrEqual(GLOW_MS);
+    expect(openings).toEqual([opening.t]);
     expect(opening.at).toEqual(GATE);                          // and the gate opens there
     expect(done.t - opening.t).toBeGreaterThanOrEqual(OPEN_MS); // the view moves on only after the gate has opened
     expect(done.at).toEqual(INSIDE);
@@ -118,18 +120,20 @@ describe('The palace opening', () => {
   });
 
   it('under reduced motion, shows no stages (the open gate throughout) and jumps once to where the opening ends', () => {
-    const { clock, v, shown } = palace(true);
+    const { clock, v, shown, openings } = palace(true);
+    expect(openings).toEqual([0]);
     expect([shown, v.at(), clock.pending()]).toEqual([[], INSIDE, 0]);
   });
 
   it('stopped while the symbols glow, it never opens the gate or moves on later', () => {
-    const { clock, v, shown, camera } = palace(false);
+    const { clock, v, shown, camera, openings } = palace(false);
     clock.advance(800);
     expect(shown.map((s) => s.phase)).toEqual(['travel', 'glow']);
     camera.stop();
     clock.advance(10_000);
     expect(shown.map((s) => s.phase)).toEqual(['travel', 'glow']);
     expect(v.at()).toEqual(GATE);
+    expect(openings).toEqual([]);
   });
 });
 

@@ -1,5 +1,5 @@
 import type { Item, Pos, Tier } from '../board';
-import { inRegion, isFixed, isOpen, nextLocked, unlockReady } from '../regions';
+import { inRegion, isFixed, isOpen, nextLocked, regionAt, roomOf, unlockReady } from '../regions';
 import {
   applyDrop, canDrop, chooseSupplyCell, collect, isCellOpen, placeSupplyRandom, previewDrop, retry, startSession, treasureRevealed, undo, unlock,
   type LevelDefinition, type SessionState,
@@ -45,6 +45,7 @@ export interface UiState {
   readonly selected: Pos | null;
   readonly lastAction: LastAction | null;
   readonly actionSeq: number;
+  readonly musicArea: 'woodland' | 'palace';
 }
 
 export type UiAction =
@@ -65,12 +66,12 @@ const samePos = (a: Pos, b: Pos): boolean => a.row === b.row && a.col === b.col;
 const isOver = (state: UiState): boolean => state.status !== 'playing';
 
 function withSession(prev: UiState, session: SessionState, lastAction: LastAction): UiState {
-  return { session, status: evaluateStatus(session), selected: null, lastAction, actionSeq: prev.actionSeq + 1 };
+  return { session, status: evaluateStatus(session), selected: null, lastAction, actionSeq: prev.actionSeq + 1, musicArea: prev.musicArea };
 }
 
 export function initUi(level: LevelDefinition): UiState {
   const session = startSession(level);
-  return { session, status: evaluateStatus(session), selected: null, lastAction: null, actionSeq: 0 };
+  return { session, status: evaluateStatus(session), selected: null, lastAction: null, actionSeq: 0, musicArea: 'woodland' };
 }
 
 export function nextSupplyItem(state: UiState): Item | null {
@@ -132,6 +133,14 @@ export function previewCells(state: UiState, from: Pos, to: Pos): Pos[] {
   return canDropAt(state, from, to) ? previewDrop(state.session, from, to) : [];
 }
 
+/** The player's last playable room interaction, independent of camera movement and gate openings. */
+function areaAt(state: UiState, pos: Pos): UiState['musicArea'] {
+  const regions = state.session.level.regions;
+  if (!regions || !isCellOpen(state.session, pos)) return state.musicArea;
+  const room = roomOf(regions, regionAt(regions, pos));
+  return regions[room]?.building === 'palace' ? 'palace' : 'woodland';
+}
+
 function doDrop(state: UiState, from: Pos, to: Pos): UiState {
   const { session } = state;
   if (!canDropAt(state, from, to)) return state;
@@ -153,6 +162,7 @@ function doDrop(state: UiState, from: Pos, to: Pos): UiState {
   }
   const next = applyDrop(session, from, to);
   if (next === session) return state;
+  state = { ...state, musicArea: areaAt(state, to) };
   if (next.done.length > session.done.length) {
     const { regions } = session.level;
     const opened = regions!.flatMap((r, i) => (isOpen(next, i) && !isOpen(session, i) ? [i] : []));
@@ -175,9 +185,13 @@ export function reduceUi(state: UiState, action: UiAction): UiState {
       const { goal } = session.level;
       if (goal.kind === 'treasure' && samePos(goal.at, pos)) {
         const found = collect(session);
-        if (found !== session) return withSession(state, found, { kind: 'collect' });
+        if (found !== session) return withSession({ ...state, musicArea: areaAt(state, pos) }, found, { kind: 'collect' });
       }
-      if (selected === null) return canPickUp(state, pos) ? { ...state, selected: pos } : state;
+      // Completed plate items still choose their room's music, without moving them or creating a gameplay event.
+      if (session.board[pos.row][pos.col] && isCellOpen(session, pos) && isFixed(session, pos)) {
+        return { ...state, selected: null, musicArea: areaAt(state, pos) };
+      }
+      if (selected === null) return canPickUp(state, pos) ? { ...state, selected: pos, musicArea: areaAt(state, pos) } : state;
       if (samePos(selected, pos)) return { ...state, selected: null };
       // A tap that changes nothing (onto an identical item that cannot merge) still ends the selection.
       const next = doDrop(state, selected, pos);
@@ -199,7 +213,7 @@ export function reduceUi(state: UiState, action: UiAction): UiState {
     case 'undo':
       return canUndo(state) ? withSession(state, undo(state.session), { kind: 'undo' }) : state;
     case 'retry':
-      return withSession(state, retry(state.session), { kind: 'retry' });
+      return withSession({ ...state, musicArea: 'woodland' }, retry(state.session), { kind: 'retry' });
     case 'clearSelection':
       return state.selected === null ? state : { ...state, selected: null };
   }

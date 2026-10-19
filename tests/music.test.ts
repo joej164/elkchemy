@@ -9,7 +9,7 @@ describe('background music', () => {
   let context: {
     resume: ReturnType<typeof vi.fn>; suspend: ReturnType<typeof vi.fn>; close: ReturnType<typeof vi.fn>;
     createGain: ReturnType<typeof vi.fn>; createBufferSource: ReturnType<typeof vi.fn>;
-    decodeAudioData: ReturnType<typeof vi.fn>; destination: object;
+    decodeAudioData: ReturnType<typeof vi.fn>; destination: object; currentTime: number;
   };
   let construct: ReturnType<typeof vi.fn>;
   let fetcher: ReturnType<typeof vi.fn>;
@@ -20,9 +20,9 @@ describe('background music', () => {
     voices = [];
     context = {
       resume: vi.fn(async () => {}), suspend: vi.fn(async () => {}), close: vi.fn(async () => {}),
-      createGain: vi.fn(() => ({ gain: { value: 1 }, connect: vi.fn() })),
+      createGain: vi.fn(() => ({ gain: { value: 1, setValueAtTime: vi.fn(), linearRampToValueAtTime: vi.fn(), cancelScheduledValues: vi.fn() }, connect: vi.fn(), disconnect: vi.fn() })),
       createBufferSource: vi.fn(() => { const node = voice(); voices.push(node); return node; }),
-      decodeAudioData: vi.fn(async () => ({ duration: 25 })), destination: {},
+      decodeAudioData: vi.fn(async () => ({ duration: 25 })), destination: {}, currentTime: 0,
     };
     construct = vi.fn(function () { return context; });
     fetcher = vi.fn(async () => response());
@@ -99,11 +99,37 @@ describe('background music', () => {
     music.setTrack(PUZZLE_MUSIC);
     await vi.waitFor(() => expect(voices).toHaveLength(2));
     expect(voices[0].stop).toHaveBeenCalledTimes(1);
-    expect(voices[0].disconnect).toHaveBeenCalledTimes(1);
+    expect(voices[0].stop).toHaveBeenCalledWith(expect.any(Number));
     expect(fetcher.mock.calls[1][0]).toBe(PUZZLE_MUSIC);
     music.setTrack('/audio/woodland-stroll.wav');
     await vi.waitFor(() => expect(voices).toHaveLength(3));
     expect(fetcher).toHaveBeenCalledTimes(2);
+  });
+
+  it('keeps the old loop until replacement is decoded, then crossfades for 250ms', async () => {
+    await music.setEnabled(true);
+    let finish!: (value: ReturnType<typeof response>) => void;
+    fetcher.mockImplementationOnce(() => new Promise((resolve) => { finish = resolve; }));
+    music.setTrack(PUZZLE_MUSIC);
+    await Promise.resolve();
+    expect(voices[0].stop).not.toHaveBeenCalled();
+    finish(response());
+    await vi.waitFor(() => expect(voices).toHaveLength(2));
+    expect(voices[0].stop).toHaveBeenCalledWith(0.25);
+    expect(context.createGain.mock.results[2].value.gain.linearRampToValueAtTime).toHaveBeenCalledWith(1, 0.25);
+    expect(context.createGain.mock.results[1].value.gain.linearRampToValueAtTime).toHaveBeenLastCalledWith(0, 0.25);
+  });
+
+  it('ignores an obsolete replacement load after a newer track choice', async () => {
+    await music.setEnabled(true);
+    let finish!: (value: ReturnType<typeof response>) => void;
+    fetcher.mockImplementationOnce(() => new Promise((resolve) => { finish = resolve; }));
+    music.setTrack(PUZZLE_MUSIC);
+    await Promise.resolve();
+    music.setTrack('/audio/woodland-stroll.wav');
+    finish(response());
+    await vi.waitFor(() => expect(changes[changes.length - 1]?.loading).toBe(false));
+    expect(voices).toHaveLength(1);
   });
 
   it('a failed load shows an off/retry state and a later tap can recover', async () => {
