@@ -1,6 +1,23 @@
 # Elkchemy
 
-Elkchemy is a woodland merge puzzle on a 4x4 board. This build has five handcrafted levels, played in order (`src/levels.ts`):
+Elkchemy is a woodland merge puzzle. The app opens on a home screen, a painted woodland scene with the elk, and four choices: Play (generated puzzles), Levels (five handcrafted levels), Music / Scores (clarinet and ukulele arrangements of the game music), and Release notes (a short player-facing history of what changed; the internal record is [docs/release-notes.md](docs/release-notes.md)). Every other screen has a Home button.
+
+## Generated puzzles
+
+Play offers two modes, each with a small set of choices:
+
+- **Merge to goals:** make the shown goal items (1, 2 or 3 goals, each a different family) at tier 3 or 4 of 4. Leftover pieces do not matter once the goals are on the board.
+- **Merge down to one:** one family; finish with exactly one item, at exactly the target tier (3 or 4 of 4).
+
+Everything needed starts on the board; there is no supply. Boards are 4x4 to 8x8, sized from the number of pieces, with working space. Every piece belongs to a goal family. Generation (`src/generator.ts`) builds each goal backwards from 3→1 and 5→2 merges, shuffles the pieces with a seeded generator, then plays a winning sequence on the actual board with the real rules and replays it through the game's status checks before offering the puzzle. If no candidate verifies within a fixed limit, the menu shows an error instead of an unverified puzzle. The winning sequence is never shown.
+
+Retry restarts the same puzzle; New puzzle makes a different one with the same settings; Undo takes back the last action. New puzzle and Home ask before discarding an attempt. Generated puzzles never announce a loss after a fatal choice; only when the goal is unmet and no family has three items at a mergeable tier left (scattered matches still count) do they show "No merges left—Undo, Retry, or New Puzzle." and lock the board. Dropping an item onto a matching one that cannot merge does nothing and does not use up Undo. Nothing is saved; reloading returns to the home screen.
+
+Each puzzle shows a reproduction ID such as `v1-goals-t4-g2-1nqrzv7`: generator version, mode, target tier as shown, goal count, and a base-36 seed. It sits under the controls in a read-only field with a Copy button; "Copied" appears only after the clipboard write succeeds. If copying fails, the whole ID is left selected (and tapping the field selects it) so it can be copied by hand. To rebuild a reported puzzle in code or a test: `const { config, seed } = parsePuzzleId(id)!; generatePuzzle(config, seed);` (from `src/generator.ts`). Changing what an ID produces requires bumping `GENERATOR_VERSION`; IDs from other versions are rejected.
+
+## Handcrafted levels
+
+Five levels, played in order (`src/levels.ts`):
 
 1. Sprouting Grove: make Grove, tier 3 of 4 (forgiving intro).
 2. Songbird Chorus: make Song, tier 3 of 4; plain 3-merges suffice.
@@ -8,37 +25,39 @@ Elkchemy is a woodland merge puzzle on a 4x4 board. This build has five handcraf
 4. Crystal Fives: make Crystal, tier 4 of 4 with exactly enough crystals; it needs two 5-merges, and any 3-merge of tier-1 or tier-2 crystals makes it unreachable.
 5. The Faraway Grove: a 12x16 scrolling board; have Grove, Song, Elk and Crystal, each tier 4 of 4, on the board at once. Each target shows its own completion; plain 3-merges suffice, with spare supply. Pan by dragging empty ground; for far moves, tap an item, pan, then tap its destination.
 
-Winning offers Next level (after the last level: play again from level 1). Progress is kept in memory only; reloading starts at level 1.
+Winning offers Next level (after the last level: play again from level 1). Progress is kept in memory only: Home and back resumes at the current level, and reloading starts at level 1.
+
+## Rules and controls
 
 - Drag an item (or tap it, then tap a destination). Dropping onto a matching item merges its connected matching group: Merge 3 for 1 upgraded item; merge 5 for 2.
 - Dropping onto a different item swaps them. Merges only happen on drop.
-- Press "Add supply" to place the next item in a random empty cell. Placement is seeded, so Undo then Add supply again lands in the same place, and Retry replays the same sequence.
-- Undo reverses the last action; Retry restarts the current level.
-- Status is exact within the supported resource bounds (`src/status.ts`): single-item and distinct-family multi-item goals use resource counts; Leave one uses an exact per-tier merge check and needs two free cells beyond all items and supply.
+- Levels only: press "Add supply" to place the next item in a random empty cell. Placement is seeded, so Undo then Add supply again lands in the same place, and Retry replays the same sequence.
+- Undo reverses the last action; Retry restarts the current level or puzzle.
+- Level status is exact within the supported resource bounds (`src/status.ts`): single-item and distinct-family multi-item goals use resource counts; Leave one uses an exact per-tier merge check and needs two free cells beyond all items and supply. Handcrafted levels report a loss as soon as the goal becomes unreachable; generated puzzles report one only when no merges are left.
 - Tap "?" next to the title for a short how-to-play dialog.
-- Boards larger than the screen scroll inside a framed viewport with finger-sized (64px) tiles. Drag an item to move it; drag empty ground to pan; a tap never pans or drops. Center board recenters; arrow keys scroll the focused cell into view. Levels 1–4 are 4x4 and fit without scrolling; level 5 scrolls.
+- Boards larger than the screen scroll inside a framed viewport with finger-sized (64px) tiles. Drag an item to move it; drag empty ground to pan; a tap never pans or drops. Center board recenters; arrow keys scroll the focused cell into view. Levels 1–4 are 4x4 and fit without scrolling; level 5 scrolls. Generated boards up to 8x8 fit iPad screens in Chromium checks (except slight scrolling at 1024x768 landscape). Whenever a board overflows its frame, the status banner and Help show how to pan.
 
 ## Large-board navigation test
 
-Level 5, The Faraway Grove, is the playable 12x16 scrolling board at the normal app address, https://elkchemy.web.app/. It ships through the ordinary build and requires all four families at tier 4 simultaneously. Unlocking is not implemented yet.
+Level 5, The Faraway Grove, is the playable 12x16 scrolling board at the normal app address, https://elkchemy.web.app/ (Levels on the home screen). It ships through the ordinary build and requires all four families at tier 4 simultaneously. Unlocking is not implemented yet.
 
-For local navigation experiments, `npm run dev` also serves `/sandbox.html`, a separate test board with items in distant corners. That standalone test page is excluded from the ordinary production build; its earlier temporary Firebase deployment has been replaced by the five-level app.
+For local navigation experiments, `npm run dev` also serves `/sandbox.html`, a separate test board with items in distant corners (it also opens on the home screen; choose Levels). That standalone test page is excluded from the ordinary production build; its earlier temporary Firebase deployment has been replaced by the five-level app.
 
-Built with React, TypeScript and Vite. Game rules live in `src/board.ts`, `src/session.ts` and `src/status.ts`; the UI is in `src/ui/`.
+Built with React, TypeScript and Vite. Game rules live in `src/board.ts`, `src/session.ts` and `src/status.ts`; puzzle generation in `src/generator.ts`; the UI is in `src/ui/`.
 
-Open work, verification gaps, and the deferred campaign story are tracked in [TODO.md](TODO.md).
+Open work, verification gaps, and the deferred campaign story are tracked in [TODO.md](TODO.md). The broader game vision is in [docs/game-vision.md](docs/game-vision.md); completed work, verification, and known limitations (including the generated-puzzle release `20261018-232855`) are in [docs/release-notes.md](docs/release-notes.md).
 
 ## Creative direction
 
-Elkchemy is a surprise for Alisha, nicknamed Elk. She enjoys sci-fi (especially Doctor Who), 1940s fashion, classic Hollywood films, watching YouTube videos, and playing ukulele and clarinet. Keep these preferences available in future Claude handoffs. They are creative references, not requests to add every theme or feature.
+Elkchemy is a surprise for Alisha, nicknamed Elk. She enjoys sci-fi (especially Doctor Who), 1940s fashion, classic Hollywood films, watching YouTube videos, disc golf, and playing ukulele and clarinet. Keep these preferences available in future Claude handoffs. They are creative references, not requests to add every theme or feature.
 
 Potential directions include whimsical original time-travel touches, vintage glamour and Art Deco accents, and warm clarinet/ukulele music with subtle spacey textures. Keep the woodland setting and approved elk artwork coherent. Use original melodies, characters, names, and imagery rather than copying Doctor Who or film assets. The current music files are first drafts; these preferences should inform later revisions and listening review.
 
-Future campaign idea: first a lost woodland elk merges her way through different universes to get home; once home, she discovers her friends are lost and sets out to rescue them. See [TODO.md](TODO.md) for the two-part story and possible worlds. This is deferred, not current implementation scope; continue with the initial woodland puzzle and music plan for now.
+Campaign direction (committed, details still exploratory): first a lost woodland elk merges her way through different universes to get home; once home, she discovers her friends are lost and sets out to rescue them. See [TODO.md](TODO.md) and [docs/game-vision.md](docs/game-vision.md). Story implementation is not current scope.
 
 ## Approved artwork
 
-The approved Elkchemy app icon and visual reference is `artwork/elkchemy-icon-v1.png`: a friendly golden elk with leafy antlers, a musical sparkle, and a forest-green background. Its generation prompt is beside it. This original is not shipped; the app only ships the resized icons below.
+The approved Elkchemy app icon and visual reference is `artwork/elkchemy-icon-v1.png`: a friendly golden elk with leafy antlers, a musical sparkle, and a forest-green background. Its generation prompt is beside it. This original is not shipped; the app only ships the resized icons below. The home screen shows `public/icons/icon-512.png`.
 
 Use this exact artwork for the iPad Home Screen icon and reuse it in future UI work, such as the welcome screen or header. Resize `artwork/elkchemy-icon-v1.png` rather than regenerating it, and start any future resizes from that file. Keep important features visible under rounded icon masks.
 
@@ -73,13 +92,15 @@ npm run preview
 
 ## Music
 
-The header's Music button starts or mutes quiet, looping background music. It starts off on each page load and downloads no audio until enabled. The approved Woodland Stroll loop plays generally; Songbird Chorus uses Curious Clearing. Each track is fetched and decoded once per page session, not streamed continuously. Music stays enabled across level transitions and pauses while the app is hidden. Returning resumes it if enabled; if playback is blocked, tap Music again. Loading/playback failures leave gameplay usable and show a retry control. Use the device volume for adjustment. Sound effects are not implemented yet.
+The header's Music button starts or mutes quiet, looping background music. It starts off on each page load and downloads no audio until enabled. The approved Woodland Stroll loop plays generally; Songbird Chorus (and a generated single-goal Song puzzle) uses Curious Clearing. Each track is fetched and decoded once per page session, not streamed continuously. Music stays enabled across level transitions and pauses while the app is hidden. Returning resumes it if enabled; if playback is blocked, tap Music again. Loading/playback failures leave gameplay usable and show a retry control. Use the device volume for adjustment. Sound effects are not implemented yet.
+
+Music / Scores on the home screen shows playable arrangements of both loops as separate one-page parts for B♭ clarinet (written a major second up) and ukulele (concert-pitch chords, notation, and TAB), each with print and SVG download links, plus both parts as editable MusicXML. They are generated from `artwork/music/score.json` with `npm run music:scores` (Verovio, a dev dependency); see [docs/music/README.md](docs/music/README.md). The recordings themselves are synthesized and unchanged.
 
 Chromium checks cover decoding, loop configuration, mute/resume, level switching, simulated visibility changes, failure/retry, and a delayed load completing after mute. Physical iPad/Safari playback, perceived volume, and real background interruptions still need testing.
 
 ## Updates
 
-The footer shows the running build id. "Check for updates" fetches the deployed `/version.json` on demand (never automatically) and compares it with the build id compiled into the app; if it differs, "Update now" reloads the app, which restarts from level 1. There is no service worker, so the app is not available offline.
+The footer shows the running build id. "Check for updates" fetches the deployed `/version.json` on demand (never automatically) and compares it with the build id compiled into the app; if it differs, "Update now" reloads the app, which returns to the home screen and discards the current attempt. There is no service worker, so the app is not available offline.
 
 Hosting headers (`firebase.json`): HTML, `manifest.webmanifest` and `version.json` use `Cache-Control: no-cache` (always revalidated); hashed files under `/assets/` are cached for a year (`immutable`). Icons use Firebase defaults.
 

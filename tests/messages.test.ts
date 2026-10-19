@@ -74,3 +74,48 @@ describe('status messages', () => {
     }
   });
 });
+
+describe('generated puzzle messages', () => {
+  const target: Item = { family: 'crystal', tier: 3 };
+  const c2: Item = { family: 'crystal', tier: 2 };
+  const one: LevelDefinition = { seed: 1, board: [[c2, c2, c2, null]], supply: [], goal: { kind: 'leaveOne', item: target }, earlyLoss: false };
+  const two: LevelDefinition = {
+    ...one, goal: { kind: 'items', items: [target, { family: 'song', tier: 3 }] },
+  };
+
+  it('merge down to one names its target', () => {
+    expect(objectiveText(one.goal)).toBe('Goal: merge down to one Crystal, tier 4 of 4');
+    expect(helpObjective(one.goal)).toBe('Goal: merge everything down to exactly one item: Crystal, tier 4 of 4.');
+    expect(playingMessage(one.goal, false)).toBe('Merge everything down to one Crystal, tier 4 of 4.');
+    expect(statusMessage(withStatus({ ...one, board: [[target, null]] }, 'won'))).toBe('Goal complete! Only Crystal, tier 4 of 4 remains.');
+  });
+
+  it('never mention supply when there is none', () => {
+    expect(statusMessage(initUi({ ...one, goal: { kind: 'item', item: target } }))).toBe('Merge items to make Crystal, tier 4 of 4.');
+    expect(statusMessage(initUi(two))).toBe('Merge items to make both.');
+  });
+
+  it('say both for two goals', () => {
+    expect(objectiveText(two.goal)).toBe('Goal: make both');
+    expect(helpObjective(two.goal)).toBe('Goal: have both goal items on the board at once.');
+    expect(statusMessage(withStatus(two, 'won'))).toBe('Goal complete! You made both.');
+  });
+
+  it('show the pan hint whenever the board is measured as overflowing', () => {
+    const big = Array.from({ length: 8 }, (_, r) => Array.from({ length: 8 }, (__, c) => (r === 0 && c < 3 ? c2 : null)));
+    expect(statusMessage(initUi({ ...two, board: big }))).not.toMatch(/pan/); // unmeasured guess
+    expect(statusMessage(initUi({ ...two, board: big }), true)).toBe(
+      'Drag empty ground to pan. For far moves, tap an item, pan, then tap where it goes.');
+    expect(statusMessage(initUi(FARAWAY), false)).toBe(playingMessage(FARAWAY.goal));
+    expect(statusMessage(withStatus({ ...two, board: big }, 'won'), true)).toBe('Goal complete! You made both.');
+  });
+
+  it('say no merges are left, in the owner-approved words, when a generated puzzle is stuck', () => {
+    const stuck = initUi({ ...two, board: [[c2, c2, null, null]] });
+    expect(stuck.status).toBe('lost');
+    expect(statusMessage(stuck)).toBe('No merges left\u2014Undo, Retry, or New Puzzle.');
+    expect(statusMessage(stuck, true)).toBe('No merges left\u2014Undo, Retry, or New Puzzle.');
+    // Handcrafted levels keep their own loss messages.
+    expect(statusMessage(withStatus(CRYSTAL, 'lost'))).not.toMatch(/No merges left/);
+  });
+});

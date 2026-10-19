@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Elkchemy · home screen wireframe</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#edece7;color:#292e2b;font:16px system-ui,sans-serif}.review{max-width:1320px;margin:auto;padding:28px}.eyebrow{font-size:11px;text-transform:uppercase;letter-spacing:2px;font-weight:700;color:#646b65}h1{font-size:25px;font-weight:500;margin:8px 0}.intro{color:#646b65;margin:0 0 24px;line-height:1.5}.frame{position:relative;isolation:isolate;overflow:hidden;min-height:640px;border:1px solid #8f9890;border-radius:16px;background:#c9cec5;display:grid;grid-template-columns:minmax(0,1fr) 340px;padding:48px;gap:24px}.scene{position:absolute;inset:0;z-index:-2;width:100%;height:100%}.title{align-self:start;color:#283b32;padding:10px 0}.title h2{font-family:Georgia,serif;font-weight:400;letter-spacing:2px;font-size:clamp(38px,5vw,68px);margin:0 0 10px}.title p{font-size:14px;margin:0;letter-spacing:.4px}.menu{align-self:center;padding:28px;background:#f5f3e7ed;border:1px solid #899186;border-radius:12px;box-shadow:0 12px 40px #23352718}.menu .eyebrow{margin-bottom:18px}.menu button{display:block;width:100%;min-height:54px;margin-top:10px;border:1px solid #808b80;background:transparent;border-radius:7px;font:inherit;color:inherit;cursor:default}.menu .primary{background:#3a4e42;color:#fff8df;border-color:#3a4e42;font-weight:650}.secondary{display:flex;gap:8px;margin-top:22px}.secondary button{margin:0;min-height:44px;font-size:13px}.bottom{position:absolute;left:48px;bottom:26px;font-size:11px;color:#364c3c}.scene-note{position:absolute;left:34px;top:47%;font-size:12px;line-height:1.7;color:#3c4c42;max-width:240px;border-left:2px solid #748372;padding-left:12px}.caption{position:absolute;left:40%;bottom:112px;font-size:11px;color:#394c3e;letter-spacing:1px}.notes{display:grid;grid-template-columns:repeat(3,1fr);gap:28px;margin-top:24px;font-size:13px;line-height:1.6}.notes strong{display:block;margin-bottom:5px}.notes p{margin:0;color:#646b65}.draft{display:inline-block;border:1px solid #999e94;border-radius:5px;padding:4px 8px;font-size:10px;margin-top:14px}.menu-note{font-size:11px;line-height:1.5;margin:16px 0 0;color:#6a7268}.portrait-label{display:none}
+@media(max-width:720px),(orientation:portrait){.review{padding:18px}.intro{font-size:13px}.frame{min-height:820px;padding:28px 24px;display:flex;flex-direction:column;gap:0}.title{text-align:center;width:100%;padding:0}.title h2{font-size:43px}.title p{font-size:12px}.menu{margin-top:auto;width:100%;max-width:360px;padding:20px;align-self:center;background:#f5f3e7f5}.menu .eyebrow{margin-bottom:12px}.menu button{min-height:50px}.secondary{margin-top:16px}.bottom{left:24px;bottom:12px;font-size:9px}.scene{width:180%;max-width:none;left:-50%;height:70%;top:20px}.scene-note{left:24px;top:25%;font-size:10px;max-width:165px}.caption{left:auto;right:24px;bottom:auto;top:42%;font-size:9px}.notes{grid-template-columns:1fr;gap:14px}.menu-note{display:none}.portrait-label{display:inline}.landscape-label{display:none}}
+</style>
+<main class="review">
+ <div class="eyebrow">Elkchemy / design review / concept 01</div>
+ <h1>A clearing in the woodland</h1>
+ <p class="intro">Layout wireframe · <span class="landscape-label">landscape: scene on the left, menu on the right</span><span class="portrait-label">portrait: scene above, menu below</span> · illustrative shapes only, not final artwork</p>
+ <section class="frame" aria-label="Proposed home screen">
+  <svg class="scene" viewBox="0 0 1200 700" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+   <rect width="1200" height="700" fill="#ced4c9"/>
+   <circle cx="470" cy="225" r="126" fill="#e6e7d8"/>
+   <path d="M0 350Q160 210 350 300T730 270T1200 230V700H0Z" fill="#afbba9"/>
+   <path d="M0 445Q200 320 400 390T800 340T1200 380V700H0Z" fill="#93a58e"/>
+   <path d="M0 555Q200 440 430 500T800 460T1200 490V700H0Z" fill="#7c9279"/>
+   <path d="M180 700Q260 575 495 520Q575 495 595 460Q665 520 570 560Q420 620 420 700Z" fill="#c2c7b3"/>
+   <g fill="#667e67" opacity=".7">
+    <path d="M105 65L23 280H65L7 413H87V650H124V413H200L145 280H185Z"/>
+    <path d="M1120 10L1030 260H1070L1000 435H1095V700H1140V435H1230L1170 260H1210Z"/>
+    <path d="M245 210L200 335H222L182 438H235V555H255V438H304L268 335H290Z" opacity=".5"/>
+   </g>
+   <g stroke="#455c48" stroke-width="3" fill="#465f49" transform="translate(440 390)">
+    <ellipse cx="30" cy="66" rx="53" ry="29"/>
+    <path d="M58 70L70 19L89 14L108 24L99 38L83 40L79 74Z"/>
+    <path d="M-8 82L-15 132H-7L7 86M43 87L55 132H63L58 80"/>
+    <path d="M-20 62L-36 48L-28 69Z"/>
+    <path d="M77 20L68-5M69-3L48-15M62-7L60-28M86 17L95-9M94-5L114-19M100-10L99-30" fill="none" stroke-width="5" stroke-linecap="round"/>
+    <path d="M73 25L59 16L64 31M92 22L104 10L101 29"/>
+   </g>
+   <g fill="#c5d0b7"><ellipse cx="240" cy="615" rx="75" ry="18"/><ellipse cx="620" cy="640" rx="92" ry="20"/></g>
+   <g fill="#f0eed5"><circle cx="374" cy="401" r="3"/><circle cx="564" cy="353" r="3"/><circle cx="631" cy="414" r="2"/><circle cx="300" cy="457" r="2"/></g>
+  </svg>
+  <header class="title"><h2>Elkchemy</h2><p>A little magic. A woodland adventure.</p><span class="draft">WORKING TAGLINE · OPTIONAL</span></header>
+  <aside class="menu" aria-label="Main menu wireframe">
+   <div class="eyebrow">Welcome to the clearing</div>
+   <button class="primary">Play</button>
+   <button>Levels</button>
+   <button>Release notes</button>
+   <div class="secondary"><button>♪ Music: off</button><button>Check for updates</button></div>
+   <p class="menu-note">Play opens the existing mode and puzzle settings. No puzzle starts from this screen.</p>
+  </aside>
+  <div class="scene-note">FULL LANDSCAPE ARTWORK<br>Forest layers, a quiet clearing,<br>and the elk living in the scene.</div>
+  <div class="caption">CHARACTER IN THE WORLD · NOT AN ICON TILE</div>
+  <div class="bottom">Build number · quiet footer</div>
+ </section>
+ <section class="notes" aria-label="Design notes">
+  <div><strong>01 · Artwork carries the screen</strong><p>One continuous woodland illustration. The elk sits in the clearing with room around her; the title stays legible against open sky.</p></div>
+  <div><strong>02 · A clear place to start</strong><p>Play is primary. Levels and release history stay close. Music and updates are smaller utility controls. No extra features implied.</p></div>
+  <div><strong>03 · Same scene, different crop</strong><p>Landscape keeps the menu on the right. Portrait places it below the character so controls do not cover her or shrink to fit.</p></div>
+ </section>
+</main>
+</html>

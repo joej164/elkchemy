@@ -312,6 +312,87 @@ body {
 .btn-art { width: 36px; height: 36px; flex: none; background: var(--earth); border-radius: 6px; }
 .btn-art svg { display: block; width: 100%; height: 100%; }
 .hint { margin: 0; min-height: 1.4em; font-size: 1rem; text-align: center; color: var(--earth); }
+.btn-quiet {
+  min-height: 48px; font-size: 1.05rem;
+  background: transparent; color: var(--gold); border-color: var(--gold); box-shadow: none;
+}
+.btn-quiet:active:not(:disabled) { transform: none; box-shadow: none; }
+
+/* Generated puzzle ID: a compact read-only field with a Copy button, below the controls. */
+.goal.is-wide { grid-column: 1 / -1; }
+.puzzle-id-row {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 4px 8px;
+  font-size: 0.95rem; color: var(--earth);
+}
+.puzzle-id-row label { grid-column: 1 / -1; }
+.puzzle-id {
+  min-width: 0; min-height: 44px; padding: 6px 10px; border: 2px solid var(--bark); border-radius: 10px;
+  background: var(--parchment); color: var(--ink);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.95rem;
+  user-select: text; -webkit-user-select: text;
+}
+.copy-button {
+  min-height: 44px; min-width: 88px; padding: 6px 14px; font: inherit; font-weight: 700;
+  background: transparent; color: var(--gold); border: 2px solid var(--gold); border-radius: 10px;
+  cursor: pointer; touch-action: manipulation;
+}
+.copy-status { grid-column: 1 / -1; margin: 0; }
+
+/* Pages outside a game: Home, Play settings, Release notes */
+.app.is-page { grid-template-areas: "page" "footer"; }
+.page { grid-area: page; width: 100%; max-width: 720px; display: grid; gap: 14px; align-content: start; }
+.page h1 { margin: 0; font-size: 1.8rem; color: var(--gold); letter-spacing: 0.02em; }
+.back-button {
+  justify-self: start; min-height: 44px; padding: 6px 16px; font: inherit; font-size: 1rem; font-weight: 600;
+  background: transparent; color: var(--gold); border: 2px solid var(--gold); border-radius: 999px;
+  cursor: pointer; touch-action: manipulation;
+}
+.note-card { display: grid; gap: 6px; padding: 14px 16px; }
+.note-card h2 { margin: 0; font-size: 1.25rem; color: var(--bark-dark); }
+.note-card .note-date { color: var(--bark); font-size: 0.95rem; }
+.note-card ul { margin: 0; padding-left: 1.2em; display: grid; gap: 4px; line-height: 1.35; }
+/* Scores get a wider page so notation can be larger on bigger iPads. */
+.app.is-wide { max-width: 1000px; }
+.app.is-wide .page { max-width: 960px; }
+.scores-intro { margin: 0; line-height: 1.4; color: var(--earth); }
+.score-card { display: grid; gap: 8px; padding: 14px 16px; min-width: 0; }
+.score-card h2 { margin: 0; font-size: 1.3rem; color: var(--bark-dark); }
+.score-part { display: grid; gap: 6px; }
+.score-part h3 { margin: 6px 0 0; font-size: 1.05rem; color: var(--bark-dark); }
+/* Notes keep a readable size: below this width the score scrolls sideways instead of shrinking. */
+.score-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; border-radius: 8px; background: #fff; }
+.score { display: block; width: 100%; min-width: 660px; height: auto; background: #fff; }
+.score-links { display: flex; flex-wrap: wrap; gap: 8px 16px; }
+.score-links a {
+  display: inline-flex; align-items: center; min-height: 44px; color: var(--bark-dark); font-weight: 700;
+}
+/* Printing the scores page prints just the four part pages, one per sheet. */
+@media print {
+  body { background: #fff; color: #000; }
+  .app-footer, .page > .title-row, .back-button, .score-links, .scores-intro,
+  .score-card > h2, .score-card > p, .score-part h3 { display: none; }
+  .app, .page, .score-card { display: block; padding: 0; margin: 0; border: 0; background: none; }
+  .score-part { display: block; break-inside: avoid; }
+  .score-part { break-before: page; }
+  .score-card:first-of-type .score-part:first-of-type { break-before: auto; }
+  .score-scroll { overflow: visible; }
+  .score { min-width: 0; }
+}
+.menu-card { display: grid; gap: 12px; padding: 14px 16px; }
+.menu-card h2 { margin: 0; font-size: 1.4rem; color: var(--bark-dark); }
+.menu-error { color: var(--berry); font-weight: 700; }
+.choice { margin: 0; padding: 0; border: 0; min-width: 0; }
+.choice legend { padding: 0; margin-bottom: 6px; font-weight: 700; }
+.choice-options { display: flex; flex-wrap: wrap; gap: 8px; }
+.choice-option {
+  position: relative; display: flex; align-items: center; justify-content: center;
+  min-height: 48px; min-width: 64px; padding: 8px 14px;
+  border: 2px solid var(--bark); border-radius: 12px; background: var(--earth);
+  font-weight: 600; cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+}
+.choice-option.is-on { background: var(--forest-1); border-color: var(--forest-1); color: var(--gold); }
+.choice-option input { position: absolute; width: 1px; height: 1px; margin: 0; opacity: 0; pointer-events: none; }
+.choice-option:focus-within { outline: 4px solid var(--forest-1); outline-offset: 2px; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition: none !important; }
@@ -341,4 +422,110 @@ body {
   .info .panel { padding: 6px 10px; }
   .banner, .controls, .app-footer { max-width: none; }
   .app-footer { align-self: end; }
+  .app.is-page {
+    grid-template-columns: minmax(0, 720px); grid-template-rows: auto auto;
+    grid-template-areas: "page" "footer"; justify-content: center;
+  }
+  .app.is-page.is-wide { grid-template-columns: minmax(0, 960px); }
+}
+
+/* Scene pages (Home, Play): full-screen artwork (SceneArt) behind real HTML controls in its quiet area,
+   a right-hand column in landscape and the lower part in portrait. Portrait art always fits the screen's
+   width and landscape art its height (both are 16:9), so the characters stay whole; the other direction is
+   cropped around --art-x / --art-y or filled with --art-fill, the art's edge colour. */
+.home { --art-x: 30%; --art-y: 0.35; --art-feet: 0.625; --art-fill: #0a1a10; }
+.play-setup { --art-x: 25%; --art-y: 0.2; --art-feet: 0.545; --art-fill: #0a1e1e; }
+@media (orientation: portrait) {
+  .home { --art-fill: #0b0f05; }
+  .play-setup { --art-fill: #151d0f; }
+}
+.app.is-page.is-scene {
+  position: relative; z-index: 0; /* keeps the fixed artwork (z-index -1) behind the controls */
+  max-width: none; min-height: 100vh; min-height: 100dvh; padding: 0; gap: 0;
+  align-items: stretch; justify-items: stretch;
+  grid-template-columns: minmax(0, 1fr); grid-template-rows: 1fr auto; grid-template-areas: "page" "footer";
+}
+.scene-art {
+  position: fixed; inset: 0; z-index: -1; display: block; overflow: hidden;
+  background: var(--art-fill); container-type: size;
+}
+.scene-art img {
+  display: block; width: 100%; height: 100%;
+  object-fit: cover; object-position: var(--art-x) calc(var(--art-y) * 100%);
+}
+/* Scrim behind the controls (::before) and, where the art stops short of the screen edge, a fade into the fill (::after). */
+.scene-art::before, .scene-art::after { content: ""; position: absolute; pointer-events: none; }
+.scene-art::before {
+  left: 0; right: 0; bottom: 0; height: 45%;
+  background: linear-gradient(to bottom, transparent, rgb(6 14 9 / 0.55) 45%, rgb(6 14 9 / 0.75));
+}
+@media (orientation: portrait) and (max-aspect-ratio: 941/1672) {
+  .scene-art img { object-fit: contain; object-position: top; }
+  .scene-art::after {
+    left: 0; right: 0; height: 72px; top: calc(177.68vw - 72px); top: calc(177.68cqw - 72px);
+    background: linear-gradient(to bottom, transparent, var(--art-fill));
+  }
+}
+
+.scene-page {
+  position: relative; max-width: none;
+  display: flex; flex-direction: column; align-items: center; gap: 12px;
+  /* Portrait: start the controls below the character's feet (--art-feet of the art's height, less what --art-y crops off the top). */
+  padding: calc(var(--art-feet) * 177.68vw - var(--art-y) * max(0px, 177.68vw - 100vh) + 12px) var(--gutter) 8px;
+  padding-top: calc(var(--art-feet) * 177.68vw - var(--art-y) * max(0px, 177.68vw - 100dvh) + 12px);
+}
+.scene-top {
+  position: absolute; top: 12px; left: var(--gutter); right: var(--gutter);
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+}
+.scene-main { margin-top: auto; width: min(100%, 560px); }
+.scene-top .back-button, .scene-top .music-button:not([aria-pressed="true"]) { background: rgb(10 24 16 / 0.8); }
+.scene-chip {
+  min-height: 44px; padding: 6px 14px; font: inherit; font-size: 0.95rem;
+  color: var(--parchment); background: rgb(10 24 16 / 0.8);
+  border: 1px solid rgb(244 236 216 / 0.45); border-radius: 999px;
+  cursor: pointer; touch-action: manipulation;
+}
+
+.home .scene-main { display: grid; gap: 12px; justify-items: center; text-align: center; width: min(100%, 480px); }
+.home h1 { font-size: 2.8rem; text-shadow: 0 2px 4px rgb(0 0 0 / 0.85), 0 0 18px rgb(0 0 0 / 0.6); }
+.home-nav { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 100%; }
+.home-nav .btn-quiet { grid-column: 1 / -1; background: rgb(10 24 16 / 0.8); }
+.home-note { margin: 0; color: var(--earth); text-shadow: 0 1px 3px rgb(0 0 0 / 0.9); }
+
+.page .menu-card h1 { font-size: 1.5rem; color: var(--bark-dark); }
+.choice-row { display: flex; flex-wrap: wrap; gap: 12px 28px; }
+
+@media (orientation: landscape) {
+  .app.is-page.is-scene {
+    --scene-col: clamp(320px, 40vw, 460px);
+    grid-template-columns: minmax(0, 1fr) var(--scene-col); grid-template-areas: ". page" ". footer";
+  }
+  .scene-page { padding: 68px 20px 8px; }
+  .scene-top { left: 20px; right: 20px; }
+  .scene-main { margin-block: auto; width: 100%; }
+  .scene-art::before {
+    left: auto; top: 0; height: auto; width: calc(var(--scene-col) + 96px);
+    background: linear-gradient(to right, transparent, rgb(6 14 9 / 0.55) 96px, rgb(6 14 9 / 0.72));
+  }
+}
+@media (orientation: landscape) and (min-aspect-ratio: 1672/941) {
+  .scene-art img { object-fit: contain; object-position: left; }
+  .scene-art::after {
+    top: 0; bottom: 0; width: 72px; left: calc(177.68vh - 72px); left: calc(177.68cqh - 72px);
+    background: linear-gradient(to right, transparent, var(--art-fill));
+  }
+}
+/* Short landscape screens (phones): tighter so Home fits without scrolling. */
+@media (orientation: landscape) and (max-height: 500px) {
+  .scene-page { padding-top: 64px; gap: 10px; }
+  .scene-page .btn { min-height: 48px; }
+  .home h1 { font-size: 2.2rem; }
+}
+/* Phones in portrait: keep Play's corner controls clear of the character's antlers, and fit each choice on one row. */
+@media (orientation: portrait) and (max-width: 600px) {
+  .play-setup .scene-top { left: auto; flex-direction: column; align-items: flex-end; gap: 8px; }
+}
+@media (max-width: 480px) {
+  .choice-option { flex: 1 1 0; text-align: center; }
 }

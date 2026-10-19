@@ -1,0 +1,23 @@
+# Alisha-elk character and Play artwork
+
+## Approved character reference
+
+Owner approved the white/ivory-background `alisha-elk-character-anime-v3.png` on October 18, 2026: “that's our character”. Its identical, clearly named canonical copy is `artwork/characters/alisha-elk-approved-reference-v1.png`. Use that standalone character reference for future artwork, not a menu composite. Never overwrite either approved file; save proposed changes under new versioned names and obtain owner approval before changing the canonical reference. Earlier character studies remain for history, not as competing references.
+
+Keep the stylized anime human face (no animal muzzle or nose), blue eyes, dark glasses, brown updo, elk ears and leafy antlers, petite upper body, balanced legs, and longer brown-and-cream skort. Retain the rose disc, disc-golf bag, and hiking gear. Alisha is distinct from the main four-legged golden elk used on Home.
+
+The owner liked the woodland background in `alisha-elk-play-landscape-v3.png`. Updated Play compositions should preserve its golden woodland, disc-golf basket, musical lights, cyan fantasy runes, and darker space for controls. Main settings sit on the right in landscape and toward the bottom in portrait. Artwork contains no baked-in interface. App integration and deployment are separate work.
+
+## Original landscape exploration
+
+Latest proposed composite: `alisha-elk-play-landscape-v4.png`, using the approved anime-v3 character reference in the existing woodland composition. Full character, human face, disc-golf gear and dark right-side control space visually checked. This composite still awaits owner review; its generation prompt is recorded alongside it.
+
+Created with the built-in imagegen tool. Character reference: `artwork/Golden-Hour Elk Mode Disc Golf Portrait.png`, supplied by the owner. Style/world reference: `artwork/home/woodland-home-landscape-v1.png`.
+
+`alisha-elk-play-landscape-v1.png` is a proposed illustration for owner review, not integrated or deployed. Alisha's character is distinct from the main four-legged elk on Home. The darker right area is reserved for separately rendered Play settings. A matching portrait composition can follow character approval.
+
+Visually inspected for complete character, glasses, disc-golf gear, elk ears/antlers, coherent painterly environment, and no baked-in interface. Exact likeness and character approval remain with the owner. Existing reference files and audio are unchanged.
+
+## Generation prompt
+
+Use case: illustration-story / identity-preserve. Asset: proposed landscape artwork for the Play setup screen of Elkchemy, 16:9 wide. Image 1 is the USER-PROVIDED character/likeness reference for Alisha; image 2 is the ART STYLE AND WORLD reference only. Draw an original fully illustrated storybook version of the woman in image 1 as a friendly adult Alisha-elk adventurer. Retain her recognizable warm smile, mature adult facial features, brown hair in a loosely gathered updo, dark rectangular eyeglasses, and approachable personality. Owner specifies blue eyes and petite 5 foot 2 proportions; do not make a tall slim fashion model. Human face with warm soft stylization, elk ears and graceful modest leafy antlers, a playful human/elk hybrid like the user reference, not the four-legged main elk, not a realistic photo pasted into a painting. Brown and cream disc-golf zip top and practical skirt/skort inspired by reference; small disc bag with colorful discs and a water bottle; hold one muted rose-colored disc naturally. No readable lettering, slogans or logos on clothes or equipment. Anatomically clear natural hands, warm dignified affectionate portrayal. Place her full body in the left 40% of a welcoming magical woodland disc-golf clearing, head/antlers comfortably in frame and shoes visible, taking about 65% of the image height. A small disc golf basket farther back along the woodland path, modest mossy rune stones with faint cyan celestial geometry, tiny golden musical fireflies, a few subtle glowing crystal shapes near roots. Match image 2's rich softly painted emerald foliage, golden afternoon light, detailed storybook brushwork and inviting magical world. This is a separate quiet clearing in the same world, not a copy of the home background. Right half should be calm darker forest haze with very low detail and broad open space suitable for separately rendered puzzle settings controls. Keep top and bottom margins calm for separate HTML headings/navigation. No title, text, border, UI, panels, buttons or watermark. Main four-legged golden elk stays the home-screen character; do not include it in this Play image. High quality cohesive full scene illustration.

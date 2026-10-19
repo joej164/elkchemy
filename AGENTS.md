@@ -5,6 +5,7 @@
 - Investigate before guessing. Use evidence; do not invent requirements or behavior. Ask when an important missing fact depends on my intent or knowledge.
 - If an unexpected problem persists after one minute or two focused checks, whichever comes first, ask one focused question instead of cycling through hypotheses or building a workaround.
 - Validate the smallest useful change early. Keep checks proportionate to behavior and risk.
+- For UI changes, use the configured Playwright MCP tools to exercise affected flows in the browser, including iPad-sized layouts where relevant. Report what was verified; Chromium emulation does not establish physical iPad/Safari behavior.
 - Distinguish observations, inferences, changes, checks, and completed outcomes. State uncertainty and anything unverified; do not claim success without evidence.
 - Preserve existing work and unrelated data. Verify cleanup and restoration after temporary changes. Protect secrets and sensitive information.
 - Communicate concisely and candidly. Lead with the finding or decision. Number questions and choices; give brief, meaningful updates during longer tasks.

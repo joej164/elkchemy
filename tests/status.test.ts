@@ -4,7 +4,7 @@ import { LEAVE_ONE_LEVEL } from '../src/levels';
 import {
   applyDrop, placeSupply, placeSupplyRandom, startSession, undo, type LevelDefinition, type SessionState,
 } from '../src/session';
-import { canLeaveOne, evaluateStatus, maxPromotions } from '../src/status';
+import { canArrangeMerge, canLeaveOne, evaluateStatus, maxPromotions } from '../src/status';
 
 const F: Record<string, Family> = { g: 'grove', s: 'song', c: 'crystal', e: 'elk' };
 function make(rows: string[]): Board {
@@ -325,5 +325,83 @@ describe('leave one: undo restores the preceding status', () => {
     const back = undo(won);
     expect(evaluateStatus(back)).toBe('playing');
     expect(fieldsOf(back)).toEqual(fieldsOf(before));
+  });
+});
+
+// ---- Leave one at a target tier, and levels without early loss (generated puzzles) ----
+
+describe('leave one with a target item', () => {
+  const target = (rows: string[], goal: string, earlyLoss?: boolean): LevelDefinition => ({
+    ...leaveOne(rows, []), goal: { kind: 'leaveOne', item: item(goal) }, earlyLoss,
+  });
+  const st = (rows: string[], goal: string, earlyLoss?: boolean) => evaluateStatus(startSession(target(rows, goal, earlyLoss)));
+
+  it('is won only by exactly the target family and tier', () => {
+    expect(st(rowsOf(['e2']), 'e2')).toBe('won');
+    expect(st(rowsOf(['e1']), 'e2')).toBe('lost');
+    expect(st(rowsOf(['e3']), 'e2')).toBe('lost');
+    expect(st(rowsOf(['g2']), 'e2')).toBe('lost');
+  });
+  it('is playing only while one item can still end at the target tier', () => {
+    expect(st(rowsOf(Array(9).fill('e0')), 'e2')).toBe('playing');
+    expect(st(rowsOf(Array(9).fill('e0')), 'e1')).toBe('lost'); // nine tier-0s can only end at tier 2
+    expect(st(rowsOf(Array(3).fill('g0')), 'e1')).toBe('lost'); // wrong family
+  });
+  it('canLeaveOne with a final tier agrees with the brute force restricted to that tier', () => {
+    const finalTierOf = (counts: number[]): number | null => {
+      if (!bruteForce(counts)) return null;
+      // Every merge path from these counts that reaches one item ends at the same tier.
+      for (let t = 0; t <= 3; t++) if (canLeaveOne(counts, t)) return t;
+      return -1;
+    };
+    for (let c0 = 0; c0 <= 12; c0++) {
+      for (let c1 = 0; c1 <= 6; c1++) {
+        for (let c2 = 0; c2 <= 3; c2++) {
+          const counts = [c0, c1, c2, 0];
+          const tier = finalTierOf(counts);
+          expect(tier, counts.join(',')).not.toBe(-1);
+          [0, 1, 2, 3].forEach((t) => expect(canLeaveOne(counts, t), `${counts} @${t}`).toBe(t === tier));
+        }
+      }
+    }
+  });
+  it('without early loss stays playing while a merge remains, even when the count check says lost', () => {
+    const rows = rowsOf(Array(5).fill('e0')); // one 5-merge strands two elk-1s; a 3-merge strands two elk-0s
+    expect(st(rows, 'e2')).toBe('lost');
+    expect(st(rows, 'e2', false)).toBe('playing');
+    expect(st(rowsOf(['e2']), 'e2', false)).toBe('won');
+  });
+  it('without early loss is lost once no merges are left', () => {
+    expect(st(rowsOf(['e1']), 'e2', false)).toBe('lost'); // one item, wrong tier
+    expect(st(rowsOf(['e1', 'e1', 'e0', 'e0']), 'e2', false)).toBe('lost'); // pairs only
+  });
+});
+
+describe('item goals without early loss', () => {
+  const lv = level(['g0 g0 g0 g0', '. . . .'], [], 'g2');
+  const items: LevelDefinition = {
+    ...lv, earlyLoss: false, board: make(['g2 s1 .']),
+    goal: { kind: 'items', items: [item('g2'), item('s2')] },
+  };
+  it('stay playing while a merge can be arranged, and are won when made', () => {
+    expect(evaluateStatus(startSession(lv))).toBe('lost');
+    expect(evaluateStatus(startSession({ ...lv, earlyLoss: false }))).toBe('playing');
+    expect(evaluateStatus(startSession({ ...level(['g2 .'], [], 'g2'), earlyLoss: false }))).toBe('won');
+    expect(evaluateStatus(startSession({ ...items, board: make(['g2 s1 s1', 's1 . .']) }))).toBe('playing');
+    expect(evaluateStatus(startSession({ ...items, board: make(['g2 s3 .']) }))).toBe('won');
+  });
+  it('count scattered matching items: no adjacency is needed for a merge to remain', () => {
+    expect(evaluateStatus(startSession({ ...items, board: make(['s1 . g2 .', '. . . s1', '. s1 . .']) }))).toBe('playing');
+    expect(canArrangeMerge(startSession({ ...items, board: make(['s1 . s1', '. . .', 's1 . .']) }))).toBe(true);
+  });
+  it('are lost when the goal is unmet and no family has three items at a mergeable tier', () => {
+    expect(evaluateStatus(startSession(items))).toBe('lost');
+    expect(evaluateStatus(startSession({ ...items, board: make(['g2 g2 s1 s1', 's0 s0 . .']) }))).toBe('lost');
+    // Items at the maximum tier never merge, however many there are.
+    const maxTier: LevelDefinition = { ...items, board: make(['c3 c3 c3', 'g2 s1 .']) };
+    expect(canArrangeMerge(startSession(maxTier))).toBe(false);
+    expect(evaluateStatus(startSession(maxTier))).toBe('lost');
+    // Unspent supply counts toward a possible merge.
+    expect(evaluateStatus(startSession({ ...items, board: make(['g2 s1 s1']), supply: [item('s1')] }))).toBe('playing');
   });
 });

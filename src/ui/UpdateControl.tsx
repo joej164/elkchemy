@@ -23,7 +23,7 @@ export function UpdateControl() {
     idle: '',
     checking: 'Checking…',
     current: "You're up to date.",
-    available: `Update available (build ${latest}). Updating restarts from level 1 (progress isn't saved).`,
+    available: `Update available (build ${latest}). Updating returns to the home screen (progress isn't saved).`,
     error: "Couldn't check for updates. Check your connection and try again.",
   };
 

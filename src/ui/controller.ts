@@ -124,7 +124,9 @@ export function reduceUi(state: UiState, action: UiAction): UiState {
         return session.board[pos.row][pos.col] === null ? state : { ...state, selected: pos };
       }
       if (samePos(selected, pos)) return { ...state, selected: null };
-      return doDrop(state, selected, pos);
+      // A tap that changes nothing (onto an identical item that cannot merge) still ends the selection.
+      const next = doDrop(state, selected, pos);
+      return next === state ? { ...state, selected: null } : next;
     }
     case 'placeSupply': {
       if (isOver(state)) return state;

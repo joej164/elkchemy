@@ -28,7 +28,10 @@ function cellAt(root: HTMLElement | null, x: number, y: number): Pos | null {
   return Number.isInteger(row) && Number.isInteger(col) ? { row, col } : null;
 }
 
-export function Board({ state, dispatch }: { state: UiState; dispatch: Dispatch<UiAction> }) {
+/** `onOverflowChange` reports whether the board overflows its viewport (so it needs panning), whenever that changes. */
+export function Board({ state, dispatch, onOverflowChange }: {
+  state: UiState; dispatch: Dispatch<UiAction>; onOverflowChange?: (overflowing: boolean) => void;
+}) {
   const board = state.session.board;
   const rows = board.length;
   const cols = board[0].length;
@@ -92,6 +95,7 @@ export function Board({ state, dispatch }: { state: UiState; dispatch: Dispatch<
     if (boardRef.current) ro.observe(boardRef.current);
     return () => ro.disconnect();
   }, []);
+  useLayoutEffect(() => { onOverflowChange?.(overflowing); }, [overflowing, onOverflowChange]);
 
   const preview = useMemo(() => {
     if (drag) {

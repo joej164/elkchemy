@@ -86,14 +86,17 @@ function evaluateItemsGoal(state: SessionState, targets: readonly Item[]): GameS
  * Items above the final item's tier could never be removed, so working upward, each tier
  * below the final one must be used up exactly by 3- and 5-merges (n = 3a + 5b, giving
  * a + 2b items one tier up), and the final tier must hold exactly one item with nothing above.
+ * With `finalTier`, that last item must also be at exactly that tier.
  */
-export function canLeaveOne(counts: readonly number[]): boolean {
+export function canLeaveOne(counts: readonly number[], finalTier?: number): boolean {
   let carries = new Set([0]);
   for (let t = 0; t <= MAX_TIER; t++) {
     const next = new Set<number>();
     for (const carry of carries) {
       const n = (counts[t] ?? 0) + carry;
-      if (n === 1 && counts.slice(t + 1).every((c) => c === 0)) return true;
+      if (n === 1 && counts.slice(t + 1).every((c) => c === 0) && (finalTier === undefined || t === finalTier)) {
+        return true;
+      }
       if (t === MAX_TIER) continue;
       for (let b = 0; 5 * b <= n; b++) {
         if ((n - 5 * b) % 3 === 0) next.add((n - 5 * b) / 3 + 2 * b);
@@ -104,25 +107,59 @@ export function canLeaveOne(counts: readonly number[]): boolean {
   return false;
 }
 
-function evaluateLeaveOne(state: SessionState): GameStatus {
+function evaluateLeaveOne(state: SessionState, target: Item | undefined): GameStatus {
   const { board, level, supplyIndex } = state;
+  if (isGoalMet(state)) return 'won';
   const items = board.flat().filter((c): c is Item => c !== null);
   const unspent = level.supply.slice(supplyIndex);
-  if (unspent.length === 0 && items.length === 1) return 'won';
 
   checkCapacity(board, unspent.length, 2);
 
   const all = [...items, ...unspent];
   const families = new Set<Family>(all.map((i) => i.family));
-  if (families.size !== 1) return 'lost';
+  if (families.size !== 1 || (target && !families.has(target.family))) return 'lost';
   const counts = Array.from({ length: MAX_TIER + 1 }, () => 0);
   for (const i of all) counts[i.tier]++;
-  return canLeaveOne(counts) ? 'playing' : 'lost';
+  return canLeaveOne(counts, target?.tier) ? 'playing' : 'lost';
+}
+
+/**
+ * Whether any merge can still be made: some family has three or more items at one tier below the
+ * maximum, on the board or in unspent supply. Matching items need not be adjacent, since free moves
+ * and swaps can always gather three of them into a group (any board with two neighbouring cells).
+ */
+export function canArrangeMerge(state: SessionState): boolean {
+  const { board, level, supplyIndex } = state;
+  const counts = new Map<string, number>();
+  for (const item of [...board.flat(), ...level.supply.slice(supplyIndex)]) {
+    if (!item || item.tier >= MAX_TIER) continue;
+    const key = `${item.family}${item.tier}`;
+    const n = (counts.get(key) ?? 0) + 1;
+    if (n >= 3) return true;
+    counts.set(key, n);
+  }
+  return false;
+}
+
+/** Whether the level's goal is satisfied now. */
+export function isGoalMet(state: SessionState): boolean {
+  const { board, level, supplyIndex } = state;
+  const { goal } = level;
+  if (goal.kind === 'item') return hasItem(board, goal.item);
+  if (goal.kind === 'items') return goal.items.every((t) => hasItem(board, t));
+  const items = board.flat().filter((c): c is Item => c !== null);
+  if (supplyIndex < level.supply.length || items.length !== 1) return false;
+  return !goal.item || (items[0].family === goal.item.family && items[0].tier === goal.item.tier);
 }
 
 export function evaluateStatus(state: SessionState): GameStatus {
   const { goal } = state.level;
+  // Generated puzzles: no early loss from counting, even after a fatal choice; 'lost' only once no merges are left.
+  if (state.level.earlyLoss === false) {
+    if (isGoalMet(state)) return 'won';
+    return canArrangeMerge(state) ? 'playing' : 'lost';
+  }
   if (goal.kind === 'item') return evaluateItemGoal(state, goal.item);
   if (goal.kind === 'items') return evaluateItemsGoal(state, goal.items);
-  return evaluateLeaveOne(state);
+  return evaluateLeaveOne(state, goal.item);
 }
