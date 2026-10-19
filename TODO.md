@@ -23,6 +23,7 @@ These resolve older conflicting entries below.
 
 ## Current baseline
 
+- Unreleased (local, not committed or deployed): gameplay background behind levels and generated puzzles; board layout unchanged, but the cheering characters are largely behind the controls (open decision under Gameplay presentation). See [docs/release-notes.md](docs/release-notes.md).
 - Latest deployment `20261019-011024`: woodland Home and Alisha Play artwork (full-scene backgrounds with HTML controls; Chromium-checked at phone and iPad sizes). See [docs/release-notes.md](docs/release-notes.md).
 - Published in `20261019-011024`: Music / Scores page with clarinet and ukulele arrangements of both loops. See [docs/release-notes.md](docs/release-notes.md).
 - Previous deployment `20261018-235203`: home screen with the elk artwork, Play / Levels / Release notes; "No merges left" for generated puzzles; Undo fix; compact Puzzle ID with Copy. See [docs/release-notes.md](docs/release-notes.md).
@@ -54,6 +55,15 @@ What was built, how it was verified, and its limitations: [docs/release-notes.md
 - [ ] Teach the five-for-two merge more clearly. Help states the rule, but neither the handcrafted levels nor generated puzzles teach it, and generated puzzles often require it.
 - [ ] Seed reproduction across generator versions remains open: older-version IDs are currently rejected. Options include keeping old generator versions or recording puzzle definitions.
 - Next candidates from the milestone handoff, not a committed schedule: better five-merge teaching (above); user-initiated diagnostic reports following the other app's pattern (Diagnostics below); automatic update detection with manual application (Physical iPad checks below); persistence of settings, completed puzzles, and bookmarked seeds (Persistence below); then connected-region gameplay and narrative exploration (sections below).
+
+## Gameplay presentation — approved follow-up, small chunks
+
+- [x] Create the accepted woodland gameplay direction with the elk and Alisha cheering at the edge; prepare `src/assets/art/woodland-cheering-landscape-v1.webp` (314212 bytes), preserving the PNG and canonical reference. Implementation research is in `artwork/gameplay/README.md`.
+- [x] Integrate the gameplay background (unreleased): `woodland-cheering-landscape-v1` / `-portrait-v1` behind handcrafted levels and generated puzzles, by orientation, with Home and Play art unchanged. Chromium against the production build at seven phone/iPad sizes: board position, size, tiles, pan state and page height identical to the pre-change build; no horizontal overflow; all buttons and inputs at least 44px; measured text contrast at least 6.2:1; characters never cropped. Details: [docs/release-notes.md](docs/release-notes.md).
+- [ ] Owner decision: the cheering characters sit where the game's controls are, so most of them are hidden at most sizes (visible: 9–27% on phone portrait, 22–35% at 820×1180, 33–71% on landscape iPads, 59–79% at 844×390). Options: accept as decoration; new art with the characters where the layouts leave room (for example under the board on landscape iPads, or a small cameo near the title); or a deliberate game-layout change. Not changed in this chunk.
+- [ ] Check the gameplay background on the physical iPad (Safari and Home Screen mode, both orientations): readability, the fixed background while the page scrolls, and sharpness on the 12.9-inch iPad Pro.
+- [ ] Extend existing merge effects with nonblocking travel and a distinct five-piece flourish; preserve both five-merge outputs, cancellation and reduced-motion behavior.
+- [ ] Add brief goal-completion/victory feedback. Independent cheering-character reactions need separate assets; the accepted background has flattened characters. Do not enlarge this into an animation framework.
 
 ## Level variety — implemented; further wife/difficulty feedback pending
 

@@ -529,3 +529,25 @@ body {
 @media (max-width: 480px) {
   .choice-option { flex: 1 1 0; text-align: center; }
 }
+
+/* Game screens: the cheering woodland (SceneArt) behind the unchanged board layout. It always fills the
+   screen, anchored at --art-x / --art-y towards the elk and Alisha at its lower right; a light dim, dark
+   fills on otherwise transparent controls, and tight dark plates behind text keep everything readable over it
+   (the plates use box-shadow, so no element changes height). */
+.scene-art.is-game { --art-x: 100%; --art-y: 0.6; }
+.scene-art.is-game img { object-fit: cover; object-position: var(--art-x) calc(var(--art-y) * 100%); }
+.scene-art.is-game::before { inset: 0; width: auto; height: auto; background: rgb(6 14 9 / 0.2); }
+.scene-art.is-game::after { content: none; }
+.app.is-game .music-button:not([aria-pressed="true"]), .app.is-game .help-trigger, .app.is-game .btn-quiet,
+.app.is-game .copy-button, .app.is-game .update-btn:not(.update-btn-primary), .app.is-game .banner.is-playing {
+  background: rgb(10 24 16 / 0.8);
+}
+.app.is-game .info h1, .app.is-game .level-label, .app.is-game .hint:not(:empty), .app.is-game .puzzle-id-row label,
+.app.is-game .copy-status, .app.is-game .update-build, .app.is-game .update-status {
+  width: fit-content; border-radius: 6px;
+  background: rgb(10 24 16 / 0.85); box-shadow: 0 0 0 4px rgb(10 24 16 / 0.85);
+}
+.app.is-game .hint { justify-self: center; }
+.app.is-game .puzzle-id-row label, .app.is-game .copy-status { justify-self: start; }
+/* Disabled buttons fade with opacity elsewhere; over the art that would show it through, so use the same look, opaque. */
+.app.is-game .btn:disabled { opacity: 1; background: #74785c; border-color: #393a28; color: #293224; }

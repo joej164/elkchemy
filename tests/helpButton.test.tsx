@@ -126,6 +126,8 @@ describe('HelpButton', () => {
     expect(game).toContain('data-action="home"');
     expect(game).not.toContain('data-action="next-level"');
     expect(game).not.toContain('data-puzzle-id');
+    expect(game).toMatch(/<picture class="scene-art is-game"><source media="\(orientation: portrait\)" srcSet="[^"]*woodland-cheering-portrait-v1\.webp"/);
+    expect(game).toMatch(/<img src="[^"]*woodland-cheering-landscape-v1\.webp"[^>]*alt=""/);
   });
 
   it('a generated puzzle shows its ID and New puzzle, with no supply', () => {
@@ -147,6 +149,7 @@ describe('HelpButton', () => {
     expect(game).toContain('there is no supply.');
     expect(game).not.toContain('next level');
     expect(game).toContain('Retry restarts this puzzle; New puzzle makes a fresh one.');
+    expect(game).toContain('woodland-cheering-landscape-v1.webp');
     expect(puzzleLabel({ mode: 'goals', tier: 2, goals: 2 })).toBe('Merge to goals · Tier 3 of 4 · 2 goals');
   });
 

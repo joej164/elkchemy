@@ -11,6 +11,9 @@ import { PlaySetup } from './PlaySetup';
 import { PuzzleId } from './PuzzleId';
 import { ReleaseNotes } from './ReleaseNotes';
 import { Scores } from './Scores';
+import { SceneArt } from './SceneArt';
+import gameLandscapeArt from '../assets/art/woodland-cheering-landscape-v1.webp';
+import gamePortraitArt from '../assets/art/woodland-cheering-portrait-v1.webp';
 import { ItemArt, itemLabel } from './ItemArt';
 import { UpdateControl } from './UpdateControl';
 import { isLargeBoard, itemCount, objectiveText, statusMessage } from './messages';
@@ -98,7 +101,7 @@ export function App({ levels = LEVELS }: { levels?: readonly Level[] }) {
   const scene = screen.kind === 'home' || screen.kind === 'play';
 
   return (
-    <main className={`app${inGame ? '' : ' is-page'}${scene ? ' is-scene' : ''}${screen.kind === 'scores' ? ' is-wide' : ''}`}>
+    <main className={`app${inGame ? ' is-game' : ' is-page'}${scene ? ' is-scene' : ''}${screen.kind === 'scores' ? ' is-wide' : ''}`}>
       {screen.kind === 'home' && (
         <Home musicControl={musicControl} onPlay={() => show({ kind: 'play' })}
           onLevels={() => show({ kind: 'levels' })} onScores={() => show({ kind: 'scores' })}
@@ -167,6 +170,8 @@ export function Game({ definition, label, musicControl, onHome, winLabel, onWin,
 
   return (
     <>
+      {/* Decorative: web copies of artwork/gameplay/woodland-cheering-*-v1.png, behind the unchanged board layout. */}
+      <SceneArt className="is-game" landscape={gameLandscapeArt} portrait={gamePortraitArt} alt="" />
       <header className="info">
         <div className="title-row">
           <h1>Elkchemy</h1>

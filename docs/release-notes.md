@@ -4,6 +4,48 @@ Each entry records what changed, how it was verified, and known limitations. **U
 
 Earlier published builds are not backfilled here. The previous build, `20261018-195510`, has five handcrafted levels and optional looping music; its verification is recorded in TODO.md under Current baseline and Audio.
 
+## Unreleased — Gameplay background (October 18, 2026)
+
+Not committed or deployed; production remains `20261019-011024`. Backgrounds only; merge, goal and victory animations are separate tasks.
+
+### Changes
+
+- Handcrafted levels and generated puzzles now show the cheering woodland behind the board, with the elk and Alisha at its lower right. It uses Codex's web copies of `artwork/gameplay/woodland-cheering-*-v1.png` in `src/assets/art/`. The originals, the archive, and the canonical Alisha reference are unchanged (hashes match).
+- Reuses `SceneArt` (new optional `className`): a fixed, decorative (`alt=""`) full-screen picture, portrait art in portrait orientation. In game screens it always fills the screen (`cover`), anchored right and 60% down, which keeps both characters fully in frame at every checked size; a 20% dim sits over it.
+- Readability without layout changes: otherwise transparent controls (Music, help, Home, Copy, Check for updates, the in-progress banner) get a dark fill, and text drawn on the art (title, level label, supply hint, Puzzle ID label, build and update status) gets a tight dark plate made with `box-shadow`, so no element changes height. Disabled buttons use an opaque version of their earlier faded look instead of `opacity`, so the art does not show through them.
+- The game layout, board sizing, tiles, panning, gestures, rules, audio and Home/Play artwork are unchanged. No animations, dependencies or persistence were added.
+
+### Verification
+
+- 380 tests (game render tests now check the background sources and empty alt), typecheck, and production build pass.
+- Claude, Playwright Chromium against the production build at 390×844, 844×390, 820×1180, 1180×820, 1024×1366, 1366×1024 and 1024×768, for handcrafted level 1 and a fixed-seed generated puzzle (`v1-goals-t4-g3-7`, 7×7):
+  - The correct composition was selected each time: portrait art at the three portrait sizes, landscape art at the four landscape sizes. Home and Play still load their own art.
+  - Board position, size and tile size, board pan state, and page height were identical to the same build without the background, measured beforehand. There was no horizontal overflow, and no visible button or input was under 44px.
+  - Text contrast, measured from a screenshot with the text hidden, against each text colour and taking the worst 5% of background pixels without shadows: at least 6.2:1 for every checked text in view. This covered the title, level label, hint, banner, Music, help, Home, Copy, Puzzle ID label, build and Check for updates. Text below the fold at phone sizes was not measured. Before the dark plates were added, text drawn on the art measured 1.3–3.6:1.
+  - Character visibility was sampled on a 24×24 grid over the characters' bounding box, which was estimated by eye from the artwork, counting points not covered by the board, panels, buttons, banner or text. The characters were 100% in frame at every size. The visible share (top / bottom of page scroll) was:
+
+    | Size | Level 1 | Generated puzzle |
+    | --- | --- | --- |
+    | 390×844 | 9/16% | 19/27% |
+    | 844×390 | 79/64% | 71/59% |
+    | 820×1180 | 26/35% | 22/32% |
+    | 1180×820 | 41% | 53% |
+    | 1024×1366 | 59% | 49/56% |
+    | 1366×1024 | 60% | 71% |
+    | 1024×768 | 33% | 42% |
+
+    Anchoring 60% down was chosen over 0%, 40%, 50%, 70%, 80% and 100%: 50% showed slightly more at 820×1180 and 1024×1366 but cropped the characters' feet at 1024×1366.
+- Interaction (production build):
+  - Level 1 at 820×1180 with reduced motion emulated: tap-to-move, drag-to-move, Undo, Retry, and a merge all worked; the existing reduced-motion fade applied to merge effects, and the background had no animations. Home asked for confirmation and returned home.
+  - The generated 7×7 puzzle at 390×844 and 844×390: dragging empty ground panned the board viewport, by (50, 40) px, without moving the page or the board. At 390×844 tap, scroll, tap moved an item across the board, Undo and Retry restored the start, the page still scrolled to its bottom, and Home asked and returned.
+  - No console errors.
+- Not verified: physical iPad/Safari and Home Screen mode, including the fixed background while the page scrolls under Safari's toolbar, real touch, and sharpness on the 12.9-inch iPad Pro (the art is 1672px on its long side). Chromium emulation does not establish them.
+
+### Known limitations
+
+- **Open layout conflict (owner decision).** Both compositions put the characters at the lower right, which is where the existing layouts put the controls: the right-hand column on landscape iPads (≥900px wide), and the full-width board and controls in portrait. As a result much of the characters is hidden; on phones in portrait they are almost entirely behind the board and controls. Fixing this needs new character placement in the art or a game-layout change, both outside this chunk.
+- The light dim and text plates slightly mute the art; plates are visible as small dark chips behind text.
+
 ## 20261019-011024 — Woodland Home and Play artwork (October 18, 2026)
 
 Published October 18, 2026 with owner authorization, alongside the Music scores entry below (same build `20261019-011024`).
