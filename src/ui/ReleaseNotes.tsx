@@ -6,6 +6,15 @@ export interface ReleaseNote { readonly title: string; readonly date: string; re
 
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    title: 'Music and woodland sounds',
+    date: 'October 19, 2026',
+    notes: [
+      'New woodland and palace music for The Crystal Palace. Interact with an item in either area to hear its music; panning keeps the current tune.',
+      'Optional sounds for merges, discoveries, opening gates and finding treasure, across all levels and generated puzzles.',
+      'Music and Sound effects have separate buttons. Both start off, so you can choose either or both.',
+    ],
+  },
+  {
     title: 'The Crystal Palace',
     date: 'October 19, 2026',
     notes: [
