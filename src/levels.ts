@@ -173,6 +173,45 @@ export const HOLLOW_LEVEL: LevelDefinition = {
   goal: { kind: 'item', item: { family: 'crystal', tier: 3 }, region: 2 },
 };
 
+// Level 7 (experimental): three small rooms in terrain (~), joined by passages (=, ‖) closed by rune gates. Each gate
+// opens by itself on the move that meets its room's tiles, consuming nothing; the items on those tiles then stay fixed
+// and Undo history is cleared (a checkpoint).
+//   g0 g0 [G] ~  ~  ~  ~      [G] pressure plate: exactly Grove tier 1 (shown as 2 of 4)
+//   s0 e0 g0  =  c0 .  c1     [S] pressure plate: exactly Song tier 1; the elk may stay
+//   s0 s0 [S] ~  .  (C) .     (C) stone: exactly Crystal tier 2 (shown as 3 of 4), alone in the Stone Chamber
+//   ~  ~  ~   ~  c0 c1 c0
+//   ~  ~  ~   ~  ~  ‖  ~
+//   ~  ~  ~   ~  .  .  ~
+//   ~  ~  ~   ~  $  .  ~      $ the disc-golf backpack, hidden until the Treasure Nook opens
+// It cannot be stranded, so it never reports a loss: each family in the Pressure Hall has exactly three tier-0 pieces
+// (one merge, no overshoot), and the Stone Chamber's three crystal-0 and two crystal-1 can only merge to one crystal-2.
+// Winning line: (1,2)→(0,1) merge, (0,1)→(0,2), (2,1)→(2,0) merge, (2,0)→(2,2) opens the first gate; (1,4)→(2,4),
+// (3,6)→(3,4) merge, (1,6)→(3,5) merge, (3,5)→(2,5) opens the second; tap (6,4).
+const RUNE_ITEMS: [number, number, Item][] = [
+  [0, 0, g0], [0, 1, g0], [1, 0, s0], [1, 1, e0], [1, 2, g0], [2, 0, s0], [2, 1, s0],
+  [1, 4, c0], [1, 6, c1], [3, 4, c0], [3, 5, c1], [3, 6, c0],
+];
+const runeBoard: Cell[][] = Array.from({ length: 7 }, () => Array.from({ length: 7 }, (): Cell => null));
+for (const [row, col, item] of RUNE_ITEMS) runeBoard[row][col] = item;
+
+export const RUNE_LEVEL: LevelDefinition = {
+  seed: 7,
+  board: runeBoard,
+  supply: [],
+  regions: [
+    { name: 'Pressure Hall', row: 0, col: 0, rows: 3, cols: 3 },
+    {
+      name: 'Stone Chamber', row: 1, col: 4, rows: 3, cols: 3,
+      unlock: { kind: 'pressure', in: 0, plates: [{ row: 0, col: 2, item: g1 }, { row: 2, col: 2, item: s1 }], passage: { row: 1, col: 3 } },
+    },
+    {
+      name: 'Treasure Nook', row: 5, col: 4, rows: 2, cols: 2,
+      unlock: { kind: 'stone', in: 1, plates: [{ row: 2, col: 5, item: c2 }], passage: { row: 4, col: 5 } },
+    },
+  ],
+  goal: { kind: 'treasure', at: { row: 6, col: 4 } },
+};
+
 export const LEVELS: readonly Level[] = [
   { name: 'Sprouting Grove', definition: INTRO_LEVEL },
   { name: 'Songbird Chorus', definition: SONG_LEVEL },
@@ -180,6 +219,7 @@ export const LEVELS: readonly Level[] = [
   { name: 'Crystal Fives', definition: CRYSTAL_LEVEL },
   { name: 'The Faraway Grove', definition: FARAWAY_LEVEL },
   { name: 'The Hidden Hollow', definition: HOLLOW_LEVEL },
+  { name: 'The Rune Gates', definition: RUNE_LEVEL },
 ];
 
 /** The level index to play after `index` in a list of `count` levels: the next one, or 0 to replay after the last. */

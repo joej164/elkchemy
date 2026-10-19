@@ -74,8 +74,8 @@ const count = (list: readonly Item[], family: Family, tier: number) => list.filt
 describe('HOLLOW_LEVEL design', () => {
   const start = startSession(HOLLOW_LEVEL);
 
-  it('is level 6, after the original five', () => {
-    expect(LEVELS).toHaveLength(6);
+  it('is level 6, after the original five (the experimental Rune Gates follow it)', () => {
+    expect(LEVELS).toHaveLength(7);
     expect(LEVELS[5]).toEqual({ name: 'The Hidden Hollow', definition: HOLLOW_LEVEL });
   });
 

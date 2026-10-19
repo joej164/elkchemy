@@ -1,10 +1,29 @@
 import type { Board, Item, Pos } from './board';
 import type { LevelDefinition, SessionState } from './session';
 
+/** Room levels: a marked tile and the exact item (family and tier) its gate needs on it. */
+export interface Plate { readonly row: number; readonly col: number; readonly item: Item }
+
+/** Opens with the Unlock button (or the region's gate) once `item`, its family at its tier or higher, is in region `in`. */
+export interface ItemUnlock { readonly item: Item; readonly in: number }
+
 /**
- * A rectangular area of a region level's board; the regions cover the board exactly, without overlap.
- * Region 0 is open from the start. The others unlock in list order, each once `unlock.item` (its family at
- * its tier or higher) is in region `unlock.in`, an earlier region. Unlocking consumes and moves nothing.
+ * Room levels: opens by itself, as part of the move that leaves exactly each plate's item on its plate in region `in`.
+ * `pressure` plates allow other items in that room; a `stone` (one plate) must hold the only item left in it. The rune
+ * gate stands in `passage`, a terrain cell beside both rooms. Opening is a checkpoint: the plate items stay fixed in
+ * place and Undo history is cleared.
+ */
+export interface PlateUnlock {
+  readonly kind: 'pressure' | 'stone';
+  readonly plates: readonly Plate[];
+  readonly in: number;
+  readonly passage: Pos;
+}
+
+/**
+ * A rectangular area of a region level's board, without overlap. Item-goal levels split the board exactly; in room
+ * levels (a treasure goal) the cells outside every region are empty terrain. Region 0 is open from the start. The
+ * others open in list order from an earlier region `unlock.in`; opening consumes and moves nothing.
  * Items never leave their region: drops stay inside one open region and merge groups stop at its border.
  */
 export interface Region {
@@ -13,7 +32,7 @@ export interface Region {
   readonly col: number;
   readonly rows: number;
   readonly cols: number;
-  readonly unlock?: { readonly item: Item; readonly in: number };
+  readonly unlock?: ItemUnlock | PlateUnlock;
 }
 
 export function inRegion(r: Region, p: Pos): boolean {
@@ -47,27 +66,55 @@ export function nextLocked(state: SessionState): number | null {
   return state.level.regions && n < state.level.regions.length ? n : null;
 }
 
-/** Whether the next region's unlock item is present, so Unlock would open it. */
+/** Whether the next region's unlock item is present, so Unlock would open it (never for plates, which open by themselves). */
 export function unlockReady(state: SessionState): boolean {
   const n = nextLocked(state);
   if (n === null) return false;
   const { regions } = state.level;
-  const { item, in: from } = regions![n].unlock!;
-  return hasItemIn(state.board, regions![from], item);
+  const u = regions![n].unlock!;
+  return 'item' in u && hasItemIn(state.board, regions![u.in], u.item);
+}
+
+/** Room levels: whether region `index`'s plates hold exactly their items (and a stone's room nothing else). */
+export function platesMet(board: Board, regions: readonly Region[], index: number): boolean {
+  const u = regions[index].unlock;
+  if (!u || !('plates' in u)) return false;
+  const exact = u.plates.every(({ row, col, item }) => {
+    const c = board[row][col];
+    return !!c && c.family === item.family && c.tier === item.tier;
+  });
+  if (!exact || u.kind === 'pressure') return exact;
+  const r = regions[u.in];
+  let items = 0;
+  for (let row = r.row; row < r.row + r.rows; row++) {
+    for (let col = r.col; col < r.col + r.cols; col++) if (board[row][col]) items++;
+  }
+  return items === u.plates.length;
+}
+
+/** Room levels: an opened gate's plate items stay where they are; nothing moves, swaps or merges them. */
+export function isFixed(state: SessionState, p: Pos): boolean {
+  const { regions } = state.level;
+  return !!regions && regions.some((r, i) => i > 0 && i <= state.unlocked && !!r.unlock && 'plates' in r.unlock &&
+    r.unlock.plates.some((pl) => pl.row === p.row && pl.col === p.col));
 }
 
 /**
  * Throws for region configurations the rules and status checks do not support; does nothing for other levels.
- * Supported: a rectangular board split exactly into two or more rectangular regions, region 0 open, each later
- * region unlocked from an earlier one, no supply, and an item goal inside the last region.
+ * Supported: two or more non-overlapping rectangular regions on a rectangular board, region 0 open, each later region
+ * opened from an earlier one, and no supply. Either an item goal in the last region, with item unlocks and regions
+ * covering the whole board; or (room levels) a treasure on an empty cell of the last region, with plate unlocks whose
+ * plates lie in the room they open from and whose passage is a terrain cell beside both rooms, and empty terrain.
  */
 export function validateRegions(level: LevelDefinition): void {
   const { regions, board, goal } = level;
   if (!regions) {
     if (goal.kind === 'item' && goal.region !== undefined) throw new Error('Unsupported level: a goal region needs regions');
+    if (goal.kind === 'treasure') throw new Error('Unsupported level: a treasure needs rooms');
     return;
   }
   const fail = (why: string): never => { throw new Error(`Unsupported region level: ${why}`); };
+  const rooms = goal.kind === 'treasure';
   const width = board[0]?.length ?? 0;
   if (width === 0 || board.some((r) => r.length !== width)) fail('the board must be rectangular');
   if (regions.length < 2) fail('it needs at least two regions');
@@ -88,8 +135,29 @@ export function validateRegions(level: LevelDefinition): void {
     if (r.unlock && !(Number.isInteger(r.unlock.in) && r.unlock.in >= 0 && r.unlock.in < i)) {
       fail(`region ${i} must unlock from an earlier region`);
     }
+    if (r.unlock && ('plates' in r.unlock) !== rooms) fail(rooms ? `region ${i} must open by plates` : `region ${i} needs an unlock item`);
   });
-  if (owner.some((r) => r.includes(-1))) fail('regions must cover the whole board');
+  if (!rooms && owner.some((r) => r.includes(-1))) fail('regions must cover the whole board');
+  if (rooms) {
+    if (board.some((r, row) => r.some((c, col) => c !== null && owner[row][col] === -1))) fail('terrain must be empty');
+    const beside = (p: Pos, region: number) =>
+      [[-1, 0], [1, 0], [0, -1], [0, 1]].some(([dr, dc]) => owner[p.row + dr]?.[p.col + dc] === region);
+    regions.forEach((r, i) => {
+      const u = r.unlock;
+      if (!u || !('plates' in u)) return;
+      if (u.plates.length === 0 || (u.kind === 'stone' && u.plates.length !== 1)) fail(`region ${i} needs one stone or some plates`);
+      if (u.plates.some((pl) => !inRegion(regions[u.in], pl))) fail(`region ${i}'s plates must be in region ${u.in}`);
+      const { row, col } = u.passage;
+      if (owner[row]?.[col] !== -1 || !beside(u.passage, u.in) || !beside(u.passage, i)) {
+        fail(`region ${i}'s passage must be terrain beside both rooms`);
+      }
+    });
+  }
   if (level.supply.length > 0) fail('supply is not supported');
-  if (goal.kind !== 'item' || goal.region !== regions.length - 1) fail('the goal must be one item in the last region');
+  if (goal.kind === 'treasure') {
+    const { row, col } = goal.at;
+    if (regionAt(regions, goal.at) !== regions.length - 1 || board[row][col] !== null) {
+      fail('the treasure must be on an empty cell of the last region');
+    }
+  } else if (goal.kind !== 'item' || goal.region !== regions.length - 1) fail('the goal must be one item in the last region');
 }

@@ -1,11 +1,13 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type Dispatch, type KeyboardEvent, type PointerEvent } from 'react';
-import type { Pos } from '../board';
-import { regionAt, type Region } from '../regions';
+import type { Item, Pos } from '../board';
+import { isFixed, regionAt, type PlateUnlock, type Region } from '../regions';
 import { isCellOpen } from '../session';
-import { ItemArt, itemLabel } from './ItemArt';
-import { unlockNeed } from './messages';
+import { BackpackArt, ItemArt, itemLabel } from './ItemArt';
+import { TREASURE_NAME, unlockNeed } from './messages';
 import { centerScroll, exceedsThreshold, moveFocus, panScroll } from './navigation';
-import { canDropAt, canPickUp, canUnlock, goalCells, previewCells, type UiAction, type UiState } from './controller';
+import {
+  canDropAt, canPickUp, canUnlock, goalCells, openedRegion, previewCells, treasureShown, type UiAction, type UiState,
+} from './controller';
 
 // A click arriving this soon after a drag is the browser's follow-up click, not a tap.
 const SUPPRESS_CLICK_MS = 500;
@@ -41,6 +43,28 @@ export function LockIcon({ open = false }: { open?: boolean }) {
   );
 }
 
+/**
+ * Room levels: a rune gate across a passage, drawn for a path running top to bottom (callers rotate it for one running
+ * across): two standing stones with runes and, while closed, glowing bars between them. Decorative.
+ */
+export function RuneGate({ open = false }: { open?: boolean }) {
+  const rune = open ? '#f2c14e' : '#8fe3ff';
+  return (
+    <svg viewBox="0 0 100 100" aria-hidden="true" focusable="false">
+      <rect x="4" y="26" width="20" height="48" rx="6" fill="#8d8f86" stroke="#2a2e28" strokeWidth="3" />
+      <rect x="76" y="26" width="20" height="48" rx="6" fill="#8d8f86" stroke="#2a2e28" strokeWidth="3" />
+      <path d="M14 36 V64 M8 44 L14 50 L8 56" fill="none" stroke={rune} strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M86 36 V64 M80 50 L86 44 L92 50" fill="none" stroke={rune} strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />
+      {!open && (
+        <g stroke="#1b3a4a" strokeWidth="2">
+          {[36, 48, 60].map((y) => <rect key={y} x="24" y={y} width="52" height="6" rx="3" fill="#8fe3ff" />)}
+          <path d="M50 40 L57 51 L50 62 L43 51 Z" fill="#d9f6ff" />
+        </g>
+      )}
+    </svg>
+  );
+}
+
 /** `onOverflowChange` reports whether the board overflows its viewport (so it needs panning), whenever that changes. */
 export function Board({ state, dispatch, onOverflowChange }: {
   state: UiState; dispatch: Dispatch<UiAction>; onOverflowChange?: (overflowing: boolean) => void;
@@ -52,7 +76,13 @@ export function Board({ state, dispatch, onOverflowChange }: {
   const over = state.status !== 'playing';
   const [drag, setDrag] = useState<Drag | null>(null);
   const [mouseHover, setMouseHover] = useState<Pos | null>(null);
-  const [focused, setFocused] = useState<Pos>({ row: 0, col: 0 });
+  // The roving tab stop starts on the first cell; room levels' terrain is not a cell, so it starts on the first room cell.
+  const [focused, setFocused] = useState<Pos>(() => {
+    for (let row = 0; row < rows; row++) {
+      for (let col = 0; col < cols; col++) if (!regions || regionAt(regions, { row, col }) !== -1) return { row, col };
+    }
+    return { row: 0, col: 0 };
+  });
   const [kbFocus, setKbFocus] = useState<Pos | null>(null);
   const pending = useRef<Pending | null>(null);
   const suppressClickUntil = useRef(0);
@@ -125,9 +155,9 @@ export function Board({ state, dispatch, onOverflowChange }: {
     return () => ro.disconnect();
   }, []);
   useLayoutEffect(() => { onOverflowChange?.(overflowing); }, [overflowing, onOverflowChange]);
-  // Unlocking brings the newly opened region into view, and Retry returns to the first region as on entry
-  // (instantly, so input is never delayed). Undo leaves the view where it is.
-  const unlocked = state.lastAction?.kind === 'unlock' ? state.lastAction.region : null;
+  // Unlocking (or, in room levels, a drop opening a gate) brings the newly opened region into view, and Retry returns
+  // to the first region as on entry (instantly, so input is never delayed). Undo leaves the view where it is.
+  const unlocked = openedRegion(state.lastAction);
   const shown = state.lastAction?.kind === 'retry' ? 0 : unlocked;
   // A gate that had focus disappears when its region opens; focus then moves to that region's first cell.
   const focusOpened = useRef<number | null>(null);
@@ -135,7 +165,10 @@ export function Board({ state, dispatch, onOverflowChange }: {
     if (shown !== null && regions && overflowing) showRegion(regions[shown]);
     if (unlocked !== null && regions && focusOpened.current === unlocked) {
       const { row, col } = regions[unlocked];
-      cellRefs.current[row * cols + col]?.focus({ preventScroll: true });
+      const cell = cellRefs.current[row * cols + col];
+      cell?.focus({ preventScroll: true });
+      // A keyboard unlock shows the focus ring, so bring that cell into view; a pointer unlock keeps the centred view.
+      if (cell?.matches(':focus-visible')) cell.scrollIntoView({ block: 'nearest', inline: 'nearest' });
     }
     focusOpened.current = null;
   }, [state.actionSeq]);
@@ -217,15 +250,33 @@ export function Board({ state, dispatch, onOverflowChange }: {
 
   const onKeyDown = (e: KeyboardEvent<HTMLButtonElement>, pos: Pos) => {
     suppressClickUntil.current = 0;
-    const next = moveFocus(pos, e.key, rows, cols);
+    let next = moveFocus(pos, e.key, rows, cols);
     if (!next) return;
     e.preventDefault();
+    // Room levels: terrain is not a cell, so keep going the same way to the next cell, if there is one.
+    while (!cellRefs.current[next.row * cols + next.col]) {
+      const further: Pos = moveFocus(next, e.key, rows, cols)!;
+      if (same(further, next)) return;
+      next = further;
+    }
     const el = cellRefs.current[next.row * cols + next.col];
     el?.focus({ preventScroll: true });
     el?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
   };
 
   const goals = state.status === 'won' ? goalCells(state) : [];
+  // Room levels: each gate's marked tiles, and its passage.
+  const plates = useMemo(() => {
+    const map = new Map<string, { item: Item; kind: PlateUnlock['kind'] }>();
+    regions?.forEach((r) => {
+      if (r.unlock && 'plates' in r.unlock) for (const pl of r.unlock.plates) map.set(`${pl.row},${pl.col}`, { item: pl.item, kind: r.unlock.kind });
+    });
+    return map;
+  }, [regions]);
+  const passageAt = (pos: Pos) =>
+    regions?.findIndex((r) => !!r.unlock && 'passage' in r.unlock && same(r.unlock.passage, pos)) ?? -1;
+  const { goal } = state.session.level;
+  const roomLevel = goal.kind === 'treasure';
   const merge = state.lastAction?.kind === 'merge' ? state.lastAction : null;
   const seq = state.actionSeq;
   const has = (list: readonly Pos[], p: Pos) => list.some((q) => same(q, p));
@@ -257,9 +308,31 @@ export function Board({ state, dispatch, onOverflowChange }: {
             const pos = { row: r, col: c };
             const cls = ['cell'];
             const region = regions?.[regionAt(regions, pos)];
+            if (regions && !region) {
+              // Room levels: terrain, or a passage with its rune gate. Never a cell, never focused.
+              const gate = passageAt(pos);
+              if (gate < 0) return <div key={`${r}-${c}`} className="terrain" aria-hidden="true" />;
+              const open = gate <= state.session.unlocked;
+              const across = regionAt(regions, { row: r, col: c - 1 }) !== -1;
+              return (
+                <div key={`${r}-${c}`} className={`passage${across ? ' is-across' : ''}${open ? ' is-open' : ''}`} data-passage={gate}
+                  role="img" aria-label={`Rune gate to ${regions[gate].name}, ${open ? 'open' : 'closed'}`}>
+                  <RuneGate open={open} />
+                </div>
+              );
+            }
             const locked = !isCellOpen(state.session, pos);
-            if (item) cls.push('has-item');
+            const plate = plates.get(`${r},${c}`);
+            const fixed = !!plate && isFixed(state.session, pos);
+            const treasure = goal.kind === 'treasure' && same(goal.at, pos) && treasureShown(state);
+            if (item || treasure) cls.push('has-item');
             if (locked) cls.push('is-locked');
+            if (plate) {
+              cls.push('is-plate', `is-${plate.kind}`);
+              if (item && item.family === plate.item.family && item.tier === plate.item.tier) cls.push('is-plate-met');
+              if (fixed) cls.push('is-fixed');
+            }
+            if (treasure) cls.push('has-treasure');
             if (same(state.selected, pos)) cls.push('is-selected');
             if (preview.some((q) => q.row === r && q.col === c)) cls.push('is-merge-preview');
             if (drag && drag.hover && same(drag.hover, pos) && !same(drag.hover, drag.origin)) {
@@ -270,8 +343,11 @@ export function Board({ state, dispatch, onOverflowChange }: {
             if (isGoal) cls.push('is-goal-item');
             const isOutput = !!merge && has(merge.outputs, pos);
             const isConsumed = !!merge && !isOutput && has(merge.cells, pos);
-            const label = item ? itemLabel(item) : 'empty';
-            const place = region ? `, ${region.name}${locked ? ', locked' : ''}` : '';
+            const label = treasure
+              ? `${TREASURE_NAME}${state.session.collected ? ', collected' : ', tap to collect'}`
+              : item ? itemLabel(item) : 'empty';
+            const mark = plate ? `, ${plate.kind === 'stone' ? 'stone' : 'pressure plate'} for ${itemLabel(plate.item)}${fixed ? ', fixed' : ''}` : '';
+            const place = region ? `, ${region.name}${locked ? ', locked' : ''}${mark}` : '';
             return (
               <button
                 key={`${r}-${c}`}
@@ -283,7 +359,7 @@ export function Board({ state, dispatch, onOverflowChange }: {
                 data-col={c}
                 aria-label={`Row ${r + 1}, column ${c + 1}${place}: ${label}`}
                 aria-pressed={same(state.selected, pos)}
-                aria-disabled={over || locked ? true : undefined}
+                aria-disabled={over || locked || fixed ? true : undefined}
                 tabIndex={same(focused, pos) ? 0 : -1}
                 onPointerEnter={(e) => { if (e.pointerType === 'mouse') setMouseHover(pos); }}
                 onPointerLeave={(e) => { if (e.pointerType === 'mouse') setMouseHover((h) => (same(h, pos) ? null : h)); }}
@@ -295,7 +371,11 @@ export function Board({ state, dispatch, onOverflowChange }: {
                   dispatch({ type: 'tap', pos });
                 }}
               >
+                {plate && (
+                  <span className="plate-mark" aria-hidden="true">{fixed ? <LockIcon /> : <ItemArt item={plate.item} />}</span>
+                )}
                 {item && <span className="cell-art"><ItemArt item={item} /></span>}
+                {treasure && <span className="cell-art"><BackpackArt /></span>}
                 {merge && isConsumed && (
                   <span key={`consumed-${seq}`} data-fx="consumed" aria-hidden="true"><ItemArt item={merge.input} /></span>
                 )}
@@ -325,10 +405,12 @@ export function Board({ state, dispatch, onOverflowChange }: {
           const locked = i > state.session.unlocked;
           const ready = locked && canUnlock(state, i);
           const need = r.unlock ? unlockNeed(regions, i) : '';
+          // Room levels have no wooden gate: a locked room is only darkened, and its rune gate stands in its passage.
+          const key = r.unlock && 'item' in r.unlock ? r.unlock : null;
           return (
-            <div key={r.name} className={`region${locked ? ' is-locked' : ''}`} data-region={i}
+            <div key={r.name} className={`region${locked ? ' is-locked' : ''}${roomLevel ? ' is-room' : ''}`} data-region={i}
               style={{ gridRow: `${r.row + 1} / span ${r.rows}`, gridColumn: `${r.col + 1} / span ${r.cols}` }}>
-              {locked && r.unlock && (
+              {locked && key && (
                 <button type="button" className={`gate${ready ? ' is-ready' : ''}`} data-gate={i}
                   aria-disabled={ready ? undefined : true}
                   aria-label={ready ? `${r.name} gate. Needs ${need}. Ready: tap to open.` : `${r.name} gate, locked. Needs ${need}.`}
@@ -341,7 +423,7 @@ export function Board({ state, dispatch, onOverflowChange }: {
                   <span className="region-sign">
                     <span className="region-name"><LockIcon open={ready} /> {r.name}</span>
                     <span className="region-need">
-                      <span className="region-need-art" aria-hidden="true"><ItemArt item={r.unlock.item} /></span>
+                      <span className="region-need-art" aria-hidden="true"><ItemArt item={key.item} /></span>
                       Needs {need}
                     </span>
                     {ready && <span className="gate-ready">Tap to open</span>}

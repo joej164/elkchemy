@@ -20,7 +20,7 @@ const fingerprint = (board: Board) => board.map((r) => r.map(code).join(' ')).jo
 const itemsOf = (board: Board) => board.flat().filter((c): c is Item => c !== null);
 const targetsOf = (p: GeneratedPuzzle): Item[] => {
   const { goal } = p.definition;
-  return goal.kind === 'items' ? [...goal.items] : goal.item ? [goal.item] : [];
+  return goal.kind === 'items' ? [...goal.items] : goal.kind !== 'treasure' && goal.item ? [goal.item] : [];
 };
 
 /** Replays the witness through the session, returning the merge sizes; asserts status after every move. */

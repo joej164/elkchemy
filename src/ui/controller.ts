@@ -1,13 +1,15 @@
 import type { Item, Pos, Tier } from '../board';
-import { inRegion, nextLocked, unlockReady } from '../regions';
+import { inRegion, isFixed, nextLocked, unlockReady } from '../regions';
 import {
-  applyDrop, canDrop, chooseSupplyCell, isCellOpen, placeSupplyRandom, previewDrop, retry, startSession, undo, unlock,
+  applyDrop, canDrop, chooseSupplyCell, collect, isCellOpen, placeSupplyRandom, previewDrop, retry, startSession, undo, unlock,
   type LevelDefinition, type SessionState,
 } from '../session';
 import { evaluateStatus, type GameStatus } from '../status';
 
+/** `opened` (room levels): the region whose gate the drop opened. */
 export type LastAction =
-  | { readonly kind: 'move' | 'swap' | 'undo' | 'retry' }
+  | { readonly kind: 'move' | 'swap'; readonly opened?: number }
+  | { readonly kind: 'undo' | 'retry' | 'collect' }
   | { readonly kind: 'place'; readonly at: Pos; readonly item: Item }
   | { readonly kind: 'unlock'; readonly region: number }
   | {
@@ -17,7 +19,14 @@ export type LastAction =
       readonly result: Item;
       readonly cells: readonly Pos[];
       readonly outputs: readonly Pos[];
+      readonly opened?: number;
     };
+
+/** The region the last action opened: by Unlock (or a gate), or, in room levels, by a drop. */
+export function openedRegion(a: LastAction | null): number | null {
+  if (a?.kind === 'unlock') return a.region;
+  return a && 'opened' in a && a.opened !== undefined ? a.opened : null;
+}
 
 export interface UiState {
   readonly session: SessionState;
@@ -72,10 +81,17 @@ export function canUnlock(state: UiState, region?: number): boolean {
   return state.status === 'playing' && unlockReady(state.session) && (region === undefined || region === nextLocked(state.session));
 }
 
-/** Whether the item at `pos` can be picked up (tapped to select, or dragged): playing, and not in a locked region. */
+/** Whether the item at `pos` can be picked up (tapped to select, or dragged): playing, not locked away and not fixed. */
 export function canPickUp(state: UiState, pos: Pos): boolean {
   const { session } = state;
-  return !isOver(state) && inBounds(session, pos) && session.board[pos.row][pos.col] !== null && isCellOpen(session, pos);
+  return !isOver(state) && inBounds(session, pos) && session.board[pos.row][pos.col] !== null && isCellOpen(session, pos) &&
+    !isFixed(session, pos);
+}
+
+/** Room levels: the treasure is visible (its room is open), collected or not. */
+export function treasureShown(state: UiState): boolean {
+  const { goal } = state.session.level;
+  return goal.kind === 'treasure' && isCellOpen(state.session, goal.at);
 }
 
 /** Whether a drop of the item at `from` onto `to` would be accepted (it may still change nothing). */
@@ -86,6 +102,7 @@ export function canDropAt(state: UiState, from: Pos, to: Pos): boolean {
 /** Cells to celebrate: goal items for an item or items goal (inside the goal region, if any); for Leave one, the last item once won. */
 export function goalCells(state: UiState): Pos[] {
   const { goal, regions } = state.session.level;
+  if (goal.kind === 'treasure') return state.status === 'won' ? [goal.at] : [];
   if (goal.kind === 'leaveOne' && state.status !== 'won') return [];
   const area = goal.kind === 'item' && goal.region !== undefined ? regions?.[goal.region] : undefined;
   const cells: Pos[] = [];
@@ -125,7 +142,8 @@ function doDrop(state: UiState, from: Pos, to: Pos): UiState {
       : { kind: 'swap' };
   }
   const next = applyDrop(session, from, to);
-  return next === session ? state : withSession(state, next, lastAction);
+  if (next === session) return state;
+  return withSession(state, next, next.unlocked > session.unlocked ? { ...lastAction, opened: next.unlocked } : lastAction);
 }
 
 export function reduceUi(state: UiState, action: UiAction): UiState {
@@ -136,6 +154,12 @@ export function reduceUi(state: UiState, action: UiAction): UiState {
       const { pos } = action;
       const { session, selected } = state;
       if (isOver(state) || !inBounds(session, pos)) return state;
+      // Room levels: tapping the revealed treasure collects it, whatever is selected.
+      const { goal } = session.level;
+      if (goal.kind === 'treasure' && samePos(goal.at, pos)) {
+        const found = collect(session);
+        if (found !== session) return withSession(state, found, { kind: 'collect' });
+      }
       if (selected === null) return canPickUp(state, pos) ? { ...state, selected: pos } : state;
       if (samePos(selected, pos)) return { ...state, selected: null };
       // A tap that changes nothing (onto an identical item that cannot merge) still ends the selection.

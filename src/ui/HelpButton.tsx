@@ -13,6 +13,7 @@ export function HelpButton({ goal, largeBoard = false, puzzle = false, regions }
   const triggerRef = useRef<HTMLButtonElement>(null);
   const dialogRef = useRef<HTMLDialogElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
+  const rooms = goal.kind === 'treasure';
 
   const open = () => {
     const dialog = dialogRef.current;
@@ -54,7 +55,12 @@ export function HelpButton({ goal, largeBoard = false, puzzle = false, regions }
             <li>Drop onto a matching item to merge its connected group. Merge 3 for 1 upgraded item; merge 5 for 2.</li>
             {largeBoard && <li>{LARGE_BOARD_HINT} Center board recenters the view.</li>}
             <li>Dropping onto a different item swaps them; nothing merges on its own.</li>
-            {regions ? (
+            {rooms ? (
+              <li>
+                Each rune gate opens by itself on the move that puts exactly the items shown on its room's marked tiles;
+                a stone must hold the only item left in its room. Items never leave their own room.
+              </li>
+            ) : regions ? (
               <li>
                 Each locked area's gate shows the item that opens it. Make it in the area named, then tap the gate or press
                 Unlock; the item stays where it is. Items never leave their own area.
@@ -66,6 +72,11 @@ export function HelpButton({ goal, largeBoard = false, puzzle = false, regions }
             )}
             {puzzle ? (
               <li>Undo takes back your last action; Retry restarts this puzzle; New puzzle makes a fresh one.</li>
+            ) : rooms ? (
+              <li>
+                An opened gate is a checkpoint: its items stay fixed, and Undo can't go back past it. Retry restarts this
+                level.
+              </li>
             ) : (
               <li>Undo takes back your last action{regions ? ', even an unlock' : ''}; Retry restarts this level.</li>
             )}

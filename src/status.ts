@@ -151,6 +151,7 @@ export function isGoalMet(state: SessionState): boolean {
     return isOpen(state, goal.region) && hasItemIn(board, level.regions![goal.region], goal.item);
   }
   if (goal.kind === 'items') return goal.items.every((t) => hasItem(board, t));
+  if (goal.kind === 'treasure') return state.collected;
   const items = board.flat().filter((c): c is Item => c !== null);
   if (supplyIndex < level.supply.length || items.length !== 1) return false;
   return !goal.item || (items[0].family === goal.item.family && items[0].tier === goal.item.tier);
@@ -171,10 +172,8 @@ function regionTargets(state: SessionState): { region: Region; item: Item }[] {
   const regions = level.regions!;
   const targets: { region: Region; item: Item }[] = [];
   const n = nextLocked(state);
-  if (n !== null) {
-    const { item, in: from } = regions[n].unlock!;
-    if (!hasItemIn(board, regions[from], item)) targets.push({ region: regions[from], item });
-  }
+  const u = n === null ? undefined : regions[n].unlock;
+  if (u && 'item' in u && !hasItemIn(board, regions[u.in], u.item)) targets.push({ region: regions[u.in], item: u.item });
   const { goal } = level;
   if (goal.kind === 'item' && goal.region !== undefined && isOpen(state, goal.region)) {
     targets.push({ region: regions[goal.region], item: goal.item });
@@ -201,6 +200,9 @@ function evaluateRegions(state: SessionState): GameStatus {
 
 export function evaluateStatus(state: SessionState): GameStatus {
   const { goal } = state.level;
+  // Room levels never report a loss: gates open by moves alone and the treasure by a tap, and a sound "lost" would
+  // need a room-aware search. The one room level is built so it cannot be stranded (see RUNE_LEVEL in levels.ts).
+  if (goal.kind === 'treasure') return state.collected ? 'won' : 'playing';
   if (state.level.regions) return evaluateRegions(state);
   // Generated puzzles: no early loss from counting, even after a fatal choice; 'lost' only once no merges are left.
   if (state.level.earlyLoss === false) {

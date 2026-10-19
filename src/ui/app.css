@@ -214,6 +214,16 @@ body {
   from { box-shadow: 0 0 0 2px var(--gold), 0 0 6px 2px rgb(242 193 78 / 0.45); }
   to { box-shadow: 0 0 0 4px var(--gold), 0 0 22px 8px rgb(242 193 78 / 0.9); }
 }
+/* Keyboard focus on a ready gate keeps the shared dark halo under the white outline, with the glow outside it,
+   throughout the pulse and when the glow is steady (reduced motion). */
+.gate.is-ready:focus-visible {
+  box-shadow: 0 0 0 7px var(--forest-1), 0 0 18px 12px rgb(242 193 78 / 0.75);
+  animation-name: gate-glow-focus;
+}
+@keyframes gate-glow-focus {
+  from { box-shadow: 0 0 0 7px var(--forest-1), 0 0 6px 9px rgb(242 193 78 / 0.45); }
+  to { box-shadow: 0 0 0 7px var(--forest-1), 0 0 22px 13px rgb(242 193 78 / 0.9); }
+}
 .region-sign {
   margin: 0; max-width: 100%; display: grid; justify-items: center; gap: 4px;
   padding: 6px 10px; border-radius: 8px; border: 2px solid var(--bark-dark);
@@ -229,10 +239,49 @@ body {
 .region-need-art { width: 32px; height: 32px; flex: none; background: var(--earth); border-radius: 6px; padding: 2px; }
 .region-need-art svg { display: block; width: 100%; height: 100%; }
 
+/* Room levels (The Rune Gates): terrain between the rooms, rune gates across the passages, marked tiles and the
+   treasure. A locked room is only darkened; nothing is drawn over it. */
+.region.is-room.is-locked { background: rgb(14 24 16 / 0.62); }
+.terrain, .passage { position: relative; border-radius: 10px; background: #1c3020; }
+.terrain {
+  background:
+    radial-gradient(circle at 28% 32%, #3d6b35 0 16%, transparent 17%),
+    radial-gradient(circle at 70% 64%, #2f5a2c 0 19%, transparent 20%),
+    radial-gradient(circle at 68% 22%, #35612f 0 10%, transparent 11%),
+    #1c3020;
+  box-shadow: inset 0 0 0 2px rgb(0 0 0 / 0.25);
+}
+/* The path runs on through the gaps to both rooms. The gate is drawn for a path running top to bottom. */
+.passage::before {
+  content: ""; position: absolute; left: 24%; right: 24%; top: calc(var(--gap) * -1); bottom: calc(var(--gap) * -1);
+  background: var(--earth-sunken); box-shadow: inset 0 0 6px rgb(0 0 0 / 0.35);
+}
+.passage.is-across::before { left: calc(var(--gap) * -1); right: calc(var(--gap) * -1); top: 24%; bottom: 24%; }
+.passage svg { position: relative; display: block; width: 100%; height: 100%; }
+.passage.is-across svg { transform: rotate(90deg); }
+.passage:not(.is-open) svg { filter: drop-shadow(0 0 6px rgb(143 227 255 / 0.8)); }
+/* Marked tiles: a ring (bronze for a pressure plate, slate for the stone) and the item they need, faint while empty,
+   then as a corner badge; a padlock badge once the gate has opened and the item is fixed. */
+.cell.is-plate::before {
+  content: ""; position: absolute; inset: 3px; border-radius: 7px; pointer-events: none;
+  border: 3px solid #b08a4a; background: rgb(176 138 74 / 0.18);
+}
+.cell.is-stone::before { border-color: #6d7580; background: rgb(109 117 128 / 0.28); }
+.plate-mark {
+  position: absolute; right: 2px; top: 2px; z-index: 1; width: 40%; height: 40%; padding: 2px;
+  border-radius: 50%; background: var(--parchment); border: 2px solid var(--bark-dark);
+}
+.cell:not(.has-item) .plate-mark { inset: 16%; width: auto; height: auto; padding: 0; background: none; border: 0; opacity: 0.5; }
+.cell.is-plate-met .plate-mark { border-color: var(--moss); box-shadow: 0 0 0 2px var(--gold); }
+.cell.is-fixed { cursor: default; }
+.cell.is-fixed .plate-mark { padding: 4px; background: var(--forest-1); color: var(--gold); border-color: var(--gold); }
+.cell.has-treasure { background: radial-gradient(circle, #fff3c4, var(--earth) 70%); }
+.cell.has-treasure .cell-art { filter: drop-shadow(0 0 6px rgb(242 193 78 / 0.95)); }
+
 .board.is-over .cell { cursor: default; }
 
 :focus-visible { outline: 4px solid #fff; outline-offset: 2px; box-shadow: 0 0 0 7px var(--forest-1); }
-.cell:focus-visible { outline-offset: -2px; z-index: 3; }
+.cell:focus-visible { outline-offset: -2px; z-index: 3; scroll-margin: 10px; }
 
 .drag-ghost {
   position: fixed;

@@ -1,5 +1,5 @@
 import { drop, previewMerge, type Board, type Item, type Pos } from './board';
-import { isOpen, nextLocked, regionAt, unlockReady, validateRegions, type Region } from './regions';
+import { isFixed, isOpen, nextLocked, platesMet, regionAt, unlockReady, validateRegions, type Region } from './regions';
 
 /**
  * `item`: make `item` (its family at its tier or higher) anywhere on the board; with `region` (region levels),
@@ -8,11 +8,13 @@ import { isOpen, nextLocked, regionAt, unlockReady, validateRegions, type Region
  *   once. A target counts as complete while such an item is present; targets need distinct families.
  * `leaveOne`: place all supply and finish with exactly one item on the board; with `item`, that
  *   last item must be exactly `item` (its family at exactly its tier).
+ * `treasure` (room levels): collect the treasure at `at`, hidden in the last room until it opens, by tapping it.
  */
 export type LevelGoal =
   | { readonly kind: 'item'; readonly item: Item; readonly region?: number }
   | { readonly kind: 'items'; readonly items: readonly Item[] }
-  | { readonly kind: 'leaveOne'; readonly item?: Item };
+  | { readonly kind: 'leaveOne'; readonly item?: Item }
+  | { readonly kind: 'treasure'; readonly at: Pos };
 
 export interface LevelDefinition {
   readonly seed: number;
@@ -38,6 +40,8 @@ export interface SessionSnapshot {
   readonly moves: number;
   /** Regions unlocked so far: regions 0..unlocked are open (always 0 for levels without regions). */
   readonly unlocked: number;
+  /** Room levels: the treasure has been collected (always false otherwise). */
+  readonly collected: boolean;
 }
 
 export interface SessionState extends SessionSnapshot {
@@ -53,22 +57,27 @@ function inBounds(board: Board, p: Pos): boolean {
 }
 
 function snapshot(s: SessionState): SessionSnapshot {
-  return { board: s.board, supplyIndex: s.supplyIndex, rngState: s.rngState, moves: s.moves, unlocked: s.unlocked };
+  return {
+    board: s.board, supplyIndex: s.supplyIndex, rngState: s.rngState, moves: s.moves, unlocked: s.unlocked, collected: s.collected,
+  };
 }
 
 /** Throws for unsupported region levels (see validateRegions). */
 export function startSession(level: LevelDefinition): SessionState {
   validateRegions(level);
-  return { level, board: level.board, supplyIndex: 0, rngState: level.seed, moves: 0, unlocked: 0, undo: null };
+  return { level, board: level.board, supplyIndex: 0, rngState: level.seed, moves: 0, unlocked: 0, collected: false, undo: null };
 }
 
-/** Whether a drop from `from` to `to` is allowed at all: an item to a cell, and in region levels, inside one open region. */
+/**
+ * Whether a drop from `from` to `to` is allowed at all: an item to a cell, and in region levels, inside one open region
+ * and touching no fixed item (room levels).
+ */
 export function canDrop(state: SessionState, from: Pos, to: Pos): boolean {
   const { board, level } = state;
   if (!inBounds(board, from) || !inBounds(board, to) || board[from.row][from.col] === null) return false;
   if (!level.regions) return true;
   const r = regionAt(level.regions, from);
-  return r === regionAt(level.regions, to) && isOpen(state, r);
+  return r === regionAt(level.regions, to) && isOpen(state, r) && !isFixed(state, from) && !isFixed(state, to);
 }
 
 /** Whether the cell can be played: always, except inside a locked region. */
@@ -76,12 +85,12 @@ export function isCellOpen(state: SessionState, p: Pos): boolean {
   return !state.level.regions || isOpen(state, regionAt(state.level.regions, p));
 }
 
-/** Region levels: merge groups only grow inside the source's region. */
+/** Region levels: merge groups only grow inside the source's region, and never take a fixed item (room levels). */
 function connects(state: SessionState, from: Pos): ((p: Pos) => boolean) | undefined {
   const { regions } = state.level;
   if (!regions) return undefined;
   const r = regionAt(regions, from);
-  return (p) => regionAt(regions, p) === r;
+  return (p) => regionAt(regions, p) === r && !isFixed(state, p);
 }
 
 /** The cells an allowed drop would merge (see previewMerge), or [] if it would not merge or is not allowed. */
@@ -93,6 +102,8 @@ export function previewDrop(state: SessionState, from: Pos, to: Pos): Pos[] {
 /**
  * Applies a drop as one move. A drop that leaves the board unchanged (onto an identical item that
  * cannot merge, which drop() reports as a swap) is not a move: it must not replace the single undo step.
+ * Room levels: a move that fills the next room's plates exactly opens its gate as part of the move. Opening is a
+ * checkpoint: the Undo step is cleared, so only Retry closes the gate again.
  */
 export function applyDrop(state: SessionState, from: Pos, to: Pos): SessionState {
   const { board } = state;
@@ -103,7 +114,16 @@ export function applyDrop(state: SessionState, from: Pos, to: Pos): SessionState
   if (result.kind === 'none') return state;
   const tgt = board[to.row][to.col];
   if (result.kind === 'swap' && tgt && tgt.family === src.family && tgt.tier === src.tier) return state;
-  return { ...state, board: result.board, moves: state.moves + 1, undo: snapshot(state) };
+  const next = { ...state, board: result.board, moves: state.moves + 1, undo: snapshot(state) };
+  const n = nextLocked(state);
+  return n !== null && platesMet(result.board, state.level.regions!, n) ? { ...next, unlocked: n, undo: null } : next;
+}
+
+/** Room levels: collects the treasure once its room is open. One undoable move. */
+export function collect(state: SessionState): SessionState {
+  const { goal, regions } = state.level;
+  if (goal.kind !== 'treasure' || state.collected || !isOpen(state, regionAt(regions!, goal.at))) return state;
+  return { ...state, collected: true, moves: state.moves + 1, undo: snapshot(state) };
 }
 
 /**
@@ -161,8 +181,8 @@ export function placeSupplyRandom(state: SessionState): SessionState {
 
 export function undo(state: SessionState): SessionState {
   if (state.undo === null) return state;
-  const { board, supplyIndex, rngState, moves, unlocked } = state.undo;
-  return { level: state.level, board, supplyIndex, rngState, moves, unlocked, undo: null };
+  const { board, supplyIndex, rngState, moves, unlocked, collected } = state.undo;
+  return { level: state.level, board, supplyIndex, rngState, moves, unlocked, collected, undo: null };
 }
 
 export function retry(state: SessionState): SessionState {

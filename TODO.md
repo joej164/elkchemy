@@ -1,6 +1,6 @@
 # Elkchemy — open work
 
-Updated October 18, 2026. This is the project backlog, not authorization to implement every item. Keep Claude handoffs small; Codex plans and reviews, Opus coordinates Sonnet implementation agents, and the operator copy/pastes prompts. Do not commit, push, or deploy without authorization.
+Updated October 19, 2026. This is the project backlog, not authorization to implement every item. Keep Claude handoffs small; Codex plans and reviews, Opus coordinates Sonnet implementation agents, and the operator copy/pastes prompts. Do not commit, push, or deploy without authorization.
 
 Design context lives in [docs/game-vision.md](docs/game-vision.md) (the broader vision and idea pool; context, not a backlog). Completed work, its verification, and known limitations are recorded in [docs/release-notes.md](docs/release-notes.md). This file stays the single task list.
 
@@ -23,6 +23,7 @@ These resolve older conflicting entries below.
 
 ## Current baseline
 
+- Unreleased (not committed or deployed; awaiting Codex review): level 7, The Rune Gates (experimental), and four Hidden Hollow gate fixes. See Connected regions below and [docs/release-notes.md](docs/release-notes.md).
 - Latest deployment `20261019-055257`: tappable wooden gates on The Hidden Hollow's locked areas. See Connected regions below and [docs/release-notes.md](docs/release-notes.md).
 - Previous deployment `20261019-052826`: level 6, The Hidden Hollow, the first connected-region level (three areas unlocked in order), and a Levels page that can start any level. See Connected regions below and [docs/release-notes.md](docs/release-notes.md).
 - Previous deployment `20261019-021029` (live `/version.json` checked October 18, 2026): gameplay background behind levels and generated puzzles; board layout unchanged, but the cheering characters are largely behind the controls (open decision under Gameplay presentation).
@@ -163,9 +164,15 @@ From [docs/game-vision.md](docs/game-vision.md); investigate and prototype befor
 - [ ] Owner and Alisha playtest of The Hidden Hollow: whether the gates make unlocking understandable without a tutorial, whether the Hollow's required 5 → 2 merge (the only losing choice) is fair, and whether the map is worth extending.
 - [ ] Physical iPad/Safari: touch panning from locked areas and across gates, gate taps under real touch (tap vs. small drags), gate readability, VoiceOver reading of gates and cell labels, Home Screen mode.
 - [x] Player-facing in-game Release notes entry for the level and the Levels page ("The Hidden Hollow", shipped in `20261019-052826`).
-- [ ] Add an in-game Release notes line for the gates when they ship.
+- [x] In-game Release notes line for the gates: "Open the woodland gates" is in `src/ui/ReleaseNotes.tsx`.
 - [ ] Optional, only if wanted: at 844×390 the Hollow's gate (300px) is wider than the 228px board view, and on phones the Glade's gate hides most of its locked pieces.
 - [ ] Optional, only if wanted: at 844×390 the 234px-tall board viewport cannot show the whole 4×4 Clearing at once; a phone-landscape layout change would be separate work.
+- [x] Hidden Hollow gate fixes from the Codex review of `6a200fd`: visible focus after a keyboard unlock, a clear focus halo on a ready gate, a meaningful lost-state gate test, and these release-note statements (unreleased).
+- [x] Level 7, The Rune Gates (experimental, unreleased). Three rooms in terrain, with rune gates in the passages: pressure plates (exact items, together), then a stone (one exact item, nothing else in its room), then a hidden disc-golf backpack to tap. Gates open on the move that meets them, and opening is a checkpoint (tile items fixed, Undo cleared). It never reports a loss and can't be stranded. Details, winning line and checks: [docs/release-notes.md](docs/release-notes.md).
+- [ ] Codex review of the Rune Gates and Hollow fixes; then, if approved, commit and deploy with owner authorization, adding an in-game Release notes entry for the level at that point.
+- [ ] Owner and Alisha playtest of The Rune Gates: whether plates, the stone and checkpoints are clear without instructions, and whether the rune gate and plate art reads well.
+- [ ] Physical iPad/Safari for The Rune Gates: touch on plates and the backpack, panning from terrain, VoiceOver labels; Chromium was checked at 820×1180 and 390×844 only.
+- [ ] If rooms with real choices are wanted, design a room-aware loss rule first; room levels currently never report a loss.
 - [ ] Decide from playtesting whether to build more region levels, generated multi-room puzzles, or neither. Not built: non-rectangular areas, out-of-order unlocks, supply in region levels, transferable items, elk movement, unlock sounds.
 
 - [ ] Larger maps of smaller connected rooms, paths, and clearings (not necessarily rectangles), opened by merged runes, keys, tunnels, machines, or bridges. Bombs opening barriers were an example, not a committed recipe.

@@ -195,6 +195,27 @@ describe('HelpButton', () => {
     expect(game).toContain('Make Grove, tier 3 of 4 in Mossy Clearing to unlock Songbird Glade.');
   });
 
+  it('the room level shows terrain, closed rune gates in their passages and marked tiles, with no Unlock button', () => {
+    const level = LEVELS[6];
+    const game = renderToStaticMarkup(<Game definition={level.definition} label={`Level 7 of 7 · ${level.name}`}
+      musicControl={null} onHome={() => {}} winLabel="Play again from level 1" onWin={() => {}} />);
+    expect(game).toContain('Goal: find the disc-golf backpack in Treasure Nook');
+    expect(game).toContain('<strong>Rune gate: Stone Chamber</strong><br/>Needs Grove, tier 2 of 4 and Song, tier 2 of 4 on the pressure plates in Pressure Hall');
+    expect(game).not.toMatch(/data-action="unlock"|data-action="supply"|class="gate/);
+    expect((game.match(/class="terrain"/g) ?? []).length).toBe(25);
+    expect(game).toContain('<div class="passage is-across" data-passage="1" role="img" aria-label="Rune gate to Stone Chamber, closed">');
+    expect(game).toContain('<div class="passage" data-passage="2" role="img" aria-label="Rune gate to Treasure Nook, closed">');
+    expect((game.match(/class="region is-locked is-room"/g) ?? []).length).toBe(2);
+    expect(game).toContain('aria-label="Row 1, column 3, Pressure Hall, pressure plate for Grove, tier 2 of 4: empty"');
+    expect(game).toContain('aria-label="Row 3, column 6, Stone Chamber, locked, stone for Crystal, tier 3 of 4: empty"');
+    // The backpack stays hidden: its cell reads as an ordinary locked cell.
+    expect(game).toContain('aria-label="Row 7, column 5, Treasure Nook, locked: empty"');
+    expect(game).not.toMatch(/has-treasure|tap to collect/);
+    expect(game).toContain('the items shown on its room&#x27;s marked tiles');
+    expect(game).toContain('An opened gate is a checkpoint');
+    expect(game).toContain('Put Grove, tier 2 of 4 and Song, tier 2 of 4 on the pressure plates in Pressure Hall to open the rune gate to Stone Chamber.');
+  });
+
   it('a ready gate glows, says so, and is the only gate offered', () => {
     // The Clearing's key already made: the Glade's gate is ready; the Hollow's is not (it is not next).
     const board = LEVELS[5].definition.board.map((r) => [...r]);

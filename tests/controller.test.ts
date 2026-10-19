@@ -484,10 +484,13 @@ describe('region level input (The Hidden Hollow)', () => {
     s = run(s, { type: 'undo' });
     expect(s.session.unlocked).toBe(1);
     expect(canUnlock(s, 2)).toBe(true);
-    // Once over, gates do nothing.
-    const lost = run(s, gate(2), drop(p(1, 6), p(0, 0)));
-    expect(lost.status).toBe('lost');
+    // Once over, gates do nothing, even with the next area's key made. (Here a ready unlock always counts as play, so
+    // the lost status is set directly.)
+    const lost: UiState = { ...s, status: 'lost' };
     expect(canUnlock(lost, 2)).toBe(false);
+    expect(canUnlock(lost)).toBe(false);
+    expect(reduceUi(lost, gate(2))).toBe(lost);
+    expect(reduceUi(lost, unlockAction)).toBe(lost);
   });
 
   it('Undo across an unlock relocks it and leaves nothing selected, previewed or celebrating', () => {

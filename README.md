@@ -1,6 +1,6 @@
 # Elkchemy
 
-Elkchemy is a woodland merge puzzle. The app opens on a home screen, a painted woodland scene with the elk, and four choices: Play (generated puzzles), Levels (six handcrafted levels, any of which can be started), Music / Scores (clarinet and ukulele arrangements of the game music), and Release notes (a short player-facing history of what changed; the internal record is [docs/release-notes.md](docs/release-notes.md)). Every other screen has a Home button.
+Elkchemy is a woodland merge puzzle. The app opens on a home screen, a painted woodland scene with the elk, and four choices: Play (generated puzzles), Levels (seven handcrafted levels, any of which can be started), Music / Scores (clarinet and ukulele arrangements of the game music), and Release notes (a short player-facing history of what changed; the internal record is [docs/release-notes.md](docs/release-notes.md)). Every other screen has a Home button.
 
 ## Generated puzzles
 
@@ -17,7 +17,7 @@ Each puzzle shows a reproduction ID such as `v1-goals-t4-g2-1nqrzv7`: generator 
 
 ## Handcrafted levels
 
-Six levels (`src/levels.ts`). Levels on the home screen lists them all; tap any to play it. The one the sequence has reached is marked "Up next".
+Seven levels (`src/levels.ts`). Levels on the home screen lists them all; tap any to play it. The one the sequence has reached is marked "Up next".
 
 1. Sprouting Grove: make Grove, tier 3 of 4 (forgiving intro).
 2. Songbird Chorus: make Song, tier 3 of 4; plain 3-merges suffice.
@@ -33,6 +33,12 @@ Six levels (`src/levels.ts`). Levels on the home screen lists them all; tap any 
    - **Goal:** Crystal tier 4 of 4 in the Hollow, which needs one 5→2 merge.
    - **Areas:** items never leave their own area, and only an area's own items count toward its unlock or goal.
    - **Failure:** only when no unlock is ready and no merge toward the current target is left: "No useful merges left—Undo or Retry."
+7. The Rune Gates (experimental): three small rooms in forest terrain, joined by passages closed by rune gates.
+   - **Pressure Hall:** put exactly Grove tier 2 of 4 and Song tier 2 of 4 on the two pressure plates at once; the elk may stay.
+   - **Stone Chamber:** merge its crystals down to one Crystal tier 3 of 4, alone on the stone.
+   - **Gates:** each opens by itself on the move that meets its tiles, a plain move included, and consumes nothing. Opening is a checkpoint: the items on those tiles stay fixed (padlock badge) and Undo can't go back past it.
+   - **Goal:** the Treasure Nook hides a disc-golf backpack until its gate opens; tap it (or press Enter or Space on it) to win.
+   - **Failure:** none; the level can't be stranded. Items never leave their room.
 
 Winning offers Next level (after the last level: play again from level 1). Progress is kept in memory only: the Levels page and the home screen note show where the sequence is up to, and reloading starts at level 1.
 
@@ -43,7 +49,7 @@ Winning offers Next level (after the last level: play again from level 1). Progr
 - Levels only: press "Add supply" to place the next item in a random empty cell. Placement is seeded, so Undo then Add supply again lands in the same place, and Retry replays the same sequence.
 - Undo reverses the last action; Retry restarts the current level or puzzle.
 - Level status is exact within the supported resource bounds (`src/status.ts`): single-item and distinct-family multi-item goals use resource counts; Leave one uses an exact per-tier merge check and needs two free cells beyond all items and supply. Handcrafted levels 1–5 report a loss as soon as the goal becomes unreachable; generated puzzles report one only when no merges are left.
-- Region levels (`src/regions.ts`): rectangular areas that split the board exactly and unlock in order, each when its item (that tier or higher) is in a named earlier area. The session enforces them: no drops into or out of locked areas or across area borders, merge groups stop at borders, and Unlock (the button, or the next area's gate) is an ordinary undoable move; a gate's unlock names its area, and the session refuses it unless that area is next. They have no supply, and the goal is one item in the last area. Their status counts each area's own items and reports a loss only when nothing useful can change. Other region configurations are rejected with an "Unsupported region level" error.
+- Region levels (`src/regions.ts`): rectangular areas that split the board exactly and unlock in order, each when its item (that tier or higher) is in a named earlier area. The session enforces them: no drops into or out of locked areas or across area borders, merge groups stop at borders, and Unlock (the button, or the next area's gate) is an ordinary undoable move; a gate's unlock names its area, and the session refuses it unless that area is next. They have no supply, and the goal is one item in the last area. Their status counts each area's own items and reports a loss only when nothing useful can change. Room levels (a treasure goal) instead leave empty terrain between rectangular rooms; each later room opens by itself when marked tiles in an earlier room hold exact items (pressure plates, or a stone that must hold its room's only item), as a checkpoint that fixes those items and clears Undo; they never report a loss. Other region configurations are rejected with an "Unsupported region level" error.
 - Tap "?" next to the title for a short how-to-play dialog.
 - Boards larger than the screen scroll inside a framed viewport with finger-sized (64px) tiles. Drag an item to move it; drag empty ground to pan; a tap never pans or drops. Center board recenters; arrow keys scroll the focused cell into view. Levels 1–4 are 4x4 and fit without scrolling; level 5 scrolls. Generated boards up to 8x8 fit iPad screens in Chromium checks (except slight scrolling at 1024x768 landscape). Whenever a board overflows its frame, the status banner and Help show how to pan.
 

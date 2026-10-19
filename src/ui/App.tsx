@@ -5,7 +5,7 @@ import { generatePuzzle, type GeneratedPuzzle, type PuzzleConfig } from '../gene
 import type { LevelDefinition } from '../session';
 import { hasItem } from '../status';
 import { nextLocked, type Region } from '../regions';
-import { Board, LockIcon } from './Board';
+import { Board, LockIcon, RuneGate } from './Board';
 import { HelpButton } from './HelpButton';
 import { Home } from './Home';
 import { LevelPicker } from './LevelPicker';
@@ -16,13 +16,13 @@ import { Scores } from './Scores';
 import { SceneArt } from './SceneArt';
 import gameLandscapeArt from '../assets/art/woodland-cheering-landscape-v1.webp';
 import gamePortraitArt from '../assets/art/woodland-cheering-portrait-v1.webp';
-import { ItemArt, itemLabel } from './ItemArt';
+import { BackpackArt, ItemArt, itemLabel } from './ItemArt';
 import { UpdateControl } from './UpdateControl';
-import { isLargeBoard, itemCount, objectiveText, statusMessage, unlockNeed } from './messages';
+import { isLargeBoard, itemCount, objectiveText, statusMessage, TREASURE_NAME, unlockNeed } from './messages';
 import { useMusic } from './useMusic';
 import { PUZZLE_MUSIC, WOODLAND_MUSIC } from '../music';
 import {
-  canPlaceSupply, canUndo, canUnlock, initUi, nextSupplyItem, reduceUi, supplyRemaining,
+  canPlaceSupply, canUndo, canUnlock, initUi, nextSupplyItem, openedRegion, reduceUi, supplyRemaining,
   type LastAction,
 } from './controller';
 
@@ -32,15 +32,19 @@ function plural(n: number): string {
 
 function describeAction(a: LastAction | null, noun: string, regions?: readonly Region[]): string {
   if (!a) return '';
+  // Room levels: a drop that opened a gate says so.
+  const opened = a.kind !== 'unlock' && openedRegion(a);
+  const gate = opened ? ` The rune gate to ${regions?.[opened]?.name ?? 'the next room'} opened.` : '';
   switch (a.kind) {
-    case 'move': return 'Moved an item.';
-    case 'swap': return 'Swapped two items.';
+    case 'move': return `Moved an item.${gate}`;
+    case 'swap': return `Swapped two items.${gate}`;
     case 'place': return `Placed ${itemLabel(a.item)} in row ${a.at.row + 1}, column ${a.at.col + 1}.`;
     case 'unlock': return `Unlocked ${regions?.[a.region]?.name ?? 'an area'}.`;
+    case 'collect': return `Collected the ${TREASURE_NAME}.`;
     case 'undo': return 'Undid the last action.';
     case 'retry': return `${noun} restarted.`;
     case 'merge':
-      return `Merged ${a.consumed} into ${plural(a.consumed === 3 ? 1 : 2)}: ${itemLabel(a.result as Item)}.`;
+      return `Merged ${a.consumed} into ${plural(a.consumed === 3 ? 1 : 2)}: ${itemLabel(a.result as Item)}.${gate}`;
   }
 }
 
@@ -159,7 +163,9 @@ export function Game({ definition, label, musicControl, onHome, winLabel, onWin,
   const { goal, regions } = state.session.level;
   const nextArea = regions ? nextLocked(state.session) : null;
   const unlockable = canUnlock(state);
-  const single = goal.kind === 'items' ? undefined : goal.item;
+  // Room levels: gates open by themselves, so there is no Unlock button; the goal is the treasure.
+  const rooms = goal.kind === 'treasure';
+  const single = goal.kind === 'items' || goal.kind === 'treasure' ? undefined : goal.item;
   const next = nextSupplyItem(state);
   const left = supplyRemaining(state);
   const canSupply = canPlaceSupply(state);
@@ -175,7 +181,9 @@ export function Game({ definition, label, musicControl, onHome, winLabel, onWin,
   };
 
   let hint = '';
-  if (regions) {
+  if (rooms) {
+    if (!over && nextArea !== null) hint = 'Gates open by themselves and stay open';
+  } else if (regions) {
     if (!over) hint = nextArea === null ? '' : unlockable ? 'The item stays where it is' : `Needs ${unlockNeed(regions, nextArea)}`;
   } else if (canSupply) hint = 'Lands in a random empty cell';
   else if (!over) hint = left <= 0 ? 'No supply left' : 'Board is full';
@@ -209,7 +217,7 @@ export function Game({ definition, label, musicControl, onHome, winLabel, onWin,
             </div>
           ) : (
             <div className="art">
-              {single ? <ItemArt item={single} /> : <span className="art-glyph" aria-hidden="true">1</span>}
+              {rooms ? <BackpackArt /> : single ? <ItemArt item={single} /> : <span className="art-glyph" aria-hidden="true">1</span>}
             </div>
           )}
           <p>
@@ -221,14 +229,14 @@ export function Game({ definition, label, musicControl, onHome, winLabel, onWin,
         {regions && (
           <div className="panel next-area" data-next-area>
             <div className="art">
-              {nextArea !== null
-                ? <ItemArt item={regions[nextArea].unlock!.item} />
-                : <span className="art-glyph" aria-hidden="true">✓</span>}
+              {nextArea === null ? <span className="art-glyph" aria-hidden="true">✓</span>
+                : rooms ? <RuneGate />
+                : <ItemArt item={(regions[nextArea].unlock as { item: Item }).item} />}
             </div>
             <p>
               {nextArea !== null ? (
-                <><strong>Locked: {regions[nextArea].name}</strong><br />Needs {unlockNeed(regions, nextArea)}</>
-              ) : <strong>All areas open</strong>}
+                <><strong>{rooms ? 'Rune gate' : 'Locked'}: {regions[nextArea].name}</strong><br />Needs {unlockNeed(regions, nextArea)}</>
+              ) : <strong>{rooms ? 'All gates open' : 'All areas open'}</strong>}
             </p>
           </div>
         )}
@@ -267,7 +275,7 @@ export function Game({ definition, label, musicControl, onHome, winLabel, onWin,
           <button type="button" className="btn btn-next" data-action="next-level" onClick={onWin}>
             {winLabel}
           </button>
-        ) : regions ? (
+        ) : rooms ? null : regions ? (
           // Stays in place (disabled) once every area is open, so Undo and Retry never shift under a finger.
           <button type="button" className="btn btn-unlock" data-action="unlock" disabled={!unlockable}
             aria-describedby="supply-hint" onClick={() => dispatch({ type: 'unlock' })}>

@@ -4,6 +4,78 @@ Each entry records what changed, how it was verified, and known limitations. **U
 
 Earlier published builds are not backfilled here. The previous build, `20261018-195510`, has five handcrafted levels and optional looping music; its verification is recorded in TODO.md under Current baseline and Audio.
 
+## Unreleased — Level 7, The Rune Gates (experimental), and four Hidden Hollow gate fixes (October 19, 2026)
+
+Implemented by Claude; not committed or deployed. Awaiting Codex review.
+
+### The Rune Gates (level 7, experimental)
+
+- **Map** (`RUNE_LEVEL`, `src/levels.ts`): a 7×7 board with three rooms in forest terrain, joined by one-cell passages, each closed by a rune gate drawn in SVG (two standing stones with glowing bars between them). The gates are scenery, not controls or signs over the rooms. Locked rooms are only darkened.
+  - **Pressure Hall** (3×3, open): three Grove tier 1 of 4, three Song tier 1 of 4 and an Elk. Its two pressure plates need exactly Grove tier 2 of 4 and Song tier 2 of 4, both at once; the elk may stay.
+  - **Stone Chamber** (3×3): three Crystal tier 1 of 4 and two Crystal tier 2 of 4. Its stone needs exactly Crystal tier 3 of 4, with nothing else left in the room.
+  - **Treasure Nook** (2×2): hides a disc-golf backpack until its gate opens. Tapping it, or Enter or Space on it, collects it and wins.
+- **Winning line** (row, column from 0), as drags or tap-then-tap:
+  1. (1,2)→(0,1) merge;
+  2. (0,1)→(0,2);
+  3. (2,1)→(2,0) merge;
+  4. (2,0)→(2,2), a plain move, opens the first gate;
+  5. (1,4)→(2,4);
+  6. (3,6)→(3,4) merge;
+  7. (1,6)→(3,5) merge;
+  8. (3,5)→(2,5), a plain move, opens the second gate;
+  9. tap (6,4).
+- **Rules, all enforced by the session** (`src/regions.ts`, `src/session.ts`):
+  - **Opening:** a gate opens by itself as part of the drop that meets its tiles; a plain move counts. Tiles match family and tier exactly. Opening consumes nothing.
+  - **Checkpoint:** opening clears the Undo step, so Undo can't close a gate or return to the earlier room state; later moves build a fresh Undo step. The items on an opened gate's tiles are fixed: they can't move, swap, receive a drop or join a merge group, and they show a padlock badge. Other items stay movable in their room.
+  - **Treasure:** collecting it is one ordinary undoable move. Retry restores the start: closed gates, no fixed items, hidden backpack and the starting view.
+  - **Room boundary:** as in The Hidden Hollow, nothing moves, swaps or merges across rooms, even with every gate open. Terrain and passages are not cells: they take no drops, pan when dragged, and arrow keys skip them.
+- **Data model:** the existing regions, extended rather than replaced.
+  - A region's `unlock` is either the Hollow's item unlock or a plate unlock: pressure plates or one stone, the room they are in, and the passage cell for the gate.
+  - The level goal can be `{ kind: 'treasure', at }`, and the session records whether it has been `collected`.
+  - Room levels may leave empty terrain outside their regions. Validation rejects anything else: plates outside their room, a passage not between both rooms, items on terrain, or a misplaced treasure.
+- **No loss state.** Room levels never report "lost". This level can't be stranded: each Hall family has exactly three tier-1 pieces (one merge, no overshoot), and the Chamber's pieces can only merge to one Crystal tier 3 of 4. A future room with real choices would need a room-aware loss rule.
+- **Text:**
+  - The banner names the next step, for example "Put Grove, tier 2 of 4 and Song, tier 2 of 4 on the pressure plates in Pressure Hall to open the rune gate to Stone Chamber."
+  - The side panel shows the next gate and its needs, and Help explains plates, stones and checkpoints.
+  - Cell labels name plates, stones and fixed items. A cell holding the hidden backpack reads as an ordinary locked, empty cell.
+  - There is no Unlock button on this level.
+- **Not built:** chests, beam routing, recipes, walking characters, procedural rooms and new audio.
+
+### Hidden Hollow gate fixes (from the Codex review of `6a200fd`)
+
+1. **Visible focus after a keyboard unlock.** After the opened area is centred and its first cell focused, the cell is scrolled into view when its focus ring shows; focused cells keep a 10px scroll margin for the ring. A pointer unlock keeps the centred view as before.
+2. **Ready-gate focus.** A focused ready gate keeps the shared dark halo under the white outline, with the glow outside it, throughout the pulse and when the glow is steady under reduced motion.
+3. **Lost-state test.** The gate test now uses a lost state whose next area's key is made. It checks that `canUnlock` is false, and that both a gate unlock and the Unlock button leave the state unchanged.
+4. **Documentation.** TODO.md and the 20261019-055257 limitations below said the in-game gates entry was missing. "Open the woodland gates" is in `src/ui/ReleaseNotes.tsx`, and both statements are corrected.
+
+### Verification
+
+- 451 tests (12 new), typecheck and production build pass. New tests: `tests/rooms.test.ts` (11) and one rendering test in `tests/helpButton.test.tsx`; three level-count assertions and the snapshot helper were updated for level 7.
+- Claude, Playwright Chromium against the production build:
+  - **820×1180 (iPad), mouse drags, full win.**
+    - The first gate stayed shut with only the grove plate filled and opened on the plain move that filled the song plate; Undo was then disabled.
+    - Fixed items didn't drag or select. The elk couldn't be dropped into the Chamber, but moved within the Hall, giving a fresh Undo that left the gate open.
+    - Crystal tier 2 of 4 on the stone kept the second gate shut.
+    - The backpack stayed hidden until the second gate opened. A tap collected it and won; Undo un-collected it with the gate still open; Enter collected it again.
+    - Retry restored the starting pieces, closed gates and hidden backpack.
+  - **390×844 (phone), taps.**
+    - The map pans: dragging terrain scrolled it, with no horizontal page overflow.
+    - Each opening brought the new room fully into view, and a full win worked.
+    - Retry returned to the starting view.
+  - **Hidden Hollow at 390×844.**
+    - A pointer unlock kept the Glade centred, with focus moved but no ring.
+    - Enter, and Space under reduced motion, on the Hollow gate left the focused cell (0,0) visible with its ring; before the fix it was off-screen.
+    - A focused ready gate kept the 7px dark halo during the pulse and when steady.
+    - Retry returned to the starting view.
+  - No console errors or warnings.
+- **Not verified:** the no-leftovers stone rule and exact plate tiers can't be reached in the shipped arrangement, so only unit tests cover them. Also unverified: physical iPad/Safari (touch, VoiceOver, Home Screen mode), 844×390 and other sizes, iPad landscape, playtesting, and mutation testing of the new tests.
+
+### Known limitations
+
+- On phones the 7×7 map pans, like The Hidden Hollow.
+- The in-game Release notes page has no entry for The Rune Gates yet.
+- The gates and plates are new artwork drawn in code. They haven't been reviewed by the owner.
+
 ## 20261019-055257 — On-board gates for The Hidden Hollow (October 18, 2026)
 
 Published October 18, 2026 with owner authorization in build `20261019-055257`. Owner-approved: opening an area should feel like an action on the board.
@@ -74,7 +146,7 @@ Codex release verification: 439 tests, typecheck and production build passed. In
 - At 844×390 the Hollow's gate (300px) is wider than the 228px board view; the player pans to read all of it.
 - On phones the Glade's gate covers most of that locked area (196×158px of 210×280px), and so most of its pieces, until it opens.
 - Only this level's woodland gate exists; other gate looks (vines, bridges, rune doors) are ideas, not built.
-- The in-game Release notes page has no entry for the gates yet; add one at deployment.
+- The in-game Release notes entry for the gates is "Open the woodland gates" in `src/ui/ReleaseNotes.tsx`. (This line previously said the entry was missing; corrected October 19, 2026.)
 
 ## 20261019-052826 — The Hidden Hollow (region level) and level picker (October 18, 2026)
 

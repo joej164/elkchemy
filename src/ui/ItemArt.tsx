@@ -137,6 +137,22 @@ function elk(t: number): ReactNode {
 
 const ART: Record<Family, (t: number) => ReactNode> = { grove, song, crystal, elk };
 
+/** Room levels' treasure: a disc-golf backpack with two discs in its top. Decorative (callers give the text). */
+export function BackpackArt() {
+  return (
+    <svg viewBox="0 0 100 100" width="100%" height="100%" aria-hidden="true" focusable="false">
+      <ellipse cx="40" cy="24" rx="15" ry="6" transform="rotate(-12 40 24)" fill="#f28c28" {...S} />
+      <ellipse cx="60" cy="22" rx="15" ry="6" transform="rotate(10 60 22)" fill="#e8d34a" {...S} />
+      <path d="M42 28 Q50 12 58 28" fill="none" {...S} strokeWidth={4} />
+      <rect x="24" y="26" width="52" height="62" rx="14" fill="#2f6f8f" {...S} />
+      <path d="M30 40 H70" {...S} stroke="#1d4a60" strokeWidth={3} />
+      <rect x="33" y="54" width="34" height="26" rx="8" fill="#24576f" {...S} />
+      <path d="M38 61 H62" {...S} stroke="#f2c14e" strokeWidth={3} />
+      <circle cx="50" cy="71" r="5" fill="#f28c28" {...S} strokeWidth={1.5} />
+    </svg>
+  );
+}
+
 export function ItemArt({ item, className }: { item: Item; className?: string }) {
   return (
     <svg viewBox="0 0 100 100" width="100%" height="100%" aria-hidden="true" focusable="false" className={className}>
