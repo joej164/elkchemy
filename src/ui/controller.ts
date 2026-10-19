@@ -13,8 +13,9 @@ export interface Progress { readonly tasks: readonly number[]; readonly regions:
 
 /**
  * `opened` (room levels): the region whose gate the drop opened, brought into view. With tasks, `progress` says what
- * the drop did, and `opened` is set only when it opened a single region that needed just that one task: a region
- * opened alongside others, or by several tasks, is announced without moving the view.
+ * the drop did, and `opened` is set only when it opened a single region that needed just that one task: regions opened
+ * together are announced without moving the view. The region needing several tasks (level 9's palace) has its own
+ * opening, played by the board (see viewCue in camera.ts).
  */
 export type LastAction =
   | { readonly kind: 'move' | 'swap'; readonly opened?: number; readonly progress?: Progress }

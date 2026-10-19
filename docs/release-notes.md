@@ -4,6 +4,86 @@ Each entry records what changed, how it was verified, and known limitations. **U
 
 Earlier published builds are not backfilled here. The previous build, `20261018-195510`, has five handcrafted levels and optional looping music; its verification is recorded in TODO.md under Current baseline and Audio.
 
+## 20261019-203516 — Smooth camera pans and a visible palace opening (October 19, 2026)
+
+Release build `20261019-203516`, implemented by Claude after the owner's physical-iPad feedback on `20261019-200030`. Codex reviewed and independently verified 515 tests, typecheck, build, smooth Songbird pan, palace travel/glow/opening and Retry; no console errors. Owner authorized commit → push → deploy with the keyboard-focus issue deferred: after a keyboard-triggered palace opening, focus remains on the old branch and an arrow key can snap back. Physical iPad/Safari remains unverified.
+
+### Owner feedback (physical iPad, build `20261019-200030`)
+
+- Opening Songbird Glade jumped the view abruptly.
+- Revealing Fern Glade's concealed part also jumped abruptly.
+- Completing the third branch in Crystal Glade opened the palace gate off-screen, and the owner did not notice anything happen.
+
+### Decision
+
+- The palace opening is now shown: the view pans smoothly to the palace gate, all three lit symbols glow, the gate visibly opens, then the view moves on into the palace if needed. This **supersedes** the published rule that branch completions and the palace opening keep the view where it is (see View under `20261019-200030`).
+- No button, popup or extra text. The banner, checklist and live announcements are unchanged, and they still say the palace is open as soon as the move is made.
+
+### Changes
+
+- **Smooth automatic pans** (`src/ui/camera.ts`, `src/ui/Board.tsx`): a small `requestAnimationFrame` tween with ease-in-out, from 250ms to 700ms by distance. Only the board viewport scrolls, never the page. The same helper replaces every automatic reveal's jump, so levels 6–9 all pan smoothly. Destinations are unchanged: the opened region is still centred, clamped to the board.
+  - Unchanged: the start view, Retry (still instant), Undo (no move), and the three branches opening together (no move).
+  - A keyboard gate unlock (level 6) pans so the newly focused cell is in view, instead of a second focus scroll.
+- **What moves the view** (`viewCue`, pure): Retry → the start view, instantly; a single region opened → pan to it; the move that opens the sealed palace → the palace opening. One action gives at most one cue.
+- **The palace opening** (level 9), by stage:
+  1. **Travel:** the view pans to the gate, or to the gate and palace together where both fit (iPad sizes). Meanwhile the gate is drawn closed and the palace sealed.
+  2. **Glow (800ms):** the gate is ringed in gold, and its three lit medallions swell and glow twice.
+  3. **Opening (600ms):** the gate is drawn open, its bars fading back into the stones; the palace interior appears with the existing gold outline glow.
+  4. **Into the palace:** the view moves the least needed to show the whole palace (phones only); the stages end.
+  - Overall about 1.9s on iPad sizes and 2.4s on a phone.
+  - Only the drawing is held back. The session (and so Undo checkpoints, Retry, the case gating and the rules) has the palace open from the move itself. The gate's label and the announcements say "open" throughout. With no stage playing, the board draws the session as it is.
+- **Cancellation:** a press, drag, wheel or key on the board, Center board, or a resize stops a camera move where the view is, and an unfinished palace opening settles at once on the open palace.
+  - A new action (Retry included) or leaving the level cancels everything pending.
+  - The camera also stops if anything else scrolls the board meanwhile.
+  - Nothing replays later.
+- **Reduced motion:** every automatic move is a single instant jump. The palace opening shows no stages: the gate is drawn open with its three lit symbols, static, and the view jumps once to where the opening would end.
+- `RuneGate` takes an `opening` flag; the CSS animates the existing gate art. No new art, audio or animation library.
+
+### Verification (Claude)
+
+- **Automated:** 515 tests (13 new), typecheck, production build and `git diff --check` pass.
+  - `tests/palace.test.tsx`: the palace cue only on the third branch, in all six orders, by drags and by taps; the hub and discovery cues; none for the three branches opening, Undo or the case; Retry → start.
+  - `tests/camera.test.ts`:
+    - pans pass through many positions, never back, and land exactly;
+    - the stage order and timing;
+    - stopped mid-pan or mid-glow, nothing more happens;
+    - a foreign scroll stops the camera where the player left it;
+    - reduced motion shows no stages and jumps once;
+    - levels 6–8 keep their cues.
+  - `tests/navigation.test.ts`: centring and least-movement reveal.
+- **Playwright Chromium against the production build** (`vite preview`, local build `20261019-202005`), sampling the viewport's scroll position every frame:
+  - **820×1180:**
+    - Songbird Glade: 216px in 365ms through 20 positions, at most 28px a frame.
+    - Fern discovery: 432px diagonally in 429ms through 24 positions.
+    - The three branches opening moved nothing.
+    - **Crystal Glade last**, gate off-screen: the pan took 537ms through 28 positions (≤49px a frame); the gate and palace were in view through the glow and opening; settled by about 1.95s.
+    - Retry after the win, and Retry during travel and during the glow: the start view at once, unchanged for 2.5s, the gate closed, no symbols lit, the palace sealed again.
+    - A mouse drag during the Songbird pan and during the palace pan: the view stayed where the drag left it, with no later snap; the palace settled open on pointer-down.
+    - An arrow key mid-pan: the camera stopped, the palace settled, and the focus ring (4px) stayed visible and in view.
+    - Resizing to landscape mid-pan: the camera stopped and the palace settled.
+    - Home mid-event: a fresh level on return.
+  - **1180×820, Fern Glade last:**
+    - The palace pan took 496ms through 28 positions; the gate was in view through the glow and opening; settled by about 1.93s.
+    - Songbird Glade ends exactly where the old instant centring put it.
+  - **390×844, Woodland Lodge last:**
+    - The gate was centred through the glow and stayed in view for 817ms after the opening began (its animation is 600ms).
+    - The view then panned into the palace, which ended wholly in view; settled by about 2.4s.
+    - Hub and discovery pans: 25 and 28 positions.
+  - **Reduced motion (820×1180):** every automatic move was a single jump. The palace went straight from closed to open with no stages, its cells were there on the first frame, and there were no gate or symbol animations.
+  - **Levels 6–8 at 390×844:**
+    - The Rune Gates, The Hidden Cache's pocket and nook: smooth pans (17–19 positions, 316–351ms), each area wholly in view at the end.
+    - The Hidden Hollow's keyboard gate unlock: a smooth pan with the focused cell visible and in view.
+  - No horizontal overflow, page scroll or console errors/warnings. Controls and layout are unchanged (no layout CSS changed).
+- **Not verified:** physical iPad/Safari, touch, VoiceOver and Home Screen mode. Chromium emulation does not establish them.
+
+### Known limitations
+
+- After a palace opening made from the keyboard, the focused cell in the completed branch is off-screen. The next arrow key brings it back with the existing instant focus scroll.
+- On phones, the gate leaves the view when the camera moves into the palace, after it has opened.
+- During travel and glow (about 1.3s), the palace interior is drawn sealed, and its cells can't be tapped until any press on the board settles it.
+- Under reduced motion, the newly opened palace's outline still does the existing single gold fade that every room level uses.
+- The tween does not use Safari's native smooth scrolling. Its feel on a physical iPad is unverified.
+
 ## 20261019-200030 — Level 9, The Crystal Palace, and a scrolling Levels window (October 19, 2026)
 
 Release build `20261019-200030`. Owner-approved design; implemented by Claude and reviewed independently by Codex. Owner authorized commit → push → deploy. Physical iPad/Safari remains unverified.

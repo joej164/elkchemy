@@ -306,6 +306,26 @@ body {
 /* The sealed gate (The Crystal Palace) carries a symbol for each room it needs, lit gold as each is completed. */
 .passage .gate-symbols { position: absolute; inset: 0; }
 .gate-symbols [data-lit="true"] { filter: drop-shadow(0 0 4px rgb(242 193 78 / 0.95)); }
+/* Its opening, once the view reaches it: the gate is ringed in gold and the lit symbols swell and glow twice (glow),
+   then its bars fade back into the stones as the ring fades (opening). Reduced motion skips straight to the open gate. */
+.passage.is-glowing, .passage.is-opening { z-index: 1; }
+.passage.is-glowing { animation: gate-ring 300ms ease-out forwards; }
+.passage.is-glowing .gate-symbols [data-lit="true"] {
+  transform-box: fill-box; transform-origin: center;
+  animation: symbol-glow 400ms ease-in-out 2 alternate;
+}
+.passage.is-opening {
+  box-shadow: 0 0 0 3px var(--gold), 0 0 22px 8px rgb(242 193 78 / 0.8);
+  animation: gate-ring-out 600ms ease-in forwards;
+}
+.gate-bars { transform-box: fill-box; transform-origin: center; animation: gate-bars-open 500ms ease-in forwards; }
+@keyframes gate-ring {
+  from { box-shadow: 0 0 0 0 rgb(242 193 78 / 0); }
+  to { box-shadow: 0 0 0 3px var(--gold), 0 0 22px 8px rgb(242 193 78 / 0.8); }
+}
+@keyframes gate-ring-out { to { box-shadow: 0 0 0 0 rgb(242 193 78 / 0); } }
+@keyframes symbol-glow { to { transform: scale(1.25); filter: drop-shadow(0 0 7px #fff3c4) brightness(1.15); } }
+@keyframes gate-bars-open { to { opacity: 0; transform: scaleX(0.2); } }
 /* A longer route's path cells: scenery in the forest, the path running out of each side it connects. */
 .path i { position: absolute; background: var(--earth-sunken); }
 .path .path-t { left: 24%; right: 24%; top: calc(var(--gap) * -1); bottom: 24%; }
@@ -599,6 +619,8 @@ body {
   .cell.is-selected, .cell.is-drop-target { transform: none; }
   .banner.is-won { animation: none !important; }
   .gate.is-ready { animation: none !important; }
+  .passage.is-glowing, .passage.is-opening, .passage .gate-symbols * { animation: none !important; }
+  .gate-bars { display: none; }
   [data-fx], [data-fx] * {
     animation-name: fx-fade !important;
     transform: none !important;

@@ -7,8 +7,9 @@ import {
 } from '../regions';
 import { isCellOpen } from '../session';
 import { ItemArt, itemLabel, PrizeArt } from './ItemArt';
+import { direct, palaceShots, viewCue, type Camera, type Frames, type Phase, type Shot, type View } from './camera';
 import { prizeText, unlockNeed } from './messages';
-import { centerScroll, exceedsThreshold, moveFocus, panScroll } from './navigation';
+import { centerScroll, centreSpan, exceedsThreshold, moveFocus, panScroll, revealSpan, type Point } from './navigation';
 import {
   canDropAt, canPickUp, canUnlock, goalCells, openedRegion, previewCells, treasureShown, type UiAction, type UiState,
 } from './controller';
@@ -28,6 +29,14 @@ const SPARKS = [0, 1, 2, 3, 4, 5];
 const BURST = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
 
 const same = (a: Pos | null, b: Pos | null) => !!a && !!b && a.row === b.row && a.col === b.col;
+
+const prefersReducedMotion = () => typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+const frames: Frames = {
+  request: (cb) => requestAnimationFrame(cb), cancel: (id) => cancelAnimationFrame(id), now: () => performance.now(),
+};
+// How far inside the viewport's edges an automatic camera move brings a room it reveals (when it fits).
+const MARGIN = 8;
+interface Box { left: number; top: number; right: number; bottom: number }
 
 function cellAt(root: HTMLElement | null, x: number, y: number): Pos | null {
   const el = document.elementFromPoint(x, y)?.closest('[data-cell]') as HTMLElement | null;
@@ -49,9 +58,10 @@ export function LockIcon({ open = false }: { open?: boolean }) {
 
 /**
  * Room levels: a rune gate across a passage, drawn for a path running top to bottom (callers rotate it for one running
- * across): two standing stones with runes and, while closed, glowing bars between them. Decorative.
+ * across): two standing stones with runes and, while closed, glowing bars between them. `opening`: an open gate still
+ * drawing its bars, for CSS to fade them out. Decorative.
  */
-export function RuneGate({ open = false }: { open?: boolean }) {
+export function RuneGate({ open = false, opening = false }: { open?: boolean; opening?: boolean }) {
   const rune = open ? '#f2c14e' : '#8fe3ff';
   return (
     <svg viewBox="0 0 100 100" aria-hidden="true" focusable="false">
@@ -59,8 +69,8 @@ export function RuneGate({ open = false }: { open?: boolean }) {
       <rect x="76" y="26" width="20" height="48" rx="6" fill="#8d8f86" stroke="#2a2e28" strokeWidth="3" />
       <path d="M14 36 V64 M8 44 L14 50 L8 56" fill="none" stroke={rune} strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />
       <path d="M86 36 V64 M80 50 L86 44 L92 50" fill="none" stroke={rune} strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />
-      {!open && (
-        <g stroke="#1b3a4a" strokeWidth="2">
+      {(!open || opening) && (
+        <g stroke="#1b3a4a" strokeWidth="2" className={open ? 'gate-bars' : undefined}>
           {[36, 48, 60].map((y) => <rect key={y} x="24" y={y} width="52" height="6" rx="3" fill="#8fe3ff" />)}
           <path d="M50 40 L57 51 L50 62 L43 51 Z" fill="#d9f6ff" />
         </g>
@@ -146,11 +156,19 @@ export function Board({ state, dispatch, onOverflowChange }: {
   const over = state.status !== 'playing';
   const [drag, setDrag] = useState<Drag | null>(null);
   const [mouseHover, setMouseHover] = useState<Pos | null>(null);
+  // Level 9: the palace opening's stage while it plays, for the action that opened it. Only the drawing follows it (the
+  // session, labels and announcements have the palace open at once); without it the board draws the session as it is.
+  const [show, setShow] = useState<{ seq: number; phase: Phase } | null>(null);
+  const sealed = regions && tasks ? sealedRegion(regions) : -1;
+  const phase = show?.seq === state.actionSeq ? show.phase : null;
+  const held = phase === 'travel' || phase === 'glow';
+  // Drawn open: an open region, except the palace while the view travels to its gate and its symbols glow.
+  const shownOpen = (i: number) => isOpen(state.session, i) && !(held && i === sealed);
   // Room levels: terrain is not a cell, and neither is a hidden region until it opens.
   const isCell = (p: Pos) => {
     if (!regions) return true;
     const i = regionAt(regions, p);
-    return i !== -1 && !(regions[i].hidden && !isOpen(state.session, i));
+    return i !== -1 && !(regions[i].hidden && !shownOpen(i));
   };
   // Room levels start on the first open cell, so a locked room (the palace in a corner) never takes the first tab stop.
   const firstCell = (): Pos => {
@@ -170,6 +188,17 @@ export function Board({ state, dispatch, onOverflowChange }: {
   const viewportRef = useRef<HTMLDivElement>(null);
   const boardRef = useRef<HTMLDivElement>(null);
   const cellRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  // The automatic camera move playing, if any. A user gesture on the board (a press, the wheel, a key), Center board or
+  // a resize ends it where the view is, and an unfinished palace opening settles on the open palace; a new action
+  // (Retry included) or leaving the level cancels it. Nothing it was going to do happens later.
+  const camera = useRef<Camera | null>(null);
+  const settle = () => {
+    const c = camera.current;
+    if (!c?.playing()) return;
+    c.stop();
+    setShow(null);
+  };
+  useEffect(() => () => camera.current?.stop(), []);
 
   const cancel = () => {
     pending.current = null;
@@ -205,21 +234,65 @@ export function Board({ state, dispatch, onOverflowChange }: {
     v.scrollLeft = centerScroll(v.scrollWidth, v.clientWidth);
     v.scrollTop = centerScroll(v.scrollHeight, v.clientHeight);
   };
-  // Region levels: scroll a region's middle to the viewport's middle (the browser clamps it).
-  const showRegion = (r: Region) => {
-    const v = viewportRef.current;
-    const first = cellRefs.current[r.row * cols + r.col];
-    const last = cellRefs.current[(r.row + r.rows - 1) * cols + r.col + r.cols - 1];
-    if (!v || !first || !last) return;
-    const box = v.getBoundingClientRect();
-    const a = first.getBoundingClientRect();
-    const b = last.getBoundingClientRect();
-    v.scrollLeft += (a.left + b.right) / 2 - (box.left + v.clientLeft + v.clientWidth / 2);
-    v.scrollTop += (a.top + b.bottom) / 2 - (box.top + v.clientTop + v.clientHeight / 2);
+  const view: View = {
+    read: () => ({ x: viewportRef.current?.scrollLeft ?? 0, y: viewportRef.current?.scrollTop ?? 0 }),
+    write: (to) => {
+      const v = viewportRef.current;
+      if (!v) return to;
+      v.scrollLeft = to.x;
+      v.scrollTop = to.y;
+      return { x: v.scrollLeft, y: v.scrollTop };
+    },
   };
+  // The box, in the viewport's scroll coordinates, spanning the board's grid cells (tiles, terrain or paths alike) from
+  // `a` to `b`; null before layout.
+  const boxOf = (a: Pos, b: Pos): Box | null => {
+    const v = viewportRef.current;
+    const cells = boardRef.current?.children;
+    const first = cells?.[a.row * cols + a.col];
+    const last = cells?.[b.row * cols + b.col];
+    if (!v || !first || !last) return null;
+    const box = v.getBoundingClientRect();
+    const x = box.left + v.clientLeft - v.scrollLeft;
+    const y = box.top + v.clientTop - v.scrollTop;
+    const f = first.getBoundingClientRect();
+    const l = last.getBoundingClientRect();
+    return { left: f.left - x, top: f.top - y, right: l.right - x, bottom: l.bottom - y };
+  };
+  const regionBox = (r: Region) => boxOf({ row: r.row, col: r.col }, { row: r.row + r.rows - 1, col: r.col + r.cols - 1 });
+  // The scroll offset that centres a box, and the one nearest `from` that shows it whole.
+  const centre = (b: Box): Point => {
+    const v = viewportRef.current!;
+    return {
+      x: centreSpan(b.left, b.right, v.clientWidth, v.scrollWidth - v.clientWidth),
+      y: centreSpan(b.top, b.bottom, v.clientHeight, v.scrollHeight - v.clientHeight),
+    };
+  };
+  const reveal = (from: Point, b: Box): Point => {
+    const v = viewportRef.current!;
+    return {
+      x: revealSpan(from.x, b.left, b.right, v.clientWidth, v.scrollWidth - v.clientWidth, MARGIN),
+      y: revealSpan(from.y, b.top, b.bottom, v.clientHeight, v.scrollHeight - v.clientHeight, MARGIN),
+    };
+  };
+  const fits = (b: Box) => {
+    const v = viewportRef.current!;
+    return b.right - b.left + 2 * MARGIN <= v.clientWidth && b.bottom - b.top + 2 * MARGIN <= v.clientHeight;
+  };
+  // Region levels: scroll a region's middle to the viewport's middle, at once.
+  const showRegion = (r: Region) => {
+    const b = regionBox(r);
+    if (b) view.write(centre(b));
+  };
+  const viewSize = useRef('');
   const measure = () => {
     const v = viewportRef.current;
-    if (v) setOverflowing(v.scrollWidth > v.clientWidth + 1 || v.scrollHeight > v.clientHeight + 1);
+    if (!v) return;
+    setOverflowing(v.scrollWidth > v.clientWidth + 1 || v.scrollHeight > v.clientHeight + 1);
+    // A resized viewport (a rotation, a new window size) leaves an automatic camera move's target stale: stop it.
+    const size = `${v.clientWidth}x${v.clientHeight}`;
+    if (viewSize.current && size !== viewSize.current) settle();
+    viewSize.current = size;
   };
   useLayoutEffect(() => {
     const v = viewportRef.current;
@@ -235,26 +308,62 @@ export function Board({ state, dispatch, onOverflowChange }: {
     return () => ro.disconnect();
   }, []);
   useLayoutEffect(() => { onOverflowChange?.(overflowing); }, [overflowing, onOverflowChange]);
-  // Unlocking (or, in room levels, a drop opening a gate) brings the newly opened region into view, and Retry returns
-  // to the first region as on entry (instantly, so input is never delayed). Undo leaves the view where it is.
+  // Unlocking (or, in room levels, a drop opening a gate) pans the newly opened region into view, and Retry returns to
+  // the first region as on entry (instantly, so input is never delayed). Undo leaves the view where it is. Level 9's
+  // palace opening pans to its gate, shows it open, then pans on to the palace (see viewCue). Pans ease over a moment;
+  // under reduced motion they jump.
   const unlocked = openedRegion(state.lastAction);
-  const shown = state.lastAction?.kind === 'retry' ? 0 : unlocked;
-  // Regions glowing as they open: all those a task opened together, or the one opened.
+  // Regions glowing as they open: all those a task opened together, or the one opened (the palace once its gate opens).
   const progress = state.lastAction && 'progress' in state.lastAction ? state.lastAction.progress : undefined;
-  const glowing = new Set(progress ? progress.regions : unlocked !== null ? [unlocked] : []);
+  const glowing = new Set((progress ? progress.regions : unlocked !== null ? [unlocked] : []).filter((i) => !(held && i === sealed)));
   // A gate that had focus disappears when its region opens; focus then moves to that region's first cell.
   const focusOpened = useRef<number | null>(null);
   useLayoutEffect(() => {
-    if (shown !== null && regions && overflowing) showRegion(regions[shown]);
+    camera.current?.stop();
+    camera.current = null;
+    setShow(null);
     if (state.lastAction?.kind === 'retry' && roomLevel && !isCellOpen(state.session, focused)) setFocused(firstCell());
+    // A keyboard unlock shows the focus ring, so the pan keeps that cell in view (no second scroll); a pointer unlock
+    // keeps the centred view.
+    let keep: Pos | null = null;
     if (unlocked !== null && regions && focusOpened.current === unlocked) {
       const { row, col } = regions[unlocked];
       const cell = cellRefs.current[row * cols + col];
       cell?.focus({ preventScroll: true });
-      // A keyboard unlock shows the focus ring, so bring that cell into view; a pointer unlock keeps the centred view.
-      if (cell?.matches(':focus-visible')) cell.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+      if (cell?.matches(':focus-visible')) keep = { row, col };
     }
     focusOpened.current = null;
+    const cue = viewCue(state);
+    if (!cue || !regions) return;
+    const instant = cue.kind === 'start' || prefersReducedMotion();
+    const seq = state.actionSeq;
+    let shots: Shot[];
+    if (cue.kind === 'palace') {
+      const r = regions[cue.region];
+      const g = cue.gate;
+      // The gate with the palace if both fit, else the gate alone: either way the gate and its symbols are in view.
+      const toGate = () => {
+        const both = boxOf({ row: Math.min(r.row, g.row), col: Math.min(r.col, g.col) },
+          { row: Math.max(r.row + r.rows - 1, g.row), col: Math.max(r.col + r.cols - 1, g.col) });
+        const gate = boxOf(g, g);
+        return both && fits(both) ? centre(both) : gate && centre(gate);
+      };
+      const inside = () => {
+        const b = regionBox(r);
+        return b && reveal(view.read(), b);
+      };
+      shots = palaceShots(instant, toGate, inside, (p) => setShow(p && { seq, phase: p }));
+    } else {
+      const r = regions[cue.kind === 'start' ? 0 : cue.region];
+      shots = [{
+        pan: () => {
+          const b = regionBox(r);
+          const cell = keep && boxOf(keep, keep);
+          return b && (cell ? reveal(centre(b), cell) : centre(b));
+        },
+      }];
+    }
+    camera.current = direct(shots, view, frames, instant, () => setShow(null));
   }, [state.actionSeq]);
 
   const preview = useMemo(() => {
@@ -270,6 +379,7 @@ export function Board({ state, dispatch, onOverflowChange }: {
   }, [state, drag, mouseHover, kbFocus, board]);
 
   const onPointerDown = (e: PointerEvent<HTMLDivElement>) => {
+    settle();
     suppressClickUntil.current = 0;
     if (!e.isPrimary || e.button !== 0) return;
     interrupted.current = null;
@@ -369,7 +479,6 @@ export function Board({ state, dispatch, onOverflowChange }: {
     const j = regionAt(regions!, n);
     return routes.get(`${n.row},${n.col}`)?.region === i || j === i || (j !== -1 && j === routeFrom(regions![i]));
   }).map(([side]) => side);
-  const sealed = regions && tasks ? sealedRegion(regions) : -1;
   // Room levels: a building's exterior fills the terrain around it (the lodge's roof along its top).
   const walls = useMemo(() => {
     const map = new Map<string, string>();
@@ -428,6 +537,8 @@ export function Board({ state, dispatch, onOverflowChange }: {
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerCancel}
         onLostPointerCapture={onPointerCancel}
+        onWheel={settle}
+        onKeyDownCapture={settle}
       >
       <div
         ref={boardRef}
@@ -471,16 +582,21 @@ export function Board({ state, dispatch, onOverflowChange }: {
                   </div>
                 );
               }
+              // Labelled as it is; drawn closed while the palace opening has yet to reach it.
               const open = isOpen(state.session, gate);
+              const drawnOpen = shownOpen(gate);
+              const stage = gate === sealed ? phase : null;
               const across = sides.includes('l') || sides.includes('r');
               // The sealed gate carries the symbols of the tasks it needs, each lit once done.
               const needs = gate === sealed ? (regions[gate].unlock as TaskUnlock).tasks : [];
               const lit = needs.map((t) => state.session.done.includes(t));
               const symbols = needs.length > 0 ? `, ${lit.filter(Boolean).length} of ${needs.length} symbols lit` : '';
               return (
-                <div key={`${r}-${c}`} className={`passage${across ? ' is-across' : ''}${open ? ' is-open' : ''}${needs.length ? ' is-sealed' : ''}`}
+                <div key={`${r}-${c}`}
+                  className={`passage${across ? ' is-across' : ''}${drawnOpen ? ' is-open' : ''}${needs.length ? ' is-sealed' : ''}${
+                    stage === 'glow' ? ' is-glowing' : stage === 'opening' ? ' is-opening' : ''}`}
                   data-passage={gate} role="img" aria-label={`Rune gate to ${regions[gate].name}, ${open ? 'open' : 'closed'}${symbols}`}>
-                  <RuneGate open={open} />
+                  <RuneGate open={drawnOpen} opening={stage === 'opening'} />
                   {needs.length > 0 && <GateSymbols symbols={needs.map((t) => tasks![t].symbol!)} lit={lit} />}
                 </div>
               );
@@ -578,7 +694,7 @@ export function Board({ state, dispatch, onOverflowChange }: {
           </div>
         ))}
         {regions?.map((r, i) => {
-          const locked = !isOpen(state.session, i);
+          const locked = !shownOpen(i);
           // Once open, a room with a joined part is outlined edge by edge above instead (until then it is a locked room
           // like any other); a hidden region shows nothing at all until it opens, except a hidden building, kept sealed.
           if ((shaped(i) && !locked) || (locked && r.hidden && !r.building)) return null;
@@ -616,7 +732,7 @@ export function Board({ state, dispatch, onOverflowChange }: {
       </div>
       </div>
       {overflowing && (
-        <button type="button" className="center-board" data-action="center-board" onClick={centerBoard}>
+        <button type="button" className="center-board" data-action="center-board" onClick={() => { settle(); centerBoard(); }}>
           Center board
         </button>
       )}

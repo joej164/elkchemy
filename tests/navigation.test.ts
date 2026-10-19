@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { centerScroll, exceedsThreshold, moveFocus, panScroll } from '../src/ui/navigation';
+import { centerScroll, centreSpan, exceedsThreshold, moveFocus, panScroll, revealSpan } from '../src/ui/navigation';
 
 describe('navigation helpers', () => {
   it('moves focus and clamps at the edges', () => {
@@ -24,5 +24,19 @@ describe('navigation helpers', () => {
   it('centers content, never negative', () => {
     expect(centerScroll(1000, 400)).toBe(300);
     expect(centerScroll(300, 400)).toBe(0);
+  });
+
+  it('centres a span within the scroll range', () => {
+    expect(centreSpan(500, 600, 400, 1000)).toBe(350);
+    expect(centreSpan(0, 100, 400, 1000)).toBe(0);
+    expect(centreSpan(1300, 1400, 400, 1000)).toBe(1000);
+  });
+
+  it('reveals a span by moving least, keeping a margin, and not at all when it is already in view', () => {
+    expect(revealSpan(300, 400, 500, 400, 1000, 8)).toBe(300);       // already in view
+    expect(revealSpan(300, 100, 200, 400, 1000, 8)).toBe(92);        // above: its start, 8px clear
+    expect(revealSpan(300, 650, 750, 400, 1000, 8)).toBe(358);       // below: its end, 8px clear
+    expect(revealSpan(300, 0, 100, 400, 1000, 8)).toBe(0);           // clamped to the range
+    expect(revealSpan(300, 100, 600, 400, 1000, 8)).toBe(92);        // too long: its start
   });
 });

@@ -31,3 +31,20 @@ export function panScroll(startScroll: Point, startPoint: Point, point: Point): 
 export function centerScroll(contentSize: number, viewportSize: number): number {
   return Math.max(0, (contentSize - viewportSize) / 2);
 }
+
+const clamp = (n: number, max: number) => Math.min(Math.max(0, max), Math.max(0, n));
+
+/** One axis: the scroll offset that centres the span [start, end] in a viewport of `size`, within the range [0, max]. */
+export function centreSpan(start: number, end: number, size: number, max: number): number {
+  return clamp((start + end) / 2 - size / 2, max);
+}
+
+/**
+ * One axis: the scroll offset nearest `from` that shows the span [start, end] whole, `margin` clear of the edges,
+ * within [0, max]. A span too long for that shows its start.
+ */
+export function revealSpan(from: number, start: number, end: number, size: number, max: number, margin = 0): number {
+  const low = end + margin - size;
+  const high = start - margin;
+  return clamp(low > high ? high : Math.min(Math.max(from, low), high), max);
+}

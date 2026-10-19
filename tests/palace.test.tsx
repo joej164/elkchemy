@@ -9,6 +9,7 @@ import { evaluateStatus } from '../src/status';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describeAction, Game, TaskPanel } from '../src/ui/App';
 import { Board } from '../src/ui/Board';
+import { viewCue } from '../src/ui/camera';
 import { canPickUp, initUi, previewCells, reduceUi, treasureShown, type UiAction, type UiState } from '../src/ui/controller';
 import { helpObjective, objectiveText, roomsHelp, statusMessage } from '../src/ui/messages';
 
@@ -428,7 +429,7 @@ describe('The Crystal Palace: input, view and announcements', () => {
   const taps = (moves: readonly Move[]): UiAction[] => moves.flatMap(([from, to]) => [{ type: 'tap', pos: from }, { type: 'tap', pos: to }]);
   const say = (s: UiState) => describeAction(s.lastAction, 'Level', PALACE_LEVEL.goal, regions, tasks);
 
-  it('brings the hub and the concealed part into view, and keeps the view for the branches, completions and the palace', () => {
+  it('names the hub and the concealed part as opened (for the view), and not the branches, completions or the palace', () => {
     let s = run(initUi(PALACE_LEVEL), ...drops(OPEN_HUB));
     expect(s.lastAction).toEqual({ kind: 'move', opened: HUB, progress: { tasks: [OPEN_HUB_TASK], regions: [HUB] } });
     expect(say(s)).toBe('Moved an item. The rune gate to Songbird Glade opened.');
@@ -512,6 +513,51 @@ describe('The Crystal Palace: input, view and announcements', () => {
     s = run(s, ...drops(FINISH_PALACE.slice(1)));
     expect(statusMessage(s, false)).toBe('The ukulele case is in Crystal Palace. Tap it to open it.');
     expect(statusMessage(run(s, { type: 'tap', pos: CASE }), false)).toBe('Goal complete! You found a ukulele in the case.');
+  });
+});
+
+describe('The Crystal Palace: camera cues', () => {
+  const run = (s: UiState, ...actions: UiAction[]) => actions.reduce(reduceUi, s);
+  const drops = (moves: readonly Move[]): UiAction[] => moves.map(([from, to]) => ({ type: 'drop', from, to }));
+  const PALACE_CUE = { kind: 'palace', region: PALACE, gate: p(6, 5) };   // the gate at F7
+  const orders = [
+    [FERN_TASK, CRYSTAL_TASK, LODGE_TASK], [FERN_TASK, LODGE_TASK, CRYSTAL_TASK], [CRYSTAL_TASK, FERN_TASK, LODGE_TASK],
+    [CRYSTAL_TASK, LODGE_TASK, FERN_TASK], [LODGE_TASK, FERN_TASK, CRYSTAL_TASK], [LODGE_TASK, CRYSTAL_TASK, FERN_TASK],
+  ];
+
+  it('pans to the hub and the concealed part, never for the three branches opening together, and Retry returns at once', () => {
+    let s = run(initUi(PALACE_LEVEL), ...drops(OPEN_HUB));
+    expect(viewCue(s)).toEqual({ kind: 'region', region: HUB });
+    s = run(s, ...drops(OPEN_BRANCHES));
+    expect(viewCue(s)).toBeNull();
+    s = run(s, ...drops(REVEAL));
+    expect(viewCue(s)).toEqual({ kind: 'region', region: HIDDEN });
+    s = run(s, ...drops(FINISH_FERN.slice(0, 1)));
+    expect(viewCue(s)).toBeNull();
+    expect(viewCue(run(s, { type: 'undo' }))).toBeNull();
+    expect(viewCue(run(s, { type: 'retry' }))).toEqual({ kind: 'start' });
+  });
+
+  it('plays the palace opening on the third branch completed, whichever it is, and only then', () => {
+    for (const order of orders) {
+      let s = run(initUi(PALACE_LEVEL), ...drops([...OPEN_HUB, ...OPEN_BRANCHES]));
+      order.forEach((task, k) => {
+        s = run(s, ...drops(BRANCH_MOVES[task]));
+        expect(isOpen(s.session, PALACE), `${order} after ${k + 1}`).toBe(k === 2);
+        expect(viewCue(s), `${order} after ${k + 1}`).toEqual(k === 2 ? PALACE_CUE : null);
+      });
+      // The palace's own moves and the case move nothing; Retry returns to the start.
+      s = run(s, ...drops(FINISH_PALACE));
+      expect([treasureShown(s), viewCue(s)]).toEqual([true, null]);
+      expect(viewCue(run(s, { type: 'tap', pos: CASE }))).toBeNull();
+      expect(viewCue(run(s, { type: 'retry' }))).toEqual({ kind: 'start' });
+    }
+  });
+
+  it('cues the opening on the third completion made by taps, as by drags', () => {
+    const s = run(initUi(PALACE_LEVEL), ...[...OPEN_HUB, ...OPEN_BRANCHES, ...BRANCH_MOVES[LODGE_TASK], ...BRANCH_MOVES[CRYSTAL_TASK],
+      ...BRANCH_MOVES[FERN_TASK]].flatMap(([from, to]): UiAction[] => [{ type: 'tap', pos: from }, { type: 'tap', pos: to }]));
+    expect(viewCue(s)).toEqual(PALACE_CUE);
   });
 });
 
