@@ -6,6 +6,15 @@ export interface ReleaseNote { readonly title: string; readonly date: string; re
 
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    title: 'The Rune Gates',
+    date: 'October 19, 2026',
+    notes: [
+      'A new experimental level: three rooms connected by rune gates.',
+      'Put the requested items on the marked tiles and the next gate opens by itself. Opening fixes those items in place and clears Undo; Retry restarts everything.',
+      'Find the disc-golf backpack in the final room and tap it to collect it.',
+    ],
+  },
+  {
     title: 'Open the woodland gates',
     date: 'October 18, 2026',
     notes: [

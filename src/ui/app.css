@@ -261,20 +261,22 @@ body {
 .passage.is-across svg { transform: rotate(90deg); }
 .passage:not(.is-open) svg { filter: drop-shadow(0 0 6px rgb(143 227 255 / 0.8)); }
 /* Marked tiles: a ring (bronze for a pressure plate, slate for the stone) and the item they need, faint while empty,
-   then as a corner badge; a padlock badge once the gate has opened and the item is fixed. */
+   then as a corner badge; a padlock badge once the gate has opened and the item is fixed. The item, the badge and its
+   highlight all stay inside the ring (its inner edge is 6px in). */
+.cell.is-plate { padding: 9px; }
 .cell.is-plate::before {
   content: ""; position: absolute; inset: 3px; border-radius: 7px; pointer-events: none;
   border: 3px solid #b08a4a; background: rgb(176 138 74 / 0.18);
 }
 .cell.is-stone::before { border-color: #6d7580; background: rgb(109 117 128 / 0.28); }
 .plate-mark {
-  position: absolute; right: 2px; top: 2px; z-index: 1; width: 40%; height: 40%; padding: 2px;
+  position: absolute; right: 7px; top: 7px; z-index: 1; width: 32%; height: 32%; padding: 2px;
   border-radius: 50%; background: var(--parchment); border: 2px solid var(--bark-dark);
 }
 .cell:not(.has-item) .plate-mark { inset: 16%; width: auto; height: auto; padding: 0; background: none; border: 0; opacity: 0.5; }
-.cell.is-plate-met .plate-mark { border-color: var(--moss); box-shadow: 0 0 0 2px var(--gold); }
+.cell.is-plate-met .plate-mark { border-color: var(--moss); box-shadow: inset 0 0 0 2px var(--gold); }
 .cell.is-fixed { cursor: default; }
-.cell.is-fixed .plate-mark { padding: 4px; background: var(--forest-1); color: var(--gold); border-color: var(--gold); }
+.cell.is-fixed .plate-mark { padding: 3px; background: var(--forest-1); color: var(--gold); border-color: var(--gold); box-shadow: none; }
 .cell.has-treasure { background: radial-gradient(circle, #fff3c4, var(--earth) 70%); }
 .cell.has-treasure .cell-art { filter: drop-shadow(0 0 6px rgb(242 193 78 / 0.95)); }
 

@@ -4,9 +4,21 @@ Each entry records what changed, how it was verified, and known limitations. **U
 
 Earlier published builds are not backfilled here. The previous build, `20261018-195510`, has five handcrafted levels and optional looping music; its verification is recorded in TODO.md under Current baseline and Audio.
 
-## Unreleased — Level 7, The Rune Gates (experimental), and four Hidden Hollow gate fixes (October 19, 2026)
+## Unreleased — Rune Gates tile and backpack visual pass, and its in-game release note (October 19, 2026)
 
-Implemented by Claude; not committed or deployed. Awaiting Codex review.
+Not committed or deployed. The owner reviewed the published art and requested these changes; Claude implemented them, and Codex reviewed the CSS and backpack changes and found no blocking code issue. The revised visuals still await owner review.
+
+- **Completed tiles fit their square.** The item on a pressure plate or the stone, and its corner badge (the needed item, then a padlock), now sit inside the tile's bronze or slate ring instead of spilling over it. The ring, its colours and the empty-tile ghost are unchanged.
+- **Open backpack.** The treasure is redrawn open, with its lid folded back, three discs standing inside and two lying beside it.
+- **In-game Release notes.** A "The Rune Gates" entry (October 19, 2026) describes the level: three rooms connected by rune gates, marked tiles that open the next gate by themselves, opening fixing those items and clearing Undo, Retry restarting everything, and the disc-golf backpack to collect. Build `20261019-132651` shipped without one.
+- **Unchanged:** the layout, rules and gameplay text.
+- **Checks** (Claude): 451 tests, typecheck and production build passed for the visual changes. In Playwright Chromium against the production build, at 390×844 and 820×1180, the completed plates and stone kept their art and badge at least 1px inside the ring; the open backpack showed when its gate opened, and a tap won. No horizontal page overflow and no console errors. The release-note entry was checked by typecheck only. Physical iPad/Safari is unchecked.
+
+## 20261019-132651 — Level 7, The Rune Gates (experimental), and four Hidden Hollow gate fixes (October 19, 2026)
+
+Published October 19, 2026 in build `20261019-132651`, from commit `99bbd6d`. Implemented by Claude and reviewed by Codex.
+
+Owner playtest (October 19, 2026): the gate and path design looks nice and works. Longer paths between rooms are an option for future levels, not an implementation request. After reviewing the original art, the owner requested the tile and backpack changes in the Unreleased entry above.
 
 ### The Rune Gates (level 7, experimental)
 
@@ -73,8 +85,8 @@ Implemented by Claude; not committed or deployed. Awaiting Codex review.
 ### Known limitations
 
 - On phones the 7×7 map pans, like The Hidden Hollow.
-- The in-game Release notes page has no entry for The Rune Gates yet.
-- The gates and plates are new artwork drawn in code. They haven't been reviewed by the owner.
+- This build's in-game Release notes page has no entry for The Rune Gates; one is added in the Unreleased entry above.
+- The gates, plates and backpack are new artwork drawn in code. The owner's feedback on them is recorded above.
 
 ## 20261019-055257 — On-board gates for The Hidden Hollow (October 18, 2026)
 

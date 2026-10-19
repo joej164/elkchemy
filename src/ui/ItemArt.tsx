@@ -137,18 +137,33 @@ function elk(t: number): ReactNode {
 
 const ART: Record<Family, (t: number) => ReactNode> = { grove, song, crystal, elk };
 
-/** Room levels' treasure: a disc-golf backpack with two discs in its top. Decorative (callers give the text). */
+/** A flying disc seen at an angle: its rim and flight plate. */
+function disc(cx: number, cy: number, tilt: number, fill: string): ReactNode {
+  return (
+    <g transform={`rotate(${tilt} ${cx} ${cy})`}>
+      <ellipse cx={cx} cy={cy} rx="12" ry="7" fill={fill} {...S} />
+      <ellipse cx={cx} cy={cy - 1} rx="7" ry="3.5" fill="none" stroke="#fff" strokeOpacity="0.6" strokeWidth={1.5} />
+    </g>
+  );
+}
+
+/**
+ * Room levels' treasure: an open disc-golf backpack, its lid folded back, three discs standing inside and two more
+ * beside it. Decorative (callers give the text).
+ */
 export function BackpackArt() {
   return (
     <svg viewBox="0 0 100 100" width="100%" height="100%" aria-hidden="true" focusable="false">
-      <ellipse cx="40" cy="24" rx="15" ry="6" transform="rotate(-12 40 24)" fill="#f28c28" {...S} />
-      <ellipse cx="60" cy="22" rx="15" ry="6" transform="rotate(10 60 22)" fill="#e8d34a" {...S} />
-      <path d="M42 28 Q50 12 58 28" fill="none" {...S} strokeWidth={4} />
-      <rect x="24" y="26" width="52" height="62" rx="14" fill="#2f6f8f" {...S} />
-      <path d="M30 40 H70" {...S} stroke="#1d4a60" strokeWidth={3} />
-      <rect x="33" y="54" width="34" height="26" rx="8" fill="#24576f" {...S} />
-      <path d="M38 61 H62" {...S} stroke="#f2c14e" strokeWidth={3} />
-      <circle cx="50" cy="71" r="5" fill="#f28c28" {...S} strokeWidth={1.5} />
+      <path d="M33 38 L27 14 Q50 5 73 14 L67 38 Z" fill="#24576f" {...S} />
+      <path d="M30 39 Q50 29 70 39 Q50 48 30 39 Z" fill="#102a36" {...S} />
+      <ellipse cx="40" cy="40" rx="8" ry="14" fill="#f28c28" {...S} />
+      <ellipse cx="60" cy="40" rx="8" ry="14" fill="#e45a84" {...S} />
+      <ellipse cx="50" cy="38" rx="8" ry="16" fill="#e8d34a" {...S} />
+      <path d="M30 39 Q50 48 70 39 L70 82 Q70 90 62 90 L38 90 Q30 90 30 82 Z" fill="#2f6f8f" {...S} />
+      <rect x="37" y="58" width="26" height="24" rx="7" fill="#24576f" {...S} />
+      <path d="M41 64 H59" {...S} stroke="#f2c14e" strokeWidth={3} />
+      {disc(15, 80, -28, '#8ccf3f')}
+      {disc(85, 80, 28, '#6cc3e8')}
     </svg>
   );
 }
