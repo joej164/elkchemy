@@ -1,4 +1,5 @@
-import { drop, previewMerge, type Board, type Item, type Pos } from './board';
+import { drop, previewMerge, type Board, type Cell, type Item, type Pos } from './board';
+import type { Recipe } from './recipes';
 import {
   availableTasks, isFixed, isOpen, nextLocked, platesHold, platesMet, regionAt, roomOf, unlockReady, validateRegions, type Region, type Task,
 } from './regions';
@@ -42,6 +43,11 @@ export interface LevelDefinition {
    * done, in any order) or reveal the treasure. Done tasks stay done; see Task in regions.ts.
    */
   readonly tasks?: readonly Task[];
+  /**
+   * Merge to treasure (generated puzzles): the pieces merge into the recipe's ingredients, which craft its chest (see
+   * craft); the chest opens to its contents (see openChest), which merge into the goal (`leaveOne` with that item).
+   */
+  readonly recipe?: Recipe;
 }
 
 export interface SessionSnapshot {
@@ -55,6 +61,10 @@ export interface SessionSnapshot {
   readonly collected: boolean;
   /** Levels with tasks: the tasks done so far, in the order done (always empty otherwise). */
   readonly done: readonly number[];
+  /** Recipe levels: where the crafted, still closed chest stands (its cell holds no item), or null. */
+  readonly chest: Pos | null;
+  /** Recipe levels: the chest has been opened (it is gone, its contents on the board). */
+  readonly opened: boolean;
 }
 
 export interface SessionState extends SessionSnapshot {
@@ -72,7 +82,7 @@ function inBounds(board: Board, p: Pos): boolean {
 function snapshot(s: SessionState): SessionSnapshot {
   return {
     board: s.board, supplyIndex: s.supplyIndex, rngState: s.rngState, moves: s.moves, unlocked: s.unlocked, collected: s.collected,
-    done: s.done,
+    done: s.done, chest: s.chest, opened: s.opened,
   };
 }
 
@@ -80,7 +90,8 @@ function snapshot(s: SessionState): SessionSnapshot {
 export function startSession(level: LevelDefinition): SessionState {
   validateRegions(level);
   return {
-    level, board: level.board, supplyIndex: 0, rngState: level.seed, moves: 0, unlocked: 0, collected: false, done: [], undo: null,
+    level, board: level.board, supplyIndex: 0, rngState: level.seed, moves: 0, unlocked: 0, collected: false, done: [],
+    chest: null, opened: false, undo: null,
   };
 }
 
@@ -91,6 +102,7 @@ export function startSession(level: LevelDefinition): SessionState {
 export function canDrop(state: SessionState, from: Pos, to: Pos): boolean {
   const { board, level } = state;
   if (!inBounds(board, from) || !inBounds(board, to) || board[from.row][from.col] === null) return false;
+  if (state.chest && state.chest.row === to.row && state.chest.col === to.col) return false;
   const { regions, goal } = level;
   if (!regions) return true;
   if (goal.kind === 'treasure' && goal.at.row === to.row && goal.at.col === to.col) return false;
@@ -164,6 +176,60 @@ export function collect(state: SessionState): SessionState {
   return { ...state, collected: true, moves: state.moves + 1, undo: snapshot(state) };
 }
 
+/** Recipe levels: whether Craft would make the chest now: no chest yet, and every ingredient (exact family and tier) here. */
+export function craftReady(state: SessionState): boolean {
+  const { recipe } = state.level;
+  if (!recipe || state.chest || state.opened) return false;
+  const items = state.board.flat();
+  return recipe.ingredients.every(({ item, count }) =>
+    items.filter((c) => c && c.family === item.family && c.tier === item.tier).length >= count);
+}
+
+/**
+ * Recipe levels: crafts the chest, consuming every remaining piece of the ingredients' families (spare pieces too),
+ * and stands it where the first ingredient was (the first such item in reading order). One undoable move.
+ */
+export function craft(state: SessionState): SessionState {
+  if (!craftReady(state)) return state;
+  const { recipe } = state.level;
+  const families = new Set(recipe!.ingredients.map((i) => i.item.family));
+  const first = recipe!.ingredients[0].item;
+  let chest: Pos | null = null;
+  const board = state.board.map((r, row) => r.map((c, col): Cell => {
+    if (!c || !families.has(c.family)) return c;
+    if (!chest && c.family === first.family && c.tier === first.tier) chest = { row, col };
+    return null;
+  }));
+  return { ...state, board, chest, moves: state.moves + 1, undo: snapshot(state) };
+}
+
+/**
+ * Recipe levels: the cells a closed chest's contents go to: its own cell, then the nearest empty cells (by distance,
+ * then reading order). Null if there are too few empty cells: the chest then stays closed.
+ */
+export function contentCells(state: SessionState): Pos[] | null {
+  const { chest, board, level } = state;
+  if (!chest || !level.recipe) return null;
+  const empty: Pos[] = [];
+  board.forEach((r, row) => r.forEach((c, col) => {
+    if (c === null && !(row === chest.row && col === chest.col)) empty.push({ row, col });
+  }));
+  const d = (p: Pos) => Math.abs(p.row - chest.row) + Math.abs(p.col - chest.col);
+  empty.sort((a, b) => d(a) - d(b) || a.row - b.row || a.col - b.col);
+  const need = level.recipe.contents.count - 1;
+  return empty.length >= need ? [chest, ...empty.slice(0, need)] : null;
+}
+
+/** Recipe levels: opens the chest, once, putting its contents in place (see contentCells). A checkpoint: Undo is cleared. */
+export function openChest(state: SessionState): SessionState {
+  const cells = contentCells(state);
+  if (!cells) return state;
+  const { item } = state.level.recipe!.contents;
+  const board: Cell[][] = state.board.map((r) => [...r]);
+  for (const p of cells) board[p.row][p.col] = { ...item };
+  return { ...state, board, chest: null, opened: true, moves: state.moves + 1, undo: null };
+}
+
 /**
  * Region levels: opens the next region once its unlock item is present. One undoable move; the item stays put.
  * `region` (a gate's own region): refused unless it is that next region, so a later gate never opens another.
@@ -219,8 +285,8 @@ export function placeSupplyRandom(state: SessionState): SessionState {
 
 export function undo(state: SessionState): SessionState {
   if (state.undo === null) return state;
-  const { board, supplyIndex, rngState, moves, unlocked, collected, done } = state.undo;
-  return { level: state.level, board, supplyIndex, rngState, moves, unlocked, collected, done, undo: null };
+  const { board, supplyIndex, rngState, moves, unlocked, collected, done, chest, opened } = state.undo;
+  return { level: state.level, board, supplyIndex, rngState, moves, unlocked, collected, done, chest, opened, undo: null };
 }
 
 export function retry(state: SessionState): SessionState {

@@ -272,6 +272,25 @@ export function UkuleleCaseArt({ open }: { open: boolean }) {
   );
 }
 
+/** Merge to treasure: the crafted chest, closed (opening replaces it with its contents). Decorative. */
+export function ChestArt() {
+  return (
+    <svg viewBox="0 0 100 100" width="100%" height="100%" aria-hidden="true" focusable="false" data-chest="">
+      <path d="M14 46 Q14 22 50 22 Q86 22 86 46 Z" fill="#8b5a2b" stroke={DARK} strokeWidth="2.5" strokeLinejoin="round" />
+      <rect x="14" y="46" width="72" height="36" rx="4" fill="#a86b33" stroke={DARK} strokeWidth="2.5" />
+      {[28, 64].map((x) => (
+        <g key={x} fill="#e8b84a" stroke={DARK} strokeWidth="1.5">
+          <rect x={x} y="29" width="8" height="17" />
+          <rect x={x} y="46" width="8" height="36" />
+        </g>
+      ))}
+      <rect x="43" y="40" width="14" height="17" rx="2" fill="#f2c14e" stroke={DARK} strokeWidth="2" />
+      <circle cx="50" cy="47" r="2.4" fill={DARK} />
+      <path d="M50 49 V53" stroke={DARK} strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 /** A room level's treasure, closed until `open`. */
 export function PrizeArt({ prize = 'backpack', open }: { prize?: Prize; open: boolean }) {
   if (prize === 'ukulele') return <UkuleleCaseArt open={open} />;

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { previewMerge, type Board, type Item, type Tier } from '../src/board';
 import {
   findWinningMoves, generatePuzzle, GENERATOR_VERSION, GOAL_COUNTS, isSupportedConfig, MAX_BOARD_SIDE, parsePuzzleId,
-  puzzleId, TARGET_TIERS, type GeneratedPuzzle, type PuzzleConfig,
+  puzzleId, TARGET_TIERS, type GeneratedPuzzle, type Move, type PuzzleConfig,
 } from '../src/generator';
 import { applyDrop, startSession } from '../src/session';
 import { canArrangeMerge, canLeaveOne, evaluateStatus } from '../src/status';
@@ -15,6 +15,8 @@ const CONFIGS: PuzzleConfig[] = [
 // Spread-out 32-bit seeds, including both ends of the range.
 const SEEDS = [0, 1, 0xffffffff, ...Array.from({ length: 57 }, (_, i) => Math.imul(i + 1, 2654435761) >>> 0)];
 
+// Merge to goals and Merge down to one: their winning lines are drops only.
+const movesOf = (p: GeneratedPuzzle) => p.witness as readonly Move[];
 const code = (c: Item | null) => (c ? `${c.family[0]}${c.tier}` : '.');
 const fingerprint = (board: Board) => board.map((r) => r.map(code).join(' ')).join(' / ');
 const itemsOf = (board: Board) => board.flat().filter((c): c is Item => c !== null);
@@ -28,7 +30,7 @@ function replay(p: GeneratedPuzzle): number[] {
   let s = startSession(p.definition);
   expect(evaluateStatus(s)).toBe('playing');
   const sizes: number[] = [];
-  p.witness.forEach((m, i) => {
+  movesOf(p).forEach((m, i) => {
     const merged = previewMerge(s.board, m.from, m.to).length;
     if (merged) sizes.push(merged);
     const next = applyDrop(s, m.from, m.to);
@@ -168,7 +170,7 @@ describe('generated puzzles across supported configs', () => {
   it('Merge to goals has spare pieces in some boards (a choice of what to merge, left over by the witness); version 1 and Merge down to one never do', () => {
     const leftovers = (p: GeneratedPuzzle) => {
       let s = startSession(p.definition);
-      for (const m of p.witness) s = applyDrop(s, m.from, m.to);
+      for (const m of movesOf(p)) s = applyDrop(s, m.from, m.to);
       return itemsOf(s.board).length - targetsOf(p).length;
     };
     for (const config of CONFIGS) {
@@ -225,7 +227,7 @@ describe('witness search', () => {
 
 describe('play loop on a generated puzzle', () => {
   const puzzle = generatePuzzle({ mode: 'one', tier: 3, goals: 1 }, 2024);
-  const drops = puzzle.witness.map((m) => ({ type: 'drop' as const, from: m.from, to: m.to }));
+  const drops = movesOf(puzzle).map((m) => ({ type: 'drop' as const, from: m.from, to: m.to }));
 
   it('the UI reducer wins with the witness; undo and retry restore earlier states', () => {
     const start = initUi(puzzle.definition);
@@ -303,7 +305,7 @@ describe('reported puzzle v1-goals-t3-g1-z7hukc', () => {
     const back = reduceUi(dead, { type: 'undo' });
     expect(back.status).toBe('playing');
     expect(back.session.board).toEqual(start.session.board);
-    const won = puzzle.witness.reduce((s, m) => reduceUi(s, { type: 'drop', ...m }), back);
+    const won = movesOf(puzzle).reduce((s, m) => reduceUi(s, { type: 'drop', ...m }), back);
     expect(won.status).toBe('won');
     expect(reduceUi(won, { type: 'undo' }).status).toBe('playing');
   });

@@ -8,6 +8,9 @@ export function actionEffect(state: UiState): EffectCue | null {
   const action = state.lastAction;
   if (!action || action.kind === 'undo' || action.kind === 'retry') return null;
   if (action.kind === 'collect') return 'case-victory';
+  // Merge to treasure: crafting and opening are steps, not the win (which is the final merge's own sound).
+  if (action.kind === 'craft') return 'completion';
+  if (action.kind === 'open') return 'discovery';
   const progress = 'progress' in action ? action.progress : undefined;
   const opened = openedRegion(action);
   const regions = progress?.regions ?? (opened === null ? [] : [opened]);

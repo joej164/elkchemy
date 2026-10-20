@@ -1,7 +1,8 @@
 import {
   availableTasks, isOpen, nextLocked, sealedRegion, unlockReady, type GateSymbol, type Plate, type Region, type Task, type TaskUnlock,
 } from '../regions';
-import { treasureRevealed, type LevelGoal, type Prize, type SessionState } from '../session';
+import { finalItem, type Recipe } from '../recipes';
+import { craftReady, treasureRevealed, type LevelGoal, type Prize, type SessionState } from '../session';
 import { FAMILY_NAMES, itemLabel } from './ItemArt';
 import type { UiState } from './controller';
 
@@ -276,17 +277,43 @@ export function itemCount(state: UiState): number {
   return state.session.board.reduce((n, row) => n + row.filter((c) => c !== null).length, 0);
 }
 
+/** Merge to treasure: what the recipe needs, e.g. "Grove, tier 3 of 5 and Crystal, tier 3 of 5". */
+export function recipeNeed(recipe: Recipe): string {
+  const parts = recipe.ingredients.map(({ item, count }) => `${count > 1 ? `${count} × ` : ''}${itemLabel(item)}`);
+  return parts.length > 1 ? `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}` : parts[0];
+}
+
+/** Merge to treasure: the next step, by stage. */
+function recipeStep(state: UiState, recipe: Recipe): string {
+  const { session } = state;
+  if (session.chest) return `Tap the ${recipe.name} to open it.`;
+  if (session.opened) return `Merge the three ${itemLabel(recipe.contents.item)} into ${itemLabel(finalItem(recipe))}.`;
+  if (craftReady(session)) return `Ready: press Craft chest. It uses up every ${recipeFamilies(recipe)} piece.`;
+  return `Merge pieces into ${recipeNeed(recipe)}, then craft the ${recipe.name}.`;
+}
+
+const recipeFamilies = (recipe: Recipe) => recipe.ingredients.map(({ item }) => FAMILY_NAMES[item.family]).join(' and ');
+
+/** Merge to treasure: the help dialog's objective. */
+export function recipeHelp(recipe: Recipe): string {
+  return `Goal: merge the pieces into the recipe's ingredients (${recipeNeed(recipe)}) and press Craft chest; it uses ` +
+    `up every ${recipeFamilies(recipe)} piece. Tap the ${recipe.name} to open it: three ${itemLabel(recipe.contents.item)} ` +
+    `come out. Merge them into ${itemLabel(finalItem(recipe))} to win. Opening the chest can't be undone.`;
+}
+
 /** `pannable`: the board overflows its viewport; defaults to the size-based guess. */
 export function statusMessage(state: UiState, pannable = isLargeBoard(state.session.board)): string {
-  const { goal, regions } = state.session.level;
+  const { goal, regions, recipe } = state.session.level;
   if (state.status === 'playing') {
     if (regions) return pannable ? `${regionStep(state)} ${PAN_HINT}` : regionStep(state);
+    if (recipe) return pannable ? `${recipeStep(state, recipe)} ${PAN_HINT}` : recipeStep(state, recipe);
     return pannable ? LARGE_BOARD_HINT : playingMessage(goal, state.session.level.supply.length > 0);
   }
   if (state.status === 'won') {
     if (goal.kind === 'treasure') return prizeText(goal).won;
     if (goal.kind === 'items') return `Goal complete! You made ${allOf(goal.items.length)}.`;
     if (goal.kind === 'item') return `Goal complete! You made ${itemLabel(goal.item)}${goalPlace(goal, regions)}.`;
+    if (recipe) return `Goal complete! You made ${itemLabel(finalItem(recipe))} from the ${recipe.name}.`;
     const last = state.session.board.flat().find((c) => c !== null);
     return last ? `Goal complete! Only ${itemLabel(last)} remains.` : 'Goal complete!';
   }

@@ -522,6 +522,24 @@ body {
 
 /* Generated puzzle ID: a compact read-only field with a Copy button, below the controls. */
 .goal.is-wide { grid-column: 1 / -1; }
+/* Merge to treasure: the recipe sign by the board (ingredients, then the chest and what it holds) and Craft chest.
+   Parts are dimmed until done, like goal targets. */
+.goal.recipe { flex-direction: column; align-items: stretch; gap: 6px; }
+.recipe-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 4px 6px; }
+.recipe-step { display: inline-flex; align-items: center; gap: 6px; }
+.recipe-op { font-size: 1.15rem; font-weight: 700; color: var(--bark-dark); }
+.recipe-part { position: relative; display: inline-flex; align-items: center; gap: 2px; opacity: 0.55; }
+.recipe-part.is-done { opacity: 1; }
+.recipe-part .art { width: 44px; height: 44px; padding: 2px; }
+.recipe-count { font-weight: 700; color: var(--bark-dark); }
+.recipe-foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 6px 14px; }
+.btn.btn-craft { min-height: 44px; padding: 6px 18px; font-size: 1rem; }
+/* Phones: smaller pictures and gaps keep the recipe on one line. */
+@media (max-width: 480px) {
+  .recipe-row { gap: 2px 4px; }
+  .recipe-step { gap: 4px; }
+  .recipe-part .art { width: 36px; height: 36px; }
+}
 .puzzle-id-row {
   display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 4px 8px;
   font-size: 0.95rem; color: var(--earth);

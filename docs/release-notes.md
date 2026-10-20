@@ -4,6 +4,76 @@ Each entry records what changed, how it was verified, and known limitations. **U
 
 Earlier published builds are not backfilled here. The previous build, `20261018-195510`, has five handcrafted levels and optional looping music; its verification is recorded in TODO.md under Current baseline and Audio.
 
+## 20261020-010722 — Merge to treasure: a first recipe and chest (October 19, 2026)
+
+Release build `20261020-010722`, implemented by Claude; independent Codex review completed. Owner authorized commit → push → deploy. Physical iPad/Safari and owner playtesting are not yet available.
+
+### Design (first slice)
+
+- **A third generated mode, Merge to treasure.** Merge to goals, Merge down to one and the handcrafted levels are unchanged.
+- **Recipe as data** (`src/recipes.ts`): stable ID `woodland`, "Woodland chest".
+  - Ingredients: 1 × Grove, tier 3 of 5 and 1 × Crystal, tier 3 of 5.
+  - The container is a chest holding 3 × Elk, tier 3 of 5. Their merge, Elk, tier 4 of 5, is the goal.
+  - Only one recipe ships. Crafting and opening are generic over the recipe's data; the chest is not an item or a tier.
+- **Flow:**
+  1. Merge the starting pieces (only the ingredients' families, below their tiers) into the ingredients.
+  2. Press **Craft chest** on the recipe sign. It's enabled only once every ingredient is on the board at its exact family and tier. Crafting consumes every remaining piece of the ingredient families, spares included, and stands the chest where the first ingredient (Grove) was, first in reading order. It's an ordinary move: Undo un-crafts.
+  3. Tap the chest (Enter/Space on its cell). Its three Elk go on the chest's cell and the two nearest empty cells (by distance, then reading order). If there are too few empty cells, nothing changes and nothing is lost; generated boards are always empty apart from the chest by then. Opening is a checkpoint that clears Undo; the chest is gone, so it can't open twice.
+  4. Merge the three Elk: the single Elk, tier 4 of 5 wins. Crafting and opening never win.
+- **Retry** restores the original puzzle, with no chest. The chest's cell takes no drops.
+- **Status:** no early loss. "No merges left" appears only if no merge can be arranged, Craft isn't ready and no chest is closed.
+- **Recipe sign** (in the goal panel above the board): "1× Grove + 1× Crystal → chest → 3× Elk", parts dimmed until done (ticked when ready), Craft chest (44px) and "Goal: make Elk, tier 4 of 5". Each part has a spoken label. On phones the pictures shrink to 36px so the recipe stays on one line at 390px; it wraps to two at 360px.
+- **Text:**
+  - The banner gives each stage: the ingredients needed; "Ready: press Craft chest…"; "Tap the Woodland chest to open it."; "Merge the three Elk…".
+  - Announcements: "Crafted the Woodland chest. Tap it to open it." and "Opened the Woodland chest: three Elk, tier 3 of 5."
+  - Help explains the mode. Play offers the mode with no tier or goal choice.
+- **Sounds** (existing cues and path): crafting plays the completion cue and opening the discovery cue, never the victory cue. The final merge plays its merge sound; Undo and Retry play nothing.
+- **Generation and IDs:**
+  - Each ingredient is decomposed like a tier-3 goal (5–8 pieces, no spares) on the existing board sizing (5 × 5 or 6 × 6).
+  - The winning line merges to exactly the ingredients, then crafts, opens and merges, and is replayed through the session and status rules before a puzzle is returned. Witness steps may now be `{ action: 'craft' | 'open' }`.
+  - IDs read `v2-treasure-woodland-<seed>`, and the definition carries the recipe.
+  - No version bump: no existing ID names this mode, and goals/one generation is untouched (pinned v1/v2 boards still pass). Version 1 rejects treasure IDs.
+
+### Verification (Claude)
+
+- **Automated:** 580 tests (16 new in `tests/treasure.test.tsx`), typecheck, production build and `git diff --check` pass.
+  - Ingredient eligibility: exact tier, family, missing.
+  - Consumption, spares included, with other families kept.
+  - Chest placement and refused drops.
+  - Undo after crafting; the checkpoint on opening; Retry.
+  - Deterministic content cells; no space → no change; no second opening.
+  - Win only on the final merge.
+  - Status at each stage, including Craft-ready with no merges.
+  - The banner per stage.
+  - 43 seeds won through the controller, with exactly the ingredients left before crafting.
+  - IDs, parsing and rejection.
+  - Cues, the sign, the chest's label and the Play screen.
+- **Generation survey:** 1000 seeds, no failures, at most 11.4ms per puzzle.
+- **Playwright Chromium against the production build** (local build `20261020-005937`, seed pinned in the page: `v2-treasure-woodland-9ix`):
+  - **820×1180, by real clicks and taps:**
+    - Craft disabled at first; merges to the ingredients; Craft.
+    - Undo (chest gone, Craft ready again); Craft; tap the chest (three Elk, Undo disabled).
+    - Retry (15 starting pieces back); then the full win: "Goal complete! You made Elk, tier 4 of 5 from the Woodland chest."
+    - Announcements as above.
+  - **1180×820, 844×390, 390×844 and 360×740:** the sign inside its panel, Craft 140×44, Play choices at least 44px. No horizontal overflow or console errors.
+  - At 64px tiles, phones pan the 5 × 5 board slightly, as for existing 5 × 5 puzzles.
+- **Not verified:** physical iPad/Safari, VoiceOver, and whether the mode is clear and fun (owner playtest).
+
+### Independent Codex review
+
+- 580 tests, typecheck, production build and diff checks passed independently.
+- Compared 800 existing v1/v2 puzzles with the committed generator: definitions and winning paths unchanged. Adding treasure within v2 does not reinterpret existing IDs.
+- Production Chromium: completed the ingredient merges by pointer clicks, crafted, undid crafting, crafted again, opened by keyboard Enter (Undo disabled), and won by the final merge. Retry restored playing with Undo disabled.
+- Five phone/iPad viewports had no horizontal overflow or console errors; Craft was 44px tall. At 820×1180, Undo/Retry ended at 1150.66px and Home at 1206.66px, requiring page scrolling. Physical iPad/Safari, VoiceOver and subjective clarity/fun remain unverified.
+- No gameplay blocker found. The all-ingredient-family consumption rule is disclosed in the banner/help and now README; it is specific to this first slice, not a settled policy for future recipes. README now covers the third mode, opening checkpoint, placement, failure exception and treasure IDs.
+- No gameplay changes, commit, push or deployment during review/documentation updates. Release preparation added player-facing history after explicit owner authorization.
+
+### Known limitations
+
+- **Page height:** the sign is taller than the usual goal panel (118px at 820×1180). Undo and Retry stay on screen there (bottom 1151px), but Home is further below the fold than in the other modes.
+- **One fixed recipe:** every puzzle uses it, and variety comes from the pieces' decomposition and placement.
+- **Spares:** Craft consumes them; there is no reward for avoiding them.
+
 ## 20261020-004342 — Generated puzzles: tier 5, bigger boards and spare pieces (October 19, 2026)
 
 Published release build `20261020-004342`, implemented by Claude (phase 1 of the generated-puzzle expansion); independently reviewed by Codex. Owner authorized commit → push → deploy. Physical iPad/Safari and the owner's difficulty feedback are not yet available.

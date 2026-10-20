@@ -6,6 +6,15 @@ export interface ReleaseNote { readonly title: string; readonly date: string; re
 
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    title: 'Merge to treasure',
+    date: 'October 19, 2026',
+    notes: [
+      'A third generated puzzle mode: merge the ingredients shown on the recipe sign, then craft a Woodland chest.',
+      'Crafting uses all remaining Grove and Crystal pieces. Tap the chest to reveal three Elk, then merge them into one to win.',
+      'Crafting can be undone. Opening the chest clears Undo; Retry starts the same puzzle again.',
+    ],
+  },
+  {
     title: 'Bigger puzzles, five-dot goals',
     date: 'October 19, 2026',
     notes: [

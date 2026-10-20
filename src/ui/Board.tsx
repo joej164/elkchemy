@@ -6,7 +6,7 @@ import {
   isFixed, isOpen, regionAt, roomOf, routeFrom, routeOf, sealedRegion, type GateSymbol, type PlateUnlock, type Region, type TaskUnlock,
 } from '../regions';
 import { isCellOpen } from '../session';
-import { ItemArt, itemLabel, PrizeArt } from './ItemArt';
+import { ChestArt, ItemArt, itemLabel, PrizeArt } from './ItemArt';
 import { direct, palaceShots, viewCue, type Camera, type Frames, type Phase, type Shot, type View } from './camera';
 import { prizeText, unlockNeed } from './messages';
 import { centerScroll, centreSpan, exceedsThreshold, moveFocus, panScroll, revealSpan, type Point } from './navigation';
@@ -614,7 +614,9 @@ export function Board({ state, dispatch, onOverflowChange, onPalaceOpening, onPr
             const plate = plates.get(`${r},${c}`);
             const fixed = !!plate && isFixed(state.session, pos);
             const treasure = goal.kind === 'treasure' && same(goal.at, pos) && treasureShown(state);
-            if (item || treasure) cls.push('has-item');
+            // Merge to treasure: the crafted chest stands on a cell that holds no item.
+            const chest = same(state.session.chest, pos);
+            if (item || treasure || chest) cls.push('has-item');
             if (locked) cls.push('is-locked');
             if (plate) {
               cls.push('is-plate', `is-${plate.kind}`);
@@ -634,6 +636,7 @@ export function Board({ state, dispatch, onOverflowChange, onPalaceOpening, onPr
             const isConsumed = !!merge && !isOutput && has(merge.cells, pos);
             const label = treasure
               ? `${prize.name}, ${state.session.collected ? prize.opened : `closed, tap to ${prize.verb}`}`
+              : chest ? `${state.session.level.recipe!.name}, closed, tap to open`
               : item ? itemLabel(item) : 'empty';
             const mark = plate ? `, ${plate.kind === 'stone' ? 'stone' : 'pressure plate'} for ${itemLabel(plate.item)}${fixed ? ', fixed' : ''}` : '';
             // Cells are named after their room, so a joined part reads as the room it belongs to.
@@ -667,6 +670,7 @@ export function Board({ state, dispatch, onOverflowChange, onPalaceOpening, onPr
                     : <span className="plate-mark" aria-hidden="true"><ItemArt item={plate.item} /></span>
                 )}
                 {item && <span className="cell-art"><ItemArt item={item} /></span>}
+                {chest && <span className="cell-art"><ChestArt /></span>}
                 {treasure && goal.kind === 'treasure' && (
                   <span className="cell-art"><PrizeArt prize={goal.prize} open={state.session.collected} /></span>
                 )}

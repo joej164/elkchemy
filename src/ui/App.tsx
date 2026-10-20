@@ -1,7 +1,8 @@
 import { useEffect, useReducer, useRef, useState, type ReactNode } from 'react';
 import { LEVELS, nextLevelIndex, type Level } from '../levels';
 import { MAX_TIER, type Item } from '../board';
-import { generatePuzzle, type GeneratedPuzzle, type PuzzleConfig } from '../generator';
+import { generatePuzzle, treasureConfig, type GeneratedPuzzle, type PuzzleConfig } from '../generator';
+import { finalItem, RECIPES, recipeById, type Recipe } from '../recipes';
 import type { LevelDefinition, LevelGoal, SessionState } from '../session';
 import { hasItem } from '../status';
 import { availableTasks, isOpen, nextLocked, sealedRegion, type Region, type Task, type TaskUnlock } from '../regions';
@@ -16,7 +17,7 @@ import { Scores } from './Scores';
 import { SceneArt } from './SceneArt';
 import gameLandscapeArt from '../assets/art/woodland-cheering-landscape-v1.webp';
 import gamePortraitArt from '../assets/art/woodland-cheering-portrait-v1.webp';
-import { ItemArt, itemLabel, PrizeArt } from './ItemArt';
+import { ChestArt, ItemArt, itemLabel, PrizeArt } from './ItemArt';
 import { UpdateControl } from './UpdateControl';
 import {
   branchPlates, isConcealed, isLargeBoard, itemCount, objectiveText, plateItems, prizeText, progressText, statusMessage, taskNeed, unlockNeed,
@@ -27,16 +28,21 @@ import { useEffects } from './useEffects';
 import { actionEffect, palaceOpeningPending } from './audioEvents';
 import type { EffectCue } from '../effects';
 import {
-  canPlaceSupply, canUndo, canUnlock, initUi, nextSupplyItem, openedRegion, reduceUi, supplyRemaining,
-  type LastAction,
+  canCraft, canPlaceSupply, canUndo, canUnlock, initUi, nextSupplyItem, openedRegion, reduceUi, supplyRemaining,
+  type LastAction, type UiState,
 } from './controller';
 
 function plural(n: number): string {
   return n === 1 ? '1 item' : `${n} items`;
 }
 
-/** The live announcement of the last action. `tasks` (levels with tasks): what its checkpoint did is said instead. */
-export function describeAction(a: LastAction | null, noun: string, goal: LevelGoal, regions?: readonly Region[], tasks?: readonly Task[]): string {
+/**
+ * The live announcement of the last action. `tasks` (levels with tasks): what its checkpoint did is said instead.
+ * `recipe` (Merge to treasure): names the chest and its contents.
+ */
+export function describeAction(
+  a: LastAction | null, noun: string, goal: LevelGoal, regions?: readonly Region[], tasks?: readonly Task[], recipe?: Recipe,
+): string {
   if (!a) return '';
   // Room levels: a drop that opened a gate says so; one that revealed a concealed part of a room says that instead.
   const opened = a.kind !== 'unlock' && openedRegion(a);
@@ -53,6 +59,8 @@ export function describeAction(a: LastAction | null, noun: string, goal: LevelGo
     case 'place': return `Placed ${itemLabel(a.item)} in row ${a.at.row + 1}, column ${a.at.col + 1}.`;
     case 'unlock': return `Unlocked ${regions?.[a.region]?.name ?? 'an area'}.`;
     case 'collect': return prizeText(goal).done;
+    case 'craft': return `Crafted the ${recipe?.name ?? 'chest'}. Tap it to open it.`;
+    case 'open': return recipe ? `Opened the ${recipe.name}: three ${itemLabel(recipe.contents.item)}.` : 'Opened the chest.';
     case 'undo': return 'Undid the last action.';
     case 'retry': return `${noun} restarted.`;
     case 'merge':
@@ -80,6 +88,7 @@ function randomSeed(avoid?: number): number {
 }
 
 export function puzzleLabel(config: PuzzleConfig): string {
+  if (config.mode === 'treasure') return `Merge to treasure · ${recipeById(config.recipe ?? '')?.name ?? 'Recipe'}`;
   const tier = `Tier ${config.tier + 1} of ${MAX_TIER + 1}`;
   if (config.mode === 'one') return `Merge down to one · ${tier}`;
   return `Merge to goals · ${tier} · ${config.goals} ${config.goals === 1 ? 'goal' : 'goals'}`;
@@ -143,7 +152,8 @@ export function App({ levels = LEVELS }: { levels?: readonly Level[] }) {
       )}
       {screen.kind === 'play' && (
         <PlaySetup config={config} onConfig={setConfig} error={screen.error} musicControl={musicControl} onHome={toHome}
-          onStart={() => startPuzzle({ ...config, goals: config.mode === 'one' ? 1 : config.goals })} />
+          onStart={() => startPuzzle(config.mode === 'treasure' ? treasureConfig(RECIPES[0].id)
+            : { ...config, goals: config.mode === 'one' ? 1 : config.goals })} />
       )}
       {screen.kind === 'notes' && <ReleaseNotes musicControl={musicControl} onHome={toHome} />}
       {screen.kind === 'scores' && <Scores musicControl={musicControl} onHome={toHome} />}
@@ -242,6 +252,53 @@ interface GameProps {
   onNewPuzzle?: () => void;
 }
 
+/**
+ * Merge to treasure: the recipe on a sign by the board (each ingredient with its count, ticked once on the board, then
+ * the chest and what it holds), the goal, and Craft chest, enabled once every ingredient is here.
+ */
+export function RecipeSign({ recipe, state, onCraft }: { recipe: Recipe; state: UiState; onCraft: () => void }) {
+  const { session } = state;
+  const items = session.board.flat();
+  const crafted = !!session.chest || session.opened;
+  const contents = recipe.contents;
+  return (
+    <section className="panel goal is-wide recipe" aria-label={`Recipe: ${recipe.name}`} data-recipe={recipe.id}>
+      <div className="recipe-row">
+        {recipe.ingredients.map(({ item, count }, i) => {
+          const have = crafted || items.filter((c) => c && c.family === item.family && c.tier === item.tier).length >= count;
+          return (
+            <span key={`${item.family}${item.tier}`} className="recipe-step">
+              {i > 0 && <span className="recipe-op" aria-hidden="true">+</span>}
+              <span className={`recipe-part${have ? ' is-done' : ''}`} role="img"
+                aria-label={`${count} × ${itemLabel(item)}${have ? ', ready' : ''}`}>
+                <span className="recipe-count" aria-hidden="true">{count}×</span>
+                <span className="art"><ItemArt item={item} /></span>
+                {have && <span className="target-check" aria-hidden="true">✓</span>}
+              </span>
+            </span>
+          );
+        })}
+        <span className="recipe-op" aria-hidden="true">→</span>
+        <span className={`recipe-part${crafted ? ' is-done' : ''}`} role="img" aria-label={`${recipe.name}${crafted ? ', crafted' : ''}`}>
+          <span className="art"><ChestArt /></span>
+        </span>
+        <span className="recipe-op" aria-hidden="true">→</span>
+        <span className={`recipe-part${session.opened ? ' is-done' : ''}`} role="img"
+          aria-label={`${contents.count} × ${itemLabel(contents.item)} inside`}>
+          <span className="recipe-count" aria-hidden="true">{contents.count}×</span>
+          <span className="art"><ItemArt item={contents.item} /></span>
+        </span>
+      </div>
+      <div className="recipe-foot">
+        <button type="button" className="btn btn-craft" data-action="craft" disabled={!canCraft(state)} onClick={onCraft}>
+          Craft chest
+        </button>
+        <p>Goal: make {itemLabel(finalItem(recipe))}</p>
+      </div>
+    </section>
+  );
+}
+
 export function Game({ definition, label, musicControl, onHome, winLabel, onWin, puzzleId, onNewPuzzle, onMusicAreaChange, playEffect, stopEffects }: GameProps) {
   const [state, dispatch] = useReducer(reduceUi, definition, initUi);
   const handled = useRef(0);
@@ -263,7 +320,7 @@ export function Game({ definition, label, musicControl, onHome, winLabel, onWin,
     playEffect?.('completion');
   };
   const puzzle = puzzleId !== undefined;
-  const { goal, regions, tasks } = state.session.level;
+  const { goal, regions, tasks, recipe } = state.session.level;
   const nextArea = regions ? nextLocked(state.session) : null;
   const nextUnlock = nextArea !== null ? regions![nextArea].unlock : undefined;
   const concealedPlates = nextArea !== null && isConcealed(regions![nextArea]) && nextUnlock && 'plates' in nextUnlock
@@ -307,11 +364,12 @@ export function Game({ definition, label, musicControl, onHome, winLabel, onWin,
           <h1>Elkchemy</h1>
           <div className="title-controls">
             {musicControl}
-            <HelpButton goal={goal} largeBoard={pannable} puzzle={puzzle} regions={regions} tasks={tasks}
+            <HelpButton goal={goal} largeBoard={pannable} puzzle={puzzle} regions={regions} tasks={tasks} recipe={recipe}
               unlocked={tasks ? (i: number) => isOpen(state.session, i) : state.session.unlocked} />
           </div>
         </div>
         <p className="level-label">{label}</p>
+        {recipe ? <RecipeSign recipe={recipe} state={state} onCraft={() => dispatch({ type: 'craft' })} /> : (
         <div className={`panel goal${puzzle ? ' is-wide' : ''}`}>
           {goal.kind === 'items' ? (
             <div className="targets">
@@ -338,6 +396,7 @@ export function Game({ definition, label, musicControl, onHome, winLabel, onWin,
             {goal.kind === 'leaveOne' && <><br />On board: {itemCount(state)}</>}
           </p>
         </div>
+        )}
         {regions && tasks && <TaskPanel session={state.session} />}
         {regions && !tasks && (
           <div className="panel next-area" data-next-area>
@@ -380,7 +439,7 @@ export function Game({ definition, label, musicControl, onHome, winLabel, onWin,
       </div>
 
       <div className="sr-only" aria-live="polite" role="status">
-        {describeAction(state.lastAction, puzzle ? 'Puzzle' : 'Level', goal, regions, tasks)} {over ? message : ''}
+        {describeAction(state.lastAction, puzzle ? 'Puzzle' : 'Level', goal, regions, tasks, recipe)} {over ? message : ''}
       </div>
 
       <section className="controls" aria-label="Controls">

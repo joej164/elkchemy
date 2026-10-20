@@ -1,7 +1,8 @@
 import type { Item, Pos, Tier } from '../board';
 import { inRegion, isFixed, isOpen, nextLocked, regionAt, roomOf, unlockReady } from '../regions';
 import {
-  applyDrop, canDrop, chooseSupplyCell, collect, isCellOpen, placeSupplyRandom, previewDrop, retry, startSession, treasureRevealed, undo, unlock,
+  applyDrop, canDrop, chooseSupplyCell, collect, craft, craftReady, isCellOpen, openChest, placeSupplyRandom, previewDrop, retry, startSession,
+  treasureRevealed, undo, unlock,
   type LevelDefinition, type SessionState,
 } from '../session';
 import { evaluateStatus, type GameStatus } from '../status';
@@ -19,7 +20,7 @@ export interface Progress { readonly tasks: readonly number[]; readonly regions:
  */
 export type LastAction =
   | { readonly kind: 'move' | 'swap'; readonly opened?: number; readonly progress?: Progress }
-  | { readonly kind: 'undo' | 'retry' | 'collect' }
+  | { readonly kind: 'undo' | 'retry' | 'collect' | 'craft' | 'open' }
   | { readonly kind: 'place'; readonly at: Pos; readonly item: Item }
   | { readonly kind: 'unlock'; readonly region: number }
   | {
@@ -53,6 +54,7 @@ export type UiAction =
   | { readonly type: 'drop'; readonly from: Pos; readonly to: Pos }
   | { readonly type: 'placeSupply' }
   | { readonly type: 'unlock'; readonly region?: number }
+  | { readonly type: 'craft' }
   | { readonly type: 'undo' }
   | { readonly type: 'retry' }
   | { readonly type: 'clearSelection' };
@@ -91,6 +93,11 @@ export function canPlaceSupply(state: UiState): boolean {
 /** Region levels: whether Unlock (or, with `region`, that region's gate) would open the next region now. */
 export function canUnlock(state: UiState, region?: number): boolean {
   return state.status === 'playing' && unlockReady(state.session) && (region === undefined || region === nextLocked(state.session));
+}
+
+/** Merge to treasure: whether Craft would make the chest now. */
+export function canCraft(state: UiState): boolean {
+  return state.status === 'playing' && craftReady(state.session);
 }
 
 /** Whether the item at `pos` can be picked up (tapped to select, or dragged): playing, not locked away and not fixed. */
@@ -187,6 +194,11 @@ export function reduceUi(state: UiState, action: UiAction): UiState {
         const found = collect(session);
         if (found !== session) return withSession({ ...state, musicArea: areaAt(state, pos) }, found, { kind: 'collect' });
       }
+      // Merge to treasure: tapping the closed chest opens it, whatever is selected.
+      if (session.chest && samePos(session.chest, pos)) {
+        const opened = openChest(session);
+        return opened === session ? state : withSession(state, opened, { kind: 'open' });
+      }
       // Completed plate items still choose their room's music, without moving them or creating a gameplay event.
       if (session.board[pos.row][pos.col] && isCellOpen(session, pos) && isFixed(session, pos)) {
         return { ...state, selected: null, musicArea: areaAt(state, pos) };
@@ -209,6 +221,11 @@ export function reduceUi(state: UiState, action: UiAction): UiState {
       if (isOver(state)) return state;
       const next = unlock(state.session, action.region);
       return next === state.session ? state : withSession(state, next, { kind: 'unlock', region: next.unlocked });
+    }
+    case 'craft': {
+      if (isOver(state)) return state;
+      const next = craft(state.session);
+      return next === state.session ? state : withSession(state, next, { kind: 'craft' });
     }
     case 'undo':
       return canUndo(state) ? withSession(state, undo(state.session), { kind: 'undo' }) : state;

@@ -1,5 +1,6 @@
 import { drop, MAX_TIER, previewMerge, type Board, type Cell, type Family, type Item, type Pos, type Tier } from './board';
-import { applyDrop, nextUint32, startSession, type LevelDefinition, type LevelGoal } from './session';
+import { finalItem, recipeById } from './recipes';
+import { applyDrop, craft, nextUint32, openChest, startSession, type LevelDefinition, type LevelGoal } from './session';
 import { evaluateStatus } from './status';
 
 // Seeded puzzle generation. A puzzle is fully determined by (generator version, config, seed);
@@ -15,6 +16,9 @@ import { evaluateStatus } from './status';
 // status rules before the puzzle is returned. Candidates that fail are discarded; after a bounded
 // number of attempts generation throws rather than returning an unverified puzzle.
 //
+// Merge to treasure (added within version 2; no earlier ID names it) builds the recipe's ingredients the same way,
+// then its winning line crafts the chest, opens it and merges the contents.
+//
 // Version 2 adds tier-5 targets, boards up to 10 × 10, and (Merge to goals) spare pieces. Version 1 IDs still
 // reproduce their original boards: version 1 keeps its tiers, its 8 × 8 limit and no spares, and draws the same
 // random numbers in the same order.
@@ -23,13 +27,17 @@ export const GENERATOR_VERSION = 2;
 /** Versions whose IDs this generator still reproduces. */
 export const GENERATOR_VERSIONS: readonly number[] = [1, 2];
 
-export type PuzzleMode = 'goals' | 'one';
+export type PuzzleMode = 'goals' | 'one' | 'treasure';
 
-/** `tier` uses Item.tier numbering (2 is shown as tier 3 of 5). `goals` is always 1 for 'one'. */
+/**
+ * `tier` uses Item.tier numbering (2 is shown as tier 3 of 5). `goals` is always 1 for 'one' and 'treasure'.
+ * 'treasure': `recipe` names it (see recipes.ts), and `tier` is its final item's.
+ */
 export interface PuzzleConfig {
   readonly mode: PuzzleMode;
   readonly tier: Tier;
   readonly goals: number;
+  readonly recipe?: string;
 }
 
 export const TARGET_TIERS: readonly Tier[] = [2, 3, 4];
@@ -37,14 +45,16 @@ const V1_TIERS: readonly Tier[] = [2, 3];
 export const GOAL_COUNTS: readonly number[] = [1, 2, 3];
 
 export interface Move { readonly from: Pos; readonly to: Pos }
+/** A step of a winning line: a drop, or (Merge to treasure) crafting the chest or opening it. */
+export type Step = Move | { readonly action: 'craft' | 'open' };
 
 export interface GeneratedPuzzle {
   readonly id: string;
   readonly config: PuzzleConfig;
   readonly seed: number;
   readonly definition: LevelDefinition;
-  /** A verified winning sequence for `definition`. Used for validation and tests; never shown to the player. */
-  readonly witness: readonly Move[];
+  /** A verified winning sequence for `definition` (drops only, except in Merge to treasure). Never shown to the player. */
+  readonly witness: readonly Step[];
 }
 
 /** A planned merge of `size` items of one family at `tier`. */
@@ -55,7 +65,7 @@ const FAMILIES: readonly Family[] = ['grove', 'song', 'crystal', 'elk'];
 // Starting pieces per target family, [min, max], by mode and target tier. A first bounded mix,
 // to be tuned through playtesting; Merge down to one gets a few more pieces since it has one family.
 // Tier 5 (version 2) starts from mostly middle-tier pieces, so its chains are longer without a much bigger board.
-const PIECES: Record<PuzzleMode, Partial<Record<Tier, readonly [number, number]>>> = {
+const PIECES: Record<'goals' | 'one', Partial<Record<Tier, readonly [number, number]>>> = {
   goals: { 2: [5, 8], 3: [8, 12], 4: [11, 16] },
   one: { 2: [6, 9], 3: [9, 14], 4: [14, 20] },
 };
@@ -66,29 +76,47 @@ const maxSide = (version: number) => (version === 1 ? 8 : MAX_BOARD_SIDE);
 const MAX_ATTEMPTS = 20;
 
 export function isSupportedConfig(config: PuzzleConfig, version = GENERATOR_VERSION): boolean {
-  const { mode, tier, goals } = config;
-  if (mode !== 'goals' && mode !== 'one') return false;
+  const { mode, tier, goals, recipe } = config;
+  if (mode === 'treasure') {
+    const r = recipe === undefined ? undefined : recipeById(recipe);
+    return version >= 2 && !!r && goals === 1 && tier === finalItem(r).tier;
+  }
+  if ((mode !== 'goals' && mode !== 'one') || recipe !== undefined) return false;
   if (!(version === 1 ? V1_TIERS : TARGET_TIERS).includes(tier)) return false;
   return mode === 'one' ? goals === 1 : GOAL_COUNTS.includes(goals);
 }
 
 const isSeed = (seed: number) => Number.isInteger(seed) && seed >= 0 && seed <= 0xffffffff;
 
-/** Compact reproduction ID, e.g. `v2-goals-t5-g2-1x9k3` or `v1-one-t3-5f2a0`. Tiers are shown 1-based. */
+/** The config for Merge to treasure with a recipe. */
+export function treasureConfig(recipe: string): PuzzleConfig {
+  const r = recipeById(recipe);
+  return { mode: 'treasure', tier: r ? finalItem(r).tier : 0, goals: 1, recipe };
+}
+
+/**
+ * Compact reproduction ID, e.g. `v2-goals-t5-g2-1x9k3`, `v1-one-t3-5f2a0` or `v2-treasure-woodland-3k1`. Tiers are
+ * shown 1-based.
+ */
 export function puzzleId(config: PuzzleConfig, seed: number, version = GENERATOR_VERSION): string {
+  if (config.mode === 'treasure') return `v${version}-treasure-${config.recipe}-${seed.toString(36)}`;
   const goals = config.mode === 'goals' ? `-g${config.goals}` : '';
   return `v${version}-${config.mode}-t${config.tier + 1}${goals}-${seed.toString(36)}`;
 }
 
 /** The config, seed and version in an ID made by a version this generator reproduces, or null. */
 export function parsePuzzleId(id: string): { config: PuzzleConfig; seed: number; version: number } | null {
-  const m = /^v(\d+)-(goals|one)-t(\d)(?:-g(\d))?-([0-9a-z]{1,7})$/.exec(id.trim().toLowerCase());
+  const m = /^v(\d+)-(?:(goals|one)-t(\d)(?:-g(\d))?|treasure-([a-z]+))-([0-9a-z]{1,7})$/.exec(id.trim().toLowerCase());
   const version = Number(m?.[1]);
   if (!m || !GENERATOR_VERSIONS.includes(version)) return null;
+  const seed = parseInt(m[6], 36);
+  if (m[5] !== undefined) {
+    const config = treasureConfig(m[5]);
+    return isSupportedConfig(config, version) && isSeed(seed) ? { config, seed, version } : null;
+  }
   const mode = m[2] as PuzzleMode;
   if ((mode === 'goals') !== (m[4] !== undefined)) return null;
   const config: PuzzleConfig = { mode, tier: (Number(m[3]) - 1) as Tier, goals: mode === 'goals' ? Number(m[4]) : 1 };
-  const seed = parseInt(m[5], 36);
   return isSupportedConfig(config, version) && isSeed(seed) ? { config, seed, version } : null;
 }
 
@@ -222,15 +250,16 @@ export function findWinningMoves(board: Board, plan: readonly PlannedMerge[]): M
   return moves;
 }
 
-/** Whether `moves` win `definition` through the session and status rules, and only at the last move. */
-function replayWins(definition: LevelDefinition, moves: readonly Move[]): boolean {
+/** Whether `steps` win `definition` through the session and status rules, and only at the last step. */
+function replayWins(definition: LevelDefinition, steps: readonly Step[]): boolean {
   let state = startSession(definition);
-  if (moves.length === 0 || evaluateStatus(state) !== 'playing') return false;
-  for (let i = 0; i < moves.length; i++) {
-    const next = applyDrop(state, moves[i].from, moves[i].to);
+  if (steps.length === 0 || evaluateStatus(state) !== 'playing') return false;
+  for (let i = 0; i < steps.length; i++) {
+    const step = steps[i];
+    const next = !('action' in step) ? applyDrop(state, step.from, step.to) : step.action === 'craft' ? craft(state) : openChest(state);
     if (next === state) return false;
     state = next;
-    if (evaluateStatus(state) !== (i === moves.length - 1 ? 'won' : 'playing')) return false;
+    if (evaluateStatus(state) !== (i === steps.length - 1 ? 'won' : 'playing')) return false;
   }
   return true;
 }
@@ -244,17 +273,58 @@ function spares(family: Family, plan: readonly PlannedMerge[], rand: (n: number)
   return Array.from({ length: rand(3) }, (): Item => ({ family, tier: plan[rand(plan.length)].tier }));
 }
 
-function candidate(config: PuzzleConfig, seed: number, version: number, rand: (n: number) => number): GeneratedPuzzle | null {
-  const families = shuffle([...FAMILIES], rand).slice(0, config.goals);
-  const parts = families.map((f) => decompose(f, config.tier, PIECES[config.mode][config.tier]!, rand));
-  if (parts.some((p) => p === null)) return null;
-  const extra = version >= 2 && config.mode === 'goals' ? families.flatMap((f, i) => spares(f, parts[i]!.plan, rand)) : [];
-  const items = [...parts.flatMap((p) => p!.items), ...extra];
+/** The pieces shuffled onto a square board sized from their count, or null if it would be too big. */
+function place(items: readonly Item[], version: number, rand: (n: number) => number): Cell[][] | null {
   const side = boardSide(items.length);
   if (side > maxSide(version)) return null;
   const cells = shuffle(Array.from({ length: side * side }, (_, i) => i), rand);
   const board: Cell[][] = Array.from({ length: side }, () => Array.from({ length: side }, (): Cell => null));
   items.forEach((item, i) => { board[Math.floor(cells[i] / side)][cells[i] % side] = item; });
+  return board;
+}
+
+// Merge to treasure: pieces per ingredient, as for a tier-3 goal in Merge to goals (no spares).
+const TREASURE_PIECES: readonly [number, number] = [5, 8];
+
+/**
+ * Merge to treasure: each ingredient decomposed into starting pieces; a winning line that merges them into exactly the
+ * ingredients, crafts the chest, opens it and merges its contents into the final item, replayed before it is returned.
+ */
+function treasureCandidate(config: PuzzleConfig, seed: number, version: number, rand: (n: number) => number): GeneratedPuzzle | null {
+  const recipe = recipeById(config.recipe!)!;
+  const parts = recipe.ingredients.flatMap(({ item, count }) =>
+    Array.from({ length: count }, () => decompose(item.family, item.tier, TREASURE_PIECES, rand)));
+  if (parts.some((p) => p === null)) return null;
+  const board = place(parts.flatMap((p) => p!.items), version, rand);
+  if (!board) return null;
+  const definition: LevelDefinition = {
+    seed, board, supply: [], goal: { kind: 'leaveOne', item: finalItem(recipe) }, earlyLoss: false, recipe,
+  };
+  const merges = findWinningMoves(board, parts.flatMap((p) => p!.plan));
+  if (!merges) return null;
+  let state = startSession(definition);
+  for (const m of merges) state = applyDrop(state, m.from, m.to);
+  // Exactly the ingredients are left, so crafting consumes only them.
+  const left = state.board.flat().filter((c): c is Item => c !== null).map((c) => `${c.family}${c.tier}`).sort();
+  const wanted = recipe.ingredients.flatMap(({ item, count }) => Array.from({ length: count }, () => `${item.family}${item.tier}`)).sort();
+  if (left.join() !== wanted.join()) return null;
+  state = openChest(craft(state));
+  const { item } = recipe.contents;
+  const last = findWinningMoves(state.board, [{ family: item.family, tier: item.tier, size: 3 }]);
+  if (!last) return null;
+  const witness: Step[] = [...merges, { action: 'craft' }, { action: 'open' }, ...last];
+  if (!replayWins(definition, witness)) return null;
+  return { id: puzzleId(config, seed, version), config, seed, definition, witness };
+}
+
+function candidate(config: PuzzleConfig, seed: number, version: number, rand: (n: number) => number): GeneratedPuzzle | null {
+  const families = shuffle([...FAMILIES], rand).slice(0, config.goals);
+  const parts = families.map((f) => decompose(f, config.tier, PIECES[config.mode as 'goals' | 'one'][config.tier]!, rand));
+  if (parts.some((p) => p === null)) return null;
+  const extra = version >= 2 && config.mode === 'goals' ? families.flatMap((f, i) => spares(f, parts[i]!.plan, rand)) : [];
+  const items = [...parts.flatMap((p) => p!.items), ...extra];
+  const board = place(items, version, rand);
+  if (!board) return null;
 
   const targets = families.map((family): Item => ({ family, tier: config.tier }));
   const goal: LevelGoal = config.mode === 'one'
@@ -275,7 +345,7 @@ export function generatePuzzle(config: PuzzleConfig, seed: number, version = GEN
   if (!isSeed(seed)) throw new Error('Puzzle seed must be a 32-bit unsigned integer');
   const rand = seededRandom(seed);
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
-    const puzzle = candidate(config, seed, version, rand);
+    const puzzle = config.mode === 'treasure' ? treasureCandidate(config, seed, version, rand) : candidate(config, seed, version, rand);
     if (puzzle) return puzzle;
   }
   throw new Error(`No verified puzzle found for ${puzzleId(config, seed, version)}`);

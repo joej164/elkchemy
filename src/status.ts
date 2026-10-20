@@ -1,6 +1,6 @@
 import { MAX_TIER, type Board, type Family, type Item } from './board';
 import { hasItemIn, isOpen, nextLocked, unlockReady, type Region } from './regions';
-import type { SessionState } from './session';
+import { craftReady, type SessionState } from './session';
 
 // Supported assumption: the board is rectangular and
 //   (non-null board cells) + (unspent supply items) <= rows * cols.
@@ -207,6 +207,8 @@ export function evaluateStatus(state: SessionState): GameStatus {
   // Generated puzzles: no early loss from counting, even after a fatal choice; 'lost' only once no merges are left.
   if (state.level.earlyLoss === false) {
     if (isGoalMet(state)) return 'won';
+    // Merge to treasure: a craftable recipe or a closed chest is still a way on.
+    if (state.chest || craftReady(state)) return 'playing';
     return canArrangeMerge(state) ? 'playing' : 'lost';
   }
   if (goal.kind === 'item') return evaluateItemGoal(state, goal.item);
