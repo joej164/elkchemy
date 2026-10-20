@@ -8,6 +8,8 @@ Earlier published builds are not backfilled here. The previous build, `20261018-
 
 Implemented by Claude from the owner's latest decisions; independent Codex review and fix verification completed. Owner authorized commit → push → deploy. These rules supersede the Craft button and "consume every ingredient-family piece" rules of `20261020-010722`. Physical iPad/Safari and owner playtesting are not yet available.
 
+Live deployment verification: Firebase Hosting reported release complete. Chromium confirmed build `20261020-025257`, expected JavaScript `index-DI6btCVO.js`, the new history entry, Tier 3 → treasure selecting Tier 4, and no Craft button. Completed `v3-treasure-songbird-t5-9ix` by pointer clicks through ingredient crafting, chest opening and the tier-5 win. No console errors or warnings. Release commit `9e53434`.
+
 ### Decisions (owner) and design
 
 - **One recipe per board**, on the sign by the board. Other combinations never craft there.
