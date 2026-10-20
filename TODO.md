@@ -23,6 +23,8 @@ These resolve older conflicting entries below.
 
 ## Current baseline
 
+- Published build `20261020-010722`: third generated mode, Merge to treasure, with the Woodland chest recipe. Owner authorized commit → push → deploy; live version, history and full craft/open/final-merge win verified. Physical iPad/Safari and clarity/fun playtesting remain.
+
 - Published build `20261020-004342`: five-tier scale, tier-5 generated goals in both modes, boards up to 10×10 and spare pieces in Merge to goals. Owner authorized commit → push → deploy; live build, history and both tier-5 startups verified. Physical iPad/Safari and difficulty playtesting remain.
 
 - Release build `20261019-210331`: approved level-9 woodland/palace music and independent default-off effects across levels and generated puzzles. Owner authorized commit → push → deploy; live version, history, real-pointer merge cue and music playback verified. Physical iPad/Safari and listening checks remain.

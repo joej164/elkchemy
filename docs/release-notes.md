@@ -6,7 +6,9 @@ Earlier published builds are not backfilled here. The previous build, `20261018-
 
 ## 20261020-010722 — Merge to treasure: a first recipe and chest (October 19, 2026)
 
-Release build `20261020-010722`, implemented by Claude; independent Codex review completed. Owner authorized commit → push → deploy. Physical iPad/Safari and owner playtesting are not yet available.
+Published release build `20261020-010722`, implemented by Claude; independent Codex review completed. Owner authorized commit → push → deploy. Physical iPad/Safari and owner playtesting are not yet available.
+
+Live deployment verification: Firebase Hosting reported release complete. Chromium confirmed build `20261020-010722`, expected JavaScript `index-DKstMove.js`, player-facing history and treasure-mode startup. Completed `v2-treasure-woodland-9ix` through pointer clicks, crafting, chest opening and final merge to a win. No console errors or warnings. Release commit `bf7f7e4`.
 
 ### Design (first slice)
 
