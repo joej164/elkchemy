@@ -4,16 +4,17 @@ import { ItemArt, itemLabel, PrizeArt } from '../src/ui/ItemArt';
 import type { Family, Item, Tier } from '../src/board';
 
 const families: Family[] = ['grove', 'song', 'crystal', 'elk'];
-const tiers: Tier[] = [0, 1, 2, 3];
+const tiers: Tier[] = [0, 1, 2, 3, 4];
 const all: Item[] = families.flatMap((family) => tiers.map((tier) => ({ family, tier })));
 const html = (item: Item, className?: string) => renderToStaticMarkup(<ItemArt item={item} className={className} />);
 
 describe('itemLabel', () => {
   it('uses 1-based tiers and display names', () => {
-    expect(itemLabel({ family: 'grove', tier: 0 })).toBe('Grove, tier 1 of 4');
-    expect(itemLabel({ family: 'song', tier: 1 })).toBe('Song, tier 2 of 4');
-    expect(itemLabel({ family: 'crystal', tier: 2 })).toBe('Crystal, tier 3 of 4');
-    expect(itemLabel({ family: 'elk', tier: 3 })).toBe('Elk, tier 4 of 4');
+    expect(itemLabel({ family: 'grove', tier: 0 })).toBe('Grove, tier 1 of 5');
+    expect(itemLabel({ family: 'song', tier: 1 })).toBe('Song, tier 2 of 5');
+    expect(itemLabel({ family: 'crystal', tier: 2 })).toBe('Crystal, tier 3 of 5');
+    expect(itemLabel({ family: 'elk', tier: 3 })).toBe('Elk, tier 4 of 5');
+    expect(itemLabel({ family: 'grove', tier: 4 })).toBe('Grove, tier 5 of 5');
   });
 });
 
@@ -31,8 +32,17 @@ describe('ItemArt', () => {
     expect(html(item).match(/data-pip/g)).toHaveLength(item.tier + 1);
   });
 
-  it('gives all 16 items distinct markup', () => {
-    expect(new Set(all.map((i) => html(i))).size).toBe(16);
+  it('gives all 20 items distinct markup', () => {
+    expect(new Set(all.map((i) => html(i))).size).toBe(20);
+  });
+
+  it('draws tier 5 as its family\'s tier-4 drawing on a gold radiance, which no lower tier has', () => {
+    for (const family of families) {
+      const top = html({ family, tier: 4 });
+      expect(top).toContain('data-radiance');
+      expect(top).toContain(html({ family, tier: 3 }).replace(/^<svg[^>]*>/, '').split('<circle data-pip')[0]);
+      for (const tier of [0, 1, 2, 3] as Tier[]) expect(html({ family, tier })).not.toContain('data-radiance');
+    }
   });
 
   it('differs between families at the same tier', () => {

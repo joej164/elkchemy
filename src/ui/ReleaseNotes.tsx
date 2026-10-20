@@ -6,6 +6,15 @@ export interface ReleaseNote { readonly title: string; readonly date: string; re
 
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    title: 'Bigger puzzles, five-dot goals',
+    date: 'October 19, 2026',
+    notes: [
+      'Both generated puzzle modes now offer five-dot goals, with longer merge chains and bigger boards.',
+      'Merge to goals can include a few spare pieces, giving you more choices. Merge down to one still asks you to use everything.',
+      'All items now use a five-dot scale. The nine woodland levels keep their existing goals.',
+    ],
+  },
+  {
     title: 'Music and woodland sounds',
     date: 'October 19, 2026',
     notes: [

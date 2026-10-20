@@ -16,8 +16,8 @@ const withStatus = (level: LevelDefinition, status: UiState['status']): UiState 
 
 describe('objective text', () => {
   it('describes item and leaveOne goals', () => {
-    expect(objectiveText(GROVE.goal)).toBe('Goal: make Grove, tier 3 of 4');
-    expect(helpObjective(GROVE.goal)).toBe('Goal: make Grove, tier 3 of 4.');
+    expect(objectiveText(GROVE.goal)).toBe('Goal: make Grove, tier 3 of 5');
+    expect(helpObjective(GROVE.goal)).toBe('Goal: make Grove, tier 3 of 5.');
     expect(objectiveText(LEAVE.goal)).toBe('Goal: use all supply and leave exactly one item');
     expect(helpObjective(LEAVE.goal)).toBe('Goal: use all supply and finish with exactly one item on the board.');
   });
@@ -35,19 +35,19 @@ describe('objective text', () => {
 describe('status messages', () => {
   it('playing', () => {
     expect(statusMessage(initUi(CRYSTAL))).toBe(
-      'Merge items to make Crystal, tier 4 of 4. Add supply when you need more.');
+      'Merge items to make Crystal, tier 4 of 5. Add supply when you need more.');
     expect(playingMessage(LEAVE.goal)).toBe('Merge everything down to one item. All supply must be placed.');
     expect(statusMessage(initUi(LEAVE))).toBe(playingMessage(LEAVE.goal));
   });
 
   it('won', () => {
-    expect(statusMessage(withStatus(GROVE, 'won'))).toBe('Goal complete! You made Grove, tier 3 of 4.');
+    expect(statusMessage(withStatus(GROVE, 'won'))).toBe('Goal complete! You made Grove, tier 3 of 5.');
     const last: Item = { family: 'elk', tier: 3 };
     const state = withStatus(LEAVE, 'won');
     const board = state.session.board.map((r) => r.map(() => null));
     board[1][1] = last as never;
     expect(statusMessage({ ...state, session: { ...state.session, board } })).toBe(
-      'Goal complete! Only Elk, tier 4 of 4 remains.');
+      'Goal complete! Only Elk, tier 4 of 5 remains.');
   });
 
   it('lost', () => {
@@ -86,14 +86,14 @@ describe('generated puzzle messages', () => {
   };
 
   it('merge down to one names its target', () => {
-    expect(objectiveText(one.goal)).toBe('Goal: merge down to one Crystal, tier 4 of 4');
-    expect(helpObjective(one.goal)).toBe('Goal: merge everything down to exactly one item: Crystal, tier 4 of 4.');
-    expect(playingMessage(one.goal, false)).toBe('Merge everything down to one Crystal, tier 4 of 4.');
-    expect(statusMessage(withStatus({ ...one, board: [[target, null]] }, 'won'))).toBe('Goal complete! Only Crystal, tier 4 of 4 remains.');
+    expect(objectiveText(one.goal)).toBe('Goal: merge down to one Crystal, tier 4 of 5');
+    expect(helpObjective(one.goal)).toBe('Goal: merge everything down to exactly one item: Crystal, tier 4 of 5.');
+    expect(playingMessage(one.goal, false)).toBe('Merge everything down to one Crystal, tier 4 of 5.');
+    expect(statusMessage(withStatus({ ...one, board: [[target, null]] }, 'won'))).toBe('Goal complete! Only Crystal, tier 4 of 5 remains.');
   });
 
   it('never mention supply when there is none', () => {
-    expect(statusMessage(initUi({ ...one, goal: { kind: 'item', item: target } }))).toBe('Merge items to make Crystal, tier 4 of 4.');
+    expect(statusMessage(initUi({ ...one, goal: { kind: 'item', item: target } }))).toBe('Merge items to make Crystal, tier 4 of 5.');
     expect(statusMessage(initUi(two))).toBe('Merge items to make both.');
   });
 
@@ -132,31 +132,31 @@ describe('region level text (The Hidden Hollow)', () => {
   ];
 
   it('names the goal region in the objective and help', () => {
-    expect(objectiveText(HOLLOW.goal, regions)).toBe('Goal: make Crystal, tier 4 of 4 in Crystal Hollow');
-    expect(helpObjective(HOLLOW.goal, regions)).toBe('Goal: make Crystal, tier 4 of 4 in Crystal Hollow.');
-    expect(unlockNeed(regions, 1)).toBe('Grove, tier 3 of 4 in Mossy Clearing');
-    expect(unlockNeed(regions, 2)).toBe('Song, tier 3 of 4 in Songbird Glade');
+    expect(objectiveText(HOLLOW.goal, regions)).toBe('Goal: make Crystal, tier 4 of 5 in Crystal Hollow');
+    expect(helpObjective(HOLLOW.goal, regions)).toBe('Goal: make Crystal, tier 4 of 5 in Crystal Hollow.');
+    expect(unlockNeed(regions, 1)).toBe('Grove, tier 3 of 5 in Mossy Clearing');
+    expect(unlockNeed(regions, 2)).toBe('Song, tier 3 of 5 in Songbird Glade');
   });
 
   it('the banner gives the next step, then the goal, with a short pan hint when the board overflows', () => {
-    expect(statusMessage(initUi(HOLLOW), false)).toBe('Make Grove, tier 3 of 4 in Mossy Clearing to unlock Songbird Glade.');
+    expect(statusMessage(initUi(HOLLOW), false)).toBe('Make Grove, tier 3 of 5 in Mossy Clearing to unlock Songbird Glade.');
     expect(statusMessage(initUi(HOLLOW), true))
-      .toBe('Make Grove, tier 3 of 4 in Mossy Clearing to unlock Songbird Glade. Drag empty ground to pan.');
+      .toBe('Make Grove, tier 3 of 5 in Mossy Clearing to unlock Songbird Glade. Drag empty ground to pan.');
     expect(statusMessage(after(...makeKey), false)).toBe('Songbird Glade is ready. Tap its gate or press Unlock Songbird Glade.');
     expect(statusMessage(after(...makeKey, { type: 'unlock' }), false))
-      .toBe('Make Song, tier 3 of 4 in Songbird Glade to unlock Crystal Hollow.');
+      .toBe('Make Song, tier 3 of 5 in Songbird Glade to unlock Crystal Hollow.');
     const allOpen = { ...initUi(HOLLOW), session: { ...initUi(HOLLOW).session, unlocked: 2 } };
-    expect(statusMessage(allOpen, false)).toBe('Merge items to make Crystal, tier 4 of 4 in Crystal Hollow.');
+    expect(statusMessage(allOpen, false)).toBe('Merge items to make Crystal, tier 4 of 5 in Crystal Hollow.');
   });
 
   it('win and stuck messages', () => {
-    expect(statusMessage(withStatus(HOLLOW, 'won'))).toBe('Goal complete! You made Crystal, tier 4 of 4 in Crystal Hollow.');
+    expect(statusMessage(withStatus(HOLLOW, 'won'))).toBe('Goal complete! You made Crystal, tier 4 of 5 in Crystal Hollow.');
     expect(statusMessage(withStatus(HOLLOW, 'lost'))).toBe(REGION_STUCK_MESSAGE);
     expect(REGION_STUCK_MESSAGE).not.toMatch(/New Puzzle/);
   });
 
   it('levels without regions keep their text', () => {
-    expect(objectiveText(GROVE.goal, undefined)).toBe('Goal: make Grove, tier 3 of 4');
+    expect(objectiveText(GROVE.goal, undefined)).toBe('Goal: make Grove, tier 3 of 5');
     expect(statusMessage(initUi(FARAWAY), true)).toBe(LARGE_BOARD_HINT);
     expect(LARGE_BOARD_HINT).toBe('Drag empty ground to pan. For far moves, tap an item, pan, then tap where it goes.');
   });

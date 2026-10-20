@@ -4,42 +4,44 @@ Elkchemy is a woodland merge puzzle. The app opens on a home screen, a painted w
 
 ## Generated puzzles
 
+The tier-5/version-2 expansion is included in release build `20261020-004342`; version-1 puzzle reproduction is retained.
+
 Play offers two modes, each with a small set of choices:
 
-- **Merge to goals:** make the shown goal items (1, 2 or 3 goals, each a different family) at tier 3 or 4 of 4. Leftover pieces do not matter once the goals are on the board.
-- **Merge down to one:** one family; finish with exactly one item, at exactly the target tier (3 or 4 of 4).
+- **Merge to goals:** make the shown goal items (1, 2 or 3 goals, each a different family) at tier 3, 4 or 5 of 5. Leftover pieces do not matter once the goals are on the board.
+- **Merge down to one:** one family; finish with exactly one item, at exactly the target tier (3, 4 or 5 of 5).
 
-Everything needed starts on the board; there is no supply. Boards are 4x4 to 8x8, sized from the number of pieces, with working space. Every piece belongs to a goal family. Generation (`src/generator.ts`) builds each goal backwards from 3→1 and 5→2 merges, shuffles the pieces with a seeded generator, then plays a winning sequence on the actual board with the real rules and replays it through the game's status checks before offering the puzzle. If no candidate verifies within a fixed limit, the menu shows an error instead of an unverified puzzle. The winning sequence is never shown.
+Everything needed starts on the board; there is no supply. Boards are 4x4 to 10x10, sized from the number of pieces, with working space. Every piece belongs to a goal family. Version-2 Merge to goals adds up to two spare pieces per goal; Merge down to one keeps exact inventories. Generation (`src/generator.ts`) builds each goal backwards from 3→1 and 5→2 merges, shuffles the pieces with a seeded generator, then plays a winning sequence on the actual board with the real rules and replays it through the game's status checks before offering the puzzle. If no candidate verifies within a fixed limit, the menu shows an error instead of an unverified puzzle. The winning sequence is never shown.
 
 Retry restarts the same puzzle; New puzzle makes a different one with the same settings; Undo takes back the last action. New puzzle and Home ask before discarding an attempt. Generated puzzles never announce a loss after a fatal choice; only when the goal is unmet and no family has three items at a mergeable tier left (scattered matches still count) do they show "No merges left—Undo, Retry, or New Puzzle." and lock the board. Dropping an item onto a matching one that cannot merge does nothing and does not use up Undo. Nothing is saved; reloading returns to the home screen.
 
-Each puzzle shows a reproduction ID such as `v1-goals-t4-g2-1nqrzv7`: generator version, mode, target tier as shown, goal count, and a base-36 seed. It sits under the controls in a read-only field with a Copy button; "Copied" appears only after the clipboard write succeeds. If copying fails, the whole ID is left selected (and tapping the field selects it) so it can be copied by hand. To rebuild a reported puzzle in code or a test: `const { config, seed } = parsePuzzleId(id)!; generatePuzzle(config, seed);` (from `src/generator.ts`). Changing what an ID produces requires bumping `GENERATOR_VERSION`; IDs from other versions are rejected.
+Each puzzle shows a reproduction ID such as `v2-goals-t5-g2-1nqrzv7`: generator version, mode, target tier as shown, goal count, and a base-36 seed. It sits under the controls in a read-only field with a Copy button; "Copied" appears only after the clipboard write succeeds. If copying fails, the whole ID is left selected (and tapping the field selects it) so it can be copied by hand. To rebuild a reported puzzle in code or a test: `const { config, seed, version } = parsePuzzleId(id)!; generatePuzzle(config, seed, version);` (from `src/generator.ts`). Changing what an ID produces requires bumping `GENERATOR_VERSION`; Versions 1 and 2 are supported; pass the parsed version to reproduce an older board. Unsupported versions and v1 tier-5 settings are rejected.
 
 ## Handcrafted levels
 
 Nine levels (`src/levels.ts`). Levels on the home screen lists them all in a scrolling window, opening on the one the sequence has reached (marked "Up next"); tap any to play it.
 
-1. Sprouting Grove: make Grove, tier 3 of 4 (forgiving intro).
-2. Songbird Chorus: make Song, tier 3 of 4; plain 3-merges suffice.
+1. Sprouting Grove: make Grove, tier 3 of 5 (forgiving intro).
+2. Songbird Chorus: make Song, tier 3 of 5; plain 3-merges suffice.
 3. Lone Elk: place all supply and leave exactly one item (elk only; a 5-merge strands a leftover).
-4. Crystal Fives: make Crystal, tier 4 of 4 with exactly enough crystals; it needs two 5-merges, and any 3-merge of tier-1 or tier-2 crystals makes it unreachable.
-5. The Faraway Grove: a 12x16 scrolling board; have Grove, Song, Elk and Crystal, each tier 4 of 4, on the board at once. Each target shows its own completion; plain 3-merges suffice, with spare supply. Pan by dragging empty ground; for far moves, tap an item, pan, then tap its destination.
+4. Crystal Fives: make Crystal, tier 4 of 5 with exactly enough crystals; it needs two 5-merges, and any 3-merge of tier-1 or tier-2 crystals makes it unreachable.
+5. The Faraway Grove: a 12x16 scrolling board; have Grove, Song, Elk and Crystal, each tier 4 of 5, on the board at once. Each target shows its own completion; plain 3-merges suffice, with spare supply. Pan by dragging empty ground; for far moves, tap an item, pan, then tap its destination.
 6. The Hidden Hollow: a 7x7 map in three areas.
    - **Start:** you begin in Mossy Clearing; Songbird Glade and Crystal Hollow are locked, shaded, and signed with what opens them.
    - **Unlocking:** each locked area has a wooden gate showing what opens it.
-     - Make Grove tier 3 of 4 in the Clearing, and the Glade's gate glows. Tap it, or press Enter or Space on it, or use the Unlock Songbird Glade button.
-     - Then make Song tier 3 of 4 in the Glade and open Crystal Hollow the same way.
+     - Make Grove tier 3 of 5 in the Clearing, and the Glade's gate glows. Tap it, or press Enter or Space on it, or use the Unlock Songbird Glade button.
+     - Then make Song tier 3 of 5 in the Glade and open Crystal Hollow the same way.
      - Unlocking uses up nothing and never happens on its own. A gate for an area that isn't next does nothing, and dragging across a gate pans the board.
-   - **Goal:** Crystal tier 4 of 4 in the Hollow, which needs one 5→2 merge.
+   - **Goal:** Crystal tier 4 of 5 in the Hollow, which needs one 5→2 merge.
    - **Areas:** items never leave their own area, and only an area's own items count toward its unlock or goal.
    - **Failure:** only when no unlock is ready and no merge toward the current target is left: "No useful merges left—Undo or Retry."
 7. The Rune Gates (experimental): three small rooms in forest terrain, joined by passages closed by rune gates.
-   - **Pressure Hall:** put exactly Grove tier 2 of 4 and Song tier 2 of 4 on the two pressure plates at once; the elk may stay.
-   - **Stone Chamber:** merge its crystals down to one Crystal tier 3 of 4, alone on the stone.
+   - **Pressure Hall:** put exactly Grove tier 2 of 5 and Song tier 2 of 5 on the two pressure plates at once; the elk may stay.
+   - **Stone Chamber:** merge its crystals down to one Crystal tier 3 of 5, alone on the stone.
    - **Gates:** each opens by itself on the move that meets its tiles, a plain move included, and consumes nothing. Opening is a checkpoint: the items on those tiles stay fixed (a small padlock) and Undo can't go back past it.
    - **Goal:** the Treasure Nook hides a disc-golf backpack until its gate opens. It appears closed; tap it (or press Enter or Space on it) to open it and win.
    - **Failure:** none; the level can't be stranded. Items never leave their room.
-8. The Hidden Cache: a forest clearing with a concealed part, revealed when Grove tier 2 of 4 is on its marked tile; its crystals then join the clearing's. Crystal tier 3 of 4 on the second marked tile opens a separate room with a clarinet case to open.
+8. The Hidden Cache: a forest clearing with a concealed part, revealed when Grove tier 2 of 5 is on its marked tile; its crystals then join the clearing's. Crystal tier 3 of 5 on the second marked tile opens a separate room with a clarinet case to open.
 9. The Crystal Palace: a 16 × 16 map that pans.
    - **Start:** Starting Glade's marked tile opens Songbird Glade, whose marked tile opens Fern Glade, Crystal Glade and Woodland Lodge together.
    - **Branches:** complete each with the items shown on its marked tiles, in any order (the checklist shows what each needs). Each lights its symbol on the Crystal Palace's gate, and the third opens it, revealing its sealed interior. Fern Glade hides a concealed part, as in level 8.
@@ -57,7 +59,7 @@ Winning offers Next level (after the last level: play again from level 1). Progr
 - Level status is exact within the supported resource bounds (`src/status.ts`): single-item and distinct-family multi-item goals use resource counts; Leave one uses an exact per-tier merge check and needs two free cells beyond all items and supply. Handcrafted levels 1–5 report a loss as soon as the goal becomes unreachable; generated puzzles report one only when no merges are left.
 - Region levels (`src/regions.ts`): rectangular areas that split the board exactly and unlock in order, each when its item (that tier or higher) is in a named earlier area. The session enforces them: no drops into or out of locked areas or across area borders, merge groups stop at borders, and Unlock (the button, or the next area's gate) is an ordinary undoable move; a gate's unlock names its area, and the session refuses it unless that area is next. They have no supply, and the goal is one item in the last area. Their status counts each area's own items and reports a loss only when nothing useful can change. Room levels (a treasure goal) instead leave empty terrain between rectangular rooms; each later room opens by itself when marked tiles in an earlier room hold exact items (pressure plates, or a stone that must hold its room's only item), as a checkpoint that fixes those items and clears Undo; they never report a loss. Other region configurations are rejected with an "Unsupported region level" error.
 - Tap "?" next to the title for a short how-to-play dialog.
-- Boards larger than the screen scroll inside a framed viewport with finger-sized (64px) tiles. Drag an item to move it; drag empty ground to pan; a tap never pans or drops. Center board recenters; arrow keys scroll the focused cell into view. Levels 1–4 are 4x4 and fit without scrolling; level 5 scrolls. Generated boards up to 8x8 fit iPad screens in Chromium checks (except slight scrolling at 1024x768 landscape). Whenever a board overflows its frame, the status banner and Help show how to pan.
+- Boards larger than the screen scroll inside a framed viewport with finger-sized (64px) tiles. Drag an item to move it; drag empty ground to pan; a tap never pans or drops. Center board recenters; arrow keys scroll the focused cell into view. Levels 1–4 are 4x4 and fit without scrolling; level 5 scrolls. Generated boards can reach 10x10. A tested 9x9 board fits at 820x1180 and 1180x820 in Chromium; larger boards and smaller viewports may need panning. Whenever a board overflows its frame, the status banner and Help show how to pan.
 
 ## Large-board navigation test
 

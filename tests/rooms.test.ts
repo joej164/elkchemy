@@ -63,8 +63,8 @@ describe('The Rune Gates: layout', () => {
       const u = regions[i].unlock!;
       expect('passage' in u && !!u.passage && regionAt(regions, u.passage)).toBe(-1);
     }
-    expect(unlockNeed(regions, CHAMBER)).toBe('Grove, tier 2 of 4 and Song, tier 2 of 4 on the pressure plates in Pressure Hall');
-    expect(unlockNeed(regions, NOOK)).toBe('Crystal, tier 3 of 4 alone on the stone in Stone Chamber');
+    expect(unlockNeed(regions, CHAMBER)).toBe('Grove, tier 2 of 5 and Song, tier 2 of 5 on the pressure plates in Pressure Hall');
+    expect(unlockNeed(regions, NOOK)).toBe('Crystal, tier 3 of 5 alone on the stone in Stone Chamber');
   });
 
   it('rejects unsupported room configurations', () => {
@@ -222,9 +222,9 @@ describe('The Rune Gates: input', () => {
   it('tells the player what each room needs', () => {
     let s = initUi(RUNE_LEVEL);
     expect(statusMessage(s, false))
-      .toBe('Put Grove, tier 2 of 4 and Song, tier 2 of 4 on the pressure plates in Pressure Hall to open the rune gate to Stone Chamber.');
+      .toBe('Put Grove, tier 2 of 5 and Song, tier 2 of 5 on the pressure plates in Pressure Hall to open the rune gate to Stone Chamber.');
     s = run(s, ...HALL_MOVES.map(drop));
     expect(statusMessage(s, true))
-      .toBe('Merge down to Crystal, tier 3 of 4 alone on the stone in Stone Chamber to open the rune gate to Treasure Nook. Drag empty ground to pan.');
+      .toBe('Merge down to Crystal, tier 3 of 5 alone on the stone in Stone Chamber to open the rune gate to Treasure Nook. Drag empty ground to pan.');
   });
 });

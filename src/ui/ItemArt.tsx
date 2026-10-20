@@ -1,11 +1,11 @@
 import type { ReactNode } from 'react';
-import type { Item, Family } from '../board';
+import { MAX_TIER, type Item, type Family } from '../board';
 import type { Prize } from '../session';
 
 export const FAMILY_NAMES: Record<Family, string> = { grove: 'Grove', song: 'Song', crystal: 'Crystal', elk: 'Elk' };
 
 export function itemLabel(item: Item): string {
-  return `${FAMILY_NAMES[item.family]}, tier ${item.tier + 1} of 4`;
+  return `${FAMILY_NAMES[item.family]}, tier ${item.tier + 1} of ${MAX_TIER + 1}`;
 }
 
 const DARK = '#233a2b';
@@ -278,10 +278,24 @@ export function PrizeArt({ prize = 'backpack', open }: { prize?: Prize; open: bo
   return prize === 'clarinet' ? <ClarinetCaseArt open={open} /> : <BackpackArt open={open} />;
 }
 
+// The top tier (five pips): the family's four-pip drawing on a gold radiance.
+const RAYS = Array.from({ length: 12 }, (_, i) => i * 30);
+function radiance(): ReactNode {
+  return (
+    <g data-radiance="">
+      {RAYS.map((a) => (
+        <path key={a} d="M50 2 L55 14 L45 14 Z" fill="#f2c14e" stroke="#c9952b" strokeWidth="1" transform={`rotate(${a} 50 44)`} />
+      ))}
+      <circle cx="50" cy="44" r="34" fill="#f2c14e" opacity="0.45" stroke="#e8b84a" strokeWidth="3" />
+    </g>
+  );
+}
+
 export function ItemArt({ item, className }: { item: Item; className?: string }) {
   return (
     <svg viewBox="0 0 100 100" width="100%" height="100%" aria-hidden="true" focusable="false" className={className}>
-      {ART[item.family](item.tier)}
+      {item.tier === MAX_TIER && radiance()}
+      {ART[item.family](Math.min(item.tier, 3))}
       {Array.from({ length: item.tier + 1 }, (_, i) => (
         <circle key={i} data-pip="" cx={50 + (i - item.tier / 2) * 13} cy="90" r="4.5" fill="#e8b84a" stroke={DARK} strokeWidth="2" />
       ))}

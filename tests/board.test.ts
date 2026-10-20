@@ -6,7 +6,7 @@ const F: Record<string, Family> = { g: 'grove', s: 'song', c: 'crystal', e: 'elk
 function make(rows: string[]): Board {
   return rows.map((r) =>
     r.trim().split(/\s+/).map((c): Cell =>
-      c === '.' ? null : { family: F[c[0]], tier: Number(c[1]) as 0 | 1 | 2 | 3 },
+      c === '.' ? null : { family: F[c[0]], tier: Number(c[1]) as 0 | 1 | 2 | 3 | 4 },
     ),
   );
 }
@@ -152,8 +152,10 @@ describe('swap', () => {
     expect(r.kind).toBe('swap');
     expect(r.consumed).toEqual([]);
   });
-  it('tier 3 matches do not merge', () => {
-    const b = make(['c3 c3 c3', 'c3 c3 c3']);
+  it('tier 4 matches merge into tier 5, the top tier, whose matches do not merge', () => {
+    const four = drop(make(['c3 c3 .', 'c3 . .']), p(1, 0), p(0, 1));
+    expect([four.kind, four.board[0][1]]).toEqual(['merge', { family: 'crystal', tier: 4 }]);
+    const b = make(['c4 c4 c4', 'c4 c4 c4']);
     expect(previewMerge(b, p(0, 0), p(1, 1))).toEqual([]);
     expect(drop(b, p(0, 0), p(1, 1)).kind).toBe('swap');
   });

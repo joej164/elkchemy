@@ -4,6 +4,69 @@ Each entry records what changed, how it was verified, and known limitations. **U
 
 Earlier published builds are not backfilled here. The previous build, `20261018-195510`, has five handcrafted levels and optional looping music; its verification is recorded in TODO.md under Current baseline and Audio.
 
+## 20261020-004342 — Generated puzzles: tier 5, bigger boards and spare pieces (October 19, 2026)
+
+Release build `20261020-004342`, implemented by Claude (phase 1 of the generated-puzzle expansion); independently reviewed by Codex. Owner authorized commit → push → deploy. Physical iPad/Safari and the owner's difficulty feedback are not yet available.
+
+### Findings
+
+- **Two matching pieces side by side and a third elsewhere:** chance, not a generator bias. Over 400 seeds per setting, the share of same-tier sets with an adjacent pair matched the same pieces scattered uniformly at random: 93/94%, 66/66%, 74/75%, 99/99% and 86/84%. Validation and witness construction don't skew it. The pattern is common because plans make exact sets of 3 or 5 on boards 43–54% full. Scattering further would change nothing that matters, so placement stays uniform; variety comes from tier 5, bigger inventories and spare pieces.
+- **A fifth tier can't change existing play.** Bounding each family's reachable total per room (a 5 → 2 merge gains at most 6/5 per tier) shows that no handcrafted level and no version-1 generated puzzle can ever make three tier-4 items of one family. Only the wording changes.
+
+### Changes
+
+- **Five tiers** (owner choice: one scale everywhere):
+  - `MAX_TIER` is 4. Tier 4 merges into tier 5, which never merges.
+  - Every label reads "of 5", for example "Crystal, tier 4 of 5", in levels 1–9 too. Their pieces, goals and rules are unchanged.
+  - Tier-5 art reuses each family's tier-4 drawing on a gold radiance, with five pips. No new asset files.
+- **Generator version 2** (`src/generator.ts`), for new puzzles:
+  - Tier 5 targets in both modes, with 1–3 goals. Play offers Tier 3, 4 or 5 of 5.
+  - Piece budgets for tier 5: 11–16 per goal (Merge to goals) and 14–20 (Merge down to one).
+  - Boards up to 10 × 10 (version 1: 8 × 8), still sized from the piece count by the existing rule (at least a third of the cells free).
+  - Tier 5 with three goals is mostly 9 × 9, which fits at 820×1180 without panning; phones pan as they already do for 8 × 8.
+  - **Merge to goals:** up to two spare pieces per goal, of that goal's family, at a tier its plan merges. Some sets then hold more than a merge needs, so the player chooses which to merge, or makes a 5 → 2 merge instead. Spares may be left over, as any leftover may in this mode.
+  - **Merge down to one:** keeps exact counts (no spares), so its 3-or-5 choices stay decisive.
+- **Puzzle IDs:**
+  - New IDs read `v2-…`.
+  - `v1-…` IDs still parse and reproduce their original boards byte for byte. Version 1 keeps its tiers 3 and 4, its 8 × 8 limit and no spares, and draws the same random numbers. The pinned and reported v1 boards are unchanged.
+  - `v1-…-t5` is rejected. The UI still shows IDs read-only, for reports.
+- Winning lines are still built backwards and replayed through the real session and status rules before a puzzle is returned. Generation still throws after 20 failed candidates.
+
+### Verification (Claude)
+
+- **Automated:** 564 tests (13 new or rewritten), typecheck, production build and `git diff --check` pass.
+  - The tier-4 → tier-5 merge, and tier 5 never merging.
+  - Five-tier brute-force agreement for Merge down to one (6,240 counts).
+  - Tier-5 art and labels.
+  - Every setting, tier 5 included, over 60 seeds: winning paths replayed, exact single finish in Merge down to one, and boards within 10 × 10.
+  - Spares only in version-2 Merge to goals (at most two per goal).
+  - Tier 5 bigger with longer lines than tier 4.
+  - v1/v2 parsing; pinned v1 and v2 boards; the reported v1 puzzle.
+- **Generation survey**, 1000 seeds per setting: no failures; at most 13.8ms per puzzle. Tier 5 with three goals: 9 × 9 (874), 8 × 8 (123), 10 × 10 (3), with about 35-move winning lines.
+- **Playwright Chromium against the production build** (`vite preview`, local build `20261020-002935`):
+  - **820×1180:**
+    - `v2-one-t5-1kbye2b` won by its winning line ("Only Elk, tier 5 of 5 remains", drawn with the radiance); Undo and Retry restored the start.
+    - `v2-goals-t5-g3-16t14y9` (seed pinned in the page): 9 × 9 at 70px tiles, no panning; won in 38 moves with three tier-5 items; Undo after the win returned to play.
+  - **1180×820:** 65px tiles, no panning.
+  - **390×844 and 844×390:** 64px tiles; dragging empty ground panned the board. In phone landscape it moved less than the pointer in automation; the panning code is unchanged.
+  - All sizes: no horizontal overflow, Play choices and buttons at least 44px, no console errors or warnings.
+  - At 820×1180, Home's bottom edge is 5px below the window, the same as an existing Tier-3 three-goal puzzle (pre-existing).
+- **Not verified:** physical iPad/Safari, and whether tier 5 and the spares feel richer or just longer (owner playtest).
+
+### Independent Codex review
+
+- 564 tests, typecheck, production build and diff checks passed independently.
+- Compared 800 version-1 puzzles against the committed generator: full puzzle data and winning paths matched exactly. Handcrafted room/family inventory bounds prevent three tier-4 items from being produced, so the higher merge limit does not change existing level play.
+- Production Chromium: both tier-5 modes won by pointer clicks; Undo returned to play and Retry cleared Undo. Four phone/iPad viewports had no horizontal overflow or console errors. Confirmed the reported Home-button bottom edge at 1185px in an 1180px viewport; physical iPad/Safari and difficulty remain unverified.
+- Corrected README/TODO reproduction examples to pass the parsed generator version, and updated README tier, board-size and spare-piece descriptions. No gameplay changes during review.
+- Release preparation: player-facing history entry added and release build assigned following explicit owner authorization.
+
+### Known limitations
+
+- Placement is still uniform, so pairs plus a third remain common, by design.
+- Spares make Merge to goals easier as well as more open; they are not distractors.
+- The in-game Release notes include “Bigger puzzles, five-dot goals”.
+
 ## 20261019-210331 — Approved music and sound effects integration (October 19, 2026)
 
 Published release build `20261019-210331`. Owner authorized commit → push → deploy after local verification. The owner explicitly authorized direct Codex implementation and bounded Codex delegation for this audio task only.

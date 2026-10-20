@@ -69,8 +69,8 @@ describe('The Hidden Cache: layout', () => {
     expect(terrain).toBe(49 - 16 - 7 - 4);
     expect(regions[POCKET].unlock).toEqual({ kind: 'pressure', in: CLEARING, plates: [{ ...GROVE_PLATE, item: it_('grove', 1) }] });
     expect(regions[NOOK].unlock).toEqual({ kind: 'pressure', in: CLEARING, plates: [{ ...CRYSTAL_PLATE, item: it_('crystal', 2) }], passage: p(4, 2) });
-    expect(unlockNeed(regions, POCKET)).toBe('Grove, tier 2 of 4 on the pressure plate in Fern Clearing');
-    expect(unlockNeed(regions, NOOK)).toBe('Crystal, tier 3 of 4 on the pressure plate in Fern Clearing');
+    expect(unlockNeed(regions, POCKET)).toBe('Grove, tier 2 of 5 on the pressure plate in Fern Clearing');
+    expect(unlockNeed(regions, NOOK)).toBe('Crystal, tier 3 of 5 on the pressure plate in Fern Clearing');
   });
 
   it('starts the clearing with an unmergeable crystal pair; the pocket holds the rest', () => {
@@ -341,14 +341,14 @@ describe('The Hidden Cache: input and text', () => {
       'Goal: find the clarinet case in Lantern Nook',
       'Goal: open the rune gate and open the clarinet case in Lantern Nook.',
       'Each rune gate opens by itself on the move that puts exactly the items shown on its room\'s marked tiles. Items never leave their own room.',
-      'Put Grove, tier 2 of 4 on the marked tile. Drag empty ground to pan.',
+      'Put Grove, tier 2 of 5 on the marked tile. Drag empty ground to pan.',
     ]);
     for (const text of before) expect(text).not.toMatch(concealed);
     s = run(s, ...REVEAL.map(drop));
     expect(roomsHelp(regions, s.session.unlocked)).toBe('Each rune gate opens by itself on the move that puts exactly the items ' +
       'shown on its room\'s marked tiles. More of Fern Clearing has been revealed: items move, swap and merge anywhere in it. ' +
       'Items never leave their own room.');
-    expect(statusMessage(s, true)).toBe('Put Crystal, tier 3 of 4 on the pressure plate in Fern Clearing to open the rune gate to ' +
+    expect(statusMessage(s, true)).toBe('Put Crystal, tier 3 of 5 on the pressure plate in Fern Clearing to open the rune gate to ' +
       'Lantern Nook. More of Fern Clearing has been revealed, with more items to use. Drag empty ground to pan.');
     s = run(s, ...OPEN_NOOK.map(drop));
     expect(statusMessage(s, false)).toBe('Lantern Nook is open. Tap the clarinet case to open it.');

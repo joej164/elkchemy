@@ -45,7 +45,7 @@ describe('HelpButton', () => {
   });
 
   it('states the active objective', () => {
-    expect(html).toContain('<li>Goal: make Song, tier 3 of 4. Winning unlocks the next level.</li>');
+    expect(html).toContain('<li>Goal: make Song, tier 3 of 5. Winning unlocks the next level.</li>');
     expect(leaveHtml).toContain('Goal: use all supply and finish with exactly one item on the board.');
     expect(leaveHtml).not.toContain('Song');
     expect(html).toContain('Retry restarts this level.');
@@ -82,6 +82,7 @@ describe('HelpButton', () => {
     expect(play).toContain('Merge to goals');
     expect(play).toContain('Merge down to one');
     expect(play).toContain('>Goals</legend>');
+    for (const tier of ['Tier 3 of 5', 'Tier 4 of 5', 'Tier 5 of 5']) expect(play).toContain(tier);
     expect(play).toContain('data-action="start-puzzle"');
     expect(play).toContain('data-action="home"');
     expect(play).toMatch(/srcSet="[^"]*alisha-elk-play-portrait-v1\.webp"/);
@@ -124,7 +125,7 @@ describe('HelpButton', () => {
     const game = renderToStaticMarkup(<Game definition={LEVELS[0].definition} label="Level 1 of 5 · Sprouting Grove"
       musicControl={null} onHome={() => {}} winLabel="Next level" onWin={() => {}} />);
     expect(game).toContain('Level 1 of 5 · Sprouting Grove');
-    expect(game).toContain('Goal: make Grove, tier 3 of 4');
+    expect(game).toContain('Goal: make Grove, tier 3 of 5');
     expect(game).toContain('data-action="supply"');
     expect(game).toContain('data-action="home"');
     expect(game).not.toContain('data-action="next-level"');
@@ -137,7 +138,7 @@ describe('HelpButton', () => {
     const puzzle = generatePuzzle({ mode: 'one', tier: 3, goals: 1 }, 7);
     const game = renderToStaticMarkup(<Game definition={puzzle.definition} label={puzzleLabel(puzzle.config)}
       puzzleId={puzzle.id} musicControl={null} onHome={() => {}} onNewPuzzle={() => {}} />);
-    expect(game).toContain('Merge down to one · Tier 4 of 4');
+    expect(game).toContain('Merge down to one · Tier 4 of 5');
     expect(game).toMatch(new RegExp(`<input[^>]*class="puzzle-id"[^>]*readOnly=""[^>]*value="${puzzle.id}"`));
     expect(game).toContain('data-action="copy-puzzle-id"');
     expect(game).toContain('>Copy</button>');
@@ -153,7 +154,7 @@ describe('HelpButton', () => {
     expect(game).not.toContain('next level');
     expect(game).toContain('Retry restarts this puzzle; New puzzle makes a fresh one.');
     expect(game).toContain('woodland-cheering-landscape-v1.webp');
-    expect(puzzleLabel({ mode: 'goals', tier: 2, goals: 2 })).toBe('Merge to goals · Tier 3 of 4 · 2 goals');
+    expect(puzzleLabel({ mode: 'goals', tier: 2, goals: 2 })).toBe('Merge to goals · Tier 3 of 5 · 2 goals');
   });
 
   it('the Levels page lists every level, any of which can be picked, marking the one up next', () => {
@@ -189,25 +190,25 @@ describe('HelpButton', () => {
     const game = renderToStaticMarkup(<Game definition={level.definition} label={`Level 6 of 6 · ${level.name}`}
       musicControl={null} onHome={() => {}} winLabel="Play again from level 1" onWin={() => {}} />);
     expect(game).toContain('Level 6 of 6 · The Hidden Hollow');
-    expect(game).toContain('Goal: make Crystal, tier 4 of 4 in Crystal Hollow');
-    expect(game).toContain('<strong>Locked: Songbird Glade</strong><br/>Needs Grove, tier 3 of 4 in Mossy Clearing');
+    expect(game).toContain('Goal: make Crystal, tier 4 of 5 in Crystal Hollow');
+    expect(game).toContain('<strong>Locked: Songbird Glade</strong><br/>Needs Grove, tier 3 of 5 in Mossy Clearing');
     expect(game).toMatch(/<button type="button" class="btn btn-unlock" data-action="unlock" disabled=""[^>]*>/);
     expect(game).toContain('<span>Unlock Songbird Glade</span>');
     expect(game).not.toMatch(/data-action="supply"|Add supply|Next supply|Supply left/);
     // Both locked regions carry a gate showing what opens them, unavailable until ready; every region is outlined.
     expect((game.match(/class="region(?: is-locked)?"/g) ?? []).length).toBe(3);
     expect((game.match(/class="region is-locked"/g) ?? []).length).toBe(2);
-    expect(game).toContain('Needs Song, tier 3 of 4 in Songbird Glade');
-    expect(game).toContain('<button type="button" class="gate" data-gate="1" aria-disabled="true" aria-label="Songbird Glade gate, locked. Needs Grove, tier 3 of 4 in Mossy Clearing.">');
-    expect(game).toContain('<button type="button" class="gate" data-gate="2" aria-disabled="true" aria-label="Crystal Hollow gate, locked. Needs Song, tier 3 of 4 in Songbird Glade.">');
+    expect(game).toContain('Needs Song, tier 3 of 5 in Songbird Glade');
+    expect(game).toContain('<button type="button" class="gate" data-gate="1" aria-disabled="true" aria-label="Songbird Glade gate, locked. Needs Grove, tier 3 of 5 in Mossy Clearing.">');
+    expect(game).toContain('<button type="button" class="gate" data-gate="2" aria-disabled="true" aria-label="Crystal Hollow gate, locked. Needs Song, tier 3 of 5 in Songbird Glade.">');
     expect(game).not.toMatch(/Ready: tap to open|gate-ready/);
     // Locked cells say so and are disabled; open cells name their region.
-    expect(game).toContain('aria-label="Row 1, column 1, Crystal Hollow, locked: Crystal, tier 1 of 4"');
-    expect(game).toMatch(/aria-label="Row 4, column 5, Songbird Glade, locked: Song, tier 1 of 4" aria-pressed="false" aria-disabled="true"/);
-    expect(game).toMatch(/aria-label="Row 4, column 1, Mossy Clearing: Grove, tier 1 of 4" aria-pressed="false" tabindex/);
+    expect(game).toContain('aria-label="Row 1, column 1, Crystal Hollow, locked: Crystal, tier 1 of 5"');
+    expect(game).toMatch(/aria-label="Row 4, column 5, Songbird Glade, locked: Song, tier 1 of 5" aria-pressed="false" aria-disabled="true"/);
+    expect(game).toMatch(/aria-label="Row 4, column 1, Mossy Clearing: Grove, tier 1 of 5" aria-pressed="false" tabindex/);
     expect(game).toContain('tap the gate or press Unlock; the item stays');
     expect(game).toContain('Undo takes back your last action, even an unlock');
-    expect(game).toContain('Make Grove, tier 3 of 4 in Mossy Clearing to unlock Songbird Glade.');
+    expect(game).toContain('Make Grove, tier 3 of 5 in Mossy Clearing to unlock Songbird Glade.');
   });
 
   it('the room level shows terrain, closed rune gates in their passages and marked tiles, with no Unlock button', () => {
@@ -215,14 +216,14 @@ describe('HelpButton', () => {
     const game = renderToStaticMarkup(<Game definition={level.definition} label={`Level 7 of 7 · ${level.name}`}
       musicControl={null} onHome={() => {}} winLabel="Play again from level 1" onWin={() => {}} />);
     expect(game).toContain('Goal: find the disc-golf backpack in Treasure Nook');
-    expect(game).toContain('<strong>Rune gate: Stone Chamber</strong><br/>Needs Grove, tier 2 of 4 and Song, tier 2 of 4 on the pressure plates in Pressure Hall');
+    expect(game).toContain('<strong>Rune gate: Stone Chamber</strong><br/>Needs Grove, tier 2 of 5 and Song, tier 2 of 5 on the pressure plates in Pressure Hall');
     expect(game).not.toMatch(/data-action="unlock"|data-action="supply"|class="gate/);
     expect((game.match(/class="terrain"/g) ?? []).length).toBe(25);
     expect(game).toContain('<div class="passage is-across" data-passage="1" role="img" aria-label="Rune gate to Stone Chamber, closed">');
     expect(game).toContain('<div class="passage" data-passage="2" role="img" aria-label="Rune gate to Treasure Nook, closed">');
     expect((game.match(/class="region is-locked is-room"/g) ?? []).length).toBe(2);
-    expect(game).toContain('aria-label="Row 1, column 3, Pressure Hall, pressure plate for Grove, tier 2 of 4: empty"');
-    expect(game).toContain('aria-label="Row 3, column 6, Stone Chamber, locked, stone for Crystal, tier 3 of 4: empty"');
+    expect(game).toContain('aria-label="Row 1, column 3, Pressure Hall, pressure plate for Grove, tier 2 of 5: empty"');
+    expect(game).toContain('aria-label="Row 3, column 6, Stone Chamber, locked, stone for Crystal, tier 3 of 5: empty"');
     // The backpack stays hidden: its cell reads as an ordinary locked cell.
     expect(game).toContain('aria-label="Row 7, column 5, Treasure Nook, locked: empty"');
     expect(game).not.toMatch(/has-treasure|tap to collect/);
@@ -230,7 +231,7 @@ describe('HelpButton', () => {
     expect(game).not.toContain('data-backpack="open"');
     expect(game).toContain('the items shown on its room&#x27;s marked tiles');
     expect(game).toContain('An opened gate is a checkpoint');
-    expect(game).toContain('Put Grove, tier 2 of 4 and Song, tier 2 of 4 on the pressure plates in Pressure Hall to open the rune gate to Stone Chamber.');
+    expect(game).toContain('Put Grove, tier 2 of 5 and Song, tier 2 of 5 on the pressure plates in Pressure Hall to open the rune gate to Stone Chamber.');
   });
 
   it('the Rune Gates backpack is hidden, then closed, opens on collection; fixed items show a bare padlock', () => {
@@ -262,8 +263,8 @@ describe('HelpButton', () => {
       musicControl={null} onHome={() => {}} winLabel="Play again from level 1" onWin={() => {}} />);
     expect(game).toContain('Level 8 of 8 · The Hidden Cache');
     expect(game).toContain('Goal: find the clarinet case in Lantern Nook');
-    expect(game).toContain('<strong>Marked tile in Fern Clearing</strong><br/>Needs Grove, tier 2 of 4');
-    expect(game).toContain('Put Grove, tier 2 of 4 on the marked tile.');
+    expect(game).toContain('<strong>Marked tile in Fern Clearing</strong><br/>Needs Grove, tier 2 of 5');
+    expect(game).toContain('Put Grove, tier 2 of 5 on the marked tile.');
     expect(game).toContain('data-clarinet="closed"');                    // the goal panel: closed until opened
     expect(game).not.toMatch(/data-backpack|data-clarinet="open"|data-action="unlock"|class="gate/);
     // Help names the one visible rune gate and says nothing of what is concealed.
@@ -281,8 +282,8 @@ describe('HelpButton', () => {
     expect(tiles.filter((t) => t === 'terrain')).toHaveLength(27);
     expect(tiles.map((t, i) => (t === 'terrain is-clue' ? i : -1)).filter((i) => i >= 0)).toEqual([1 * 7 + 4]);
     expect(game).not.toMatch(/data-row="[0-2]" data-col="[456]"/);
-    expect((game.match(/: Crystal, tier 1 of 4"/g) ?? []).length).toBe(2);
-    expect(game).not.toContain('Crystal, tier 2 of 4');
+    expect((game.match(/: Crystal, tier 1 of 5"/g) ?? []).length).toBe(2);
+    expect(game).not.toContain('Crystal, tier 2 of 5');
     // The clearing is outlined edge by edge as a plain rectangle; no outline at all marks the pocket.
     expect(game).not.toMatch(/data-region="[01]"|notch-/);
     expect(game).toContain('<div class="room-edge edge-r" aria-hidden="true" style="grid-row:2 / span 1;grid-column:4 / span 1"></div>');
@@ -301,11 +302,11 @@ describe('HelpButton', () => {
     expect((open.match(/class="terrain"/g) ?? []).length).toBe(21);
     // E2 and the pocket are cells of Fern Clearing, each glowing once as it is revealed.
     expect(open).toContain('aria-label="Row 2, column 5, Fern Clearing: empty"');
-    expect(open).toContain('aria-label="Row 1, column 6, Fern Clearing: Crystal, tier 1 of 4"');
-    expect((open.match(/Fern Clearing: Crystal, tier 2 of 4"/g) ?? []).length).toBe(2);
+    expect(open).toContain('aria-label="Row 1, column 6, Fern Clearing: Crystal, tier 1 of 5"');
+    expect((open.match(/Fern Clearing: Crystal, tier 2 of 5"/g) ?? []).length).toBe(2);
     expect(open).not.toMatch(/pocket/i);
     expect((open.match(/data-fx="unlock"/g) ?? []).length).toBe(7);
-    expect(open).toContain('aria-label="Row 1, column 4, Fern Clearing, pressure plate for Grove, tier 2 of 4, fixed: Grove, tier 2 of 4"');
+    expect(open).toContain('aria-label="Row 1, column 4, Fern Clearing, pressure plate for Grove, tier 2 of 5, fixed: Grove, tier 2 of 5"');
     // One outline around the whole shape: none between the clearing, E2 and the pocket; notches fill its four bends.
     expect(open).not.toMatch(/data-region="[01]"/);
     expect(open).toContain('<div class="room-edge edge-t edge-b" aria-hidden="true" style="grid-row:2 / span 1;grid-column:5 / span 1"></div>');
@@ -336,7 +337,7 @@ describe('HelpButton', () => {
     board[4][3] = { family: 'grove', tier: 2 };
     const game = renderToStaticMarkup(<Game definition={{ ...LEVELS[5].definition, board }} label="Level 6 of 6"
       musicControl={null} onHome={() => {}} winLabel="Play again from level 1" onWin={() => {}} />);
-    expect(game).toContain('<button type="button" class="gate is-ready" data-gate="1" aria-label="Songbird Glade gate. Needs Grove, tier 3 of 4 in Mossy Clearing. Ready: tap to open.">');
+    expect(game).toContain('<button type="button" class="gate is-ready" data-gate="1" aria-label="Songbird Glade gate. Needs Grove, tier 3 of 5 in Mossy Clearing. Ready: tap to open.">');
     expect(game).toContain('<span class="gate-ready">Tap to open</span>');
     expect((game.match(/class="gate-ready"/g) ?? []).length).toBe(1);
     expect(game).toContain('data-gate="2" aria-disabled="true"');

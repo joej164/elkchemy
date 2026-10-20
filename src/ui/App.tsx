@@ -1,6 +1,6 @@
 import { useEffect, useReducer, useRef, useState, type ReactNode } from 'react';
 import { LEVELS, nextLevelIndex, type Level } from '../levels';
-import type { Item } from '../board';
+import { MAX_TIER, type Item } from '../board';
 import { generatePuzzle, type GeneratedPuzzle, type PuzzleConfig } from '../generator';
 import type { LevelDefinition, LevelGoal, SessionState } from '../session';
 import { hasItem } from '../status';
@@ -80,7 +80,7 @@ function randomSeed(avoid?: number): number {
 }
 
 export function puzzleLabel(config: PuzzleConfig): string {
-  const tier = `Tier ${config.tier + 1} of 4`;
+  const tier = `Tier ${config.tier + 1} of ${MAX_TIER + 1}`;
   if (config.mode === 'one') return `Merge down to one · ${tier}`;
   return `Merge to goals · ${tier} · ${config.goals} ${config.goals === 1 ? 'goal' : 'goals'}`;
 }
@@ -206,7 +206,7 @@ export function TaskPanel({ session }: { session: SessionState }) {
                   : !reachable ? <span className="check-lock" aria-hidden="true"><LockIcon /></span>
                   : plates.map((pl) => (
                     <span key={`${pl.row},${pl.col}`} className="check-need" aria-hidden="true">
-                      <span className="check-item"><ItemArt item={pl.item} /></span>tier {pl.item.tier + 1} of 4
+                      <span className="check-item"><ItemArt item={pl.item} /></span>tier {pl.item.tier + 1} of {MAX_TIER + 1}
                     </span>
                   ))}
                 <span className="sr-only">: {done ? 'complete' : !reachable ? 'gate closed' : `needs ${plateItems(plates)}`}</span>

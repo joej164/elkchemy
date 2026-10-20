@@ -136,10 +136,10 @@ export const FARAWAY_LEVEL: LevelDefinition = {
 };
 
 // 7 × 7 exploration map in three regions; items never leave their region, and unlocking consumes nothing.
-//   rows 0-2:            Crystal Hollow (7 × 3), unlocked by Song tier 2 (shown as 3 of 4) in Songbird Glade
+//   rows 0-2:            Crystal Hollow (7 × 3), unlocked by Song tier 2 (shown as 3 of 5) in Songbird Glade
 //   rows 3-6, cols 0-3:  Mossy Clearing (4 × 4), open from the start
-//   rows 3-6, cols 4-6:  Songbird Glade (3 × 4), unlocked by Grove tier 2 (shown as 3 of 4) in Mossy Clearing
-// Goal: Crystal tier 3 (shown as 4 of 4) in Crystal Hollow. Every piece belongs to its region's target family.
+//   rows 3-6, cols 4-6:  Songbird Glade (3 × 4), unlocked by Grove tier 2 (shown as 3 of 5) in Mossy Clearing
+// Goal: Crystal tier 3 (shown as 4 of 5) in Crystal Hollow. Every piece belongs to its region's target family.
 // - Clearing: three grove-0 (a pair and a lone one) make a grove-1; dropped on the grove-1 pair it makes the
 //   key. Plain 3-merges, no choices: it teaches Unlock.
 // - Glade: six song-0 (a 2×2 block, plus a pair) and one song-1. Dropping a pair piece onto the block is a
@@ -177,9 +177,9 @@ export const HOLLOW_LEVEL: LevelDefinition = {
 // Level 7 (experimental): three small rooms in terrain (~), joined by passages (=, ‖) closed by rune gates. Each gate
 // opens by itself on the move that meets its room's tiles, consuming nothing; the items on those tiles then stay fixed
 // and Undo history is cleared (a checkpoint).
-//   g0 g0 [G] ~  ~  ~  ~      [G] pressure plate: exactly Grove tier 1 (shown as 2 of 4)
+//   g0 g0 [G] ~  ~  ~  ~      [G] pressure plate: exactly Grove tier 1 (shown as 2 of 5)
 //   s0 e0 g0  =  c0 .  c1     [S] pressure plate: exactly Song tier 1; the elk may stay
-//   s0 s0 [S] ~  .  (C) .     (C) stone: exactly Crystal tier 2 (shown as 3 of 4), alone in the Stone Chamber
+//   s0 s0 [S] ~  .  (C) .     (C) stone: exactly Crystal tier 2 (shown as 3 of 5), alone in the Stone Chamber
 //   ~  ~  ~   ~  c0 c1 c0
 //   ~  ~  ~   ~  ~  ‖  ~
 //   ~  ~  ~   ~  .  .  ~
@@ -219,10 +219,10 @@ export const RUNE_LEVEL: LevelDefinition = {
 // with a faint clue in the link's foliage. They belong to the pocket region, which joins the clearing's room: once
 // revealed, items move, swap and merge anywhere in the clearing, including through the link. The final room keeps
 // its own rune gate.
-//   g0 g0 .  [P] ~  c0 .      [P] pressure plate: exactly Grove tier 1 (shown as 2 of 4); reveals the pocket and link
+//   g0 g0 .  [P] ~  c0 .      [P] pressure plate: exactly Grove tier 1 (shown as 2 of 5); reveals the pocket and link
 //   .  .  g0 .   *  .  .      *   the link: forest with a faint clue, then floor
 //   c0 c0 .  .   ~  c1 c1
-//   .  .  [S] .  ~  ~  ~      [S] pressure plate: exactly Crystal tier 2 (shown as 3 of 4); opens the Lantern Nook
+//   .  .  [S] .  ~  ~  ~      [S] pressure plate: exactly Crystal tier 2 (shown as 3 of 5); opens the Lantern Nook
 //   ~  ~  ‖  ~   ~  ~  ~      ‖   rune gate to the Lantern Nook
 //   ~  .  .  ~   ~  ~  ~
 //   ~  $  .  ~   ~  ~  ~      $   the clarinet case, hidden until the Lantern Nook opens

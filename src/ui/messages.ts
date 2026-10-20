@@ -87,8 +87,8 @@ function listOf(words: readonly string[], joiner = 'and'): string {
 }
 
 /**
- * Region levels: what the next region needs, e.g. "Grove, tier 3 of 4 in Mossy Clearing", or in room levels
- * "Grove, tier 2 of 4 and Song, tier 2 of 4 on the pressure plates in Pressure Hall". With tasks (`tasks` given), what
+ * Region levels: what the next region needs, e.g. "Grove, tier 3 of 5 in Mossy Clearing", or in room levels
+ * "Grove, tier 2 of 5 and Song, tier 2 of 5 on the pressure plates in Pressure Hall". With tasks (`tasks` given), what
  * its task needs, or for a region needing several, "Fern Glade, Crystal Glade and Woodland Lodge complete".
  */
 export function unlockNeed(regions: readonly Region[], index: number, tasks?: readonly Task[]): string {
@@ -103,12 +103,12 @@ export function unlockNeed(regions: readonly Region[], index: number, tasks?: re
   return `${plateItems(u.plates)} on the pressure ${u.plates.length > 1 ? 'plates' : 'plate'} in ${room}`;
 }
 
-/** Levels with tasks: what a task needs, e.g. "Song, tier 3 of 4 on the pressure plate in Songbird Glade". */
+/** Levels with tasks: what a task needs, e.g. "Song, tier 3 of 5 on the pressure plate in Songbird Glade". */
 export function taskNeed(regions: readonly Region[], task: Task): string {
   return `${plateItems(task.plates)} on the pressure ${task.plates.length > 1 ? 'plates' : 'plate'} in ${regions[task.in].name}`;
 }
 
-/** Room levels: the items some plates need, e.g. "Grove, tier 2 of 4 and Song, tier 2 of 4". */
+/** Room levels: the items some plates need, e.g. "Grove, tier 2 of 5 and Song, tier 2 of 5". */
 export function plateItems(plates: readonly Plate[]): string {
   return listOf(plates.map((pl) => itemLabel(pl.item)));
 }

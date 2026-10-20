@@ -472,11 +472,11 @@ describe('The Crystal Palace: input, view and announcements', () => {
   it('tells the player the next step without a required order, and names nothing concealed before discovery', () => {
     let s = initUi(PALACE_LEVEL);
     const concealed = /concealed|hidden|secret|pocket|alcove|more of/i;
-    expect(statusMessage(s, true)).toBe('Put Grove, tier 2 of 4 on the pressure plate in Starting Glade to open the rune gate to ' +
+    expect(statusMessage(s, true)).toBe('Put Grove, tier 2 of 5 on the pressure plate in Starting Glade to open the rune gate to ' +
       'Songbird Glade. Drag empty ground to pan.');
     s = run(s, ...drops(OPEN_HUB));
     // The checklist already names the three branches, so the banner counts them.
-    expect(statusMessage(s, false)).toBe('Put Song, tier 3 of 4 on the pressure plate in Songbird Glade to open the rune gates to ' +
+    expect(statusMessage(s, false)).toBe('Put Song, tier 3 of 5 on the pressure plate in Songbird Glade to open the rune gates to ' +
       'all three branches.');
     s = run(s, ...drops(OPEN_BRANCHES));
     // The checklist shows each branch's needs; the banner only names what is left, spelling out the last one's need.
@@ -495,7 +495,7 @@ describe('The Crystal Palace: input, view and announcements', () => {
     s = run(s, ...drops(FINISH_LODGE));
     // The last branch, Fern Glade, asks only for its Grove item until its concealed part is found.
     const last = statusMessage(s, false);
-    expect(last).toBe('Complete Fern Glade to open Crystal Palace: put Grove, tier 2 of 4 on its marked tile.');
+    expect(last).toBe('Complete Fern Glade to open Crystal Palace: put Grove, tier 2 of 5 on its marked tile.');
     expect(last).not.toMatch(concealed);
     s = run(s, ...drops(REVEAL));
     // The discovery is told on the move that made it (the checklist shows the new needs), then not repeated.
@@ -503,12 +503,12 @@ describe('The Crystal Palace: input, view and announcements', () => {
     expect(roomsHelp(regions, (i) => isOpen(s.session, i), tasks)).toContain(' More of Fern Glade has been revealed: items move, swap ' +
       'and merge anywhere in it. Items never leave their own room.');
     s = run(s, ...drops(FINISH_FERN.slice(0, 1)));
-    expect(statusMessage(s, false)).toBe('Complete Fern Glade to open Crystal Palace: put Crystal, tier 3 of 4 and Song, tier 2 of 4 on its ' +
+    expect(statusMessage(s, false)).toBe('Complete Fern Glade to open Crystal Palace: put Crystal, tier 3 of 5 and Song, tier 2 of 5 on its ' +
       'marked tiles.');
     s = run(s, ...drops(FINISH_FERN.slice(1)));
-    expect(statusMessage(s, false)).toBe('Crystal Palace is open: put Crystal, tier 4 of 4 and Song, tier 3 of 4 on its marked tiles.');
+    expect(statusMessage(s, false)).toBe('Crystal Palace is open: put Crystal, tier 4 of 5 and Song, tier 3 of 5 on its marked tiles.');
     s = run(s, ...drops(FINISH_PALACE.slice(0, 1)));
-    expect(statusMessage(s, false)).toBe('Put Crystal, tier 4 of 4 and Song, tier 3 of 4 on the pressure plates in Crystal Palace to ' +
+    expect(statusMessage(s, false)).toBe('Put Crystal, tier 4 of 5 and Song, tier 3 of 5 on the pressure plates in Crystal Palace to ' +
       'find the ukulele case.');
     s = run(s, ...drops(FINISH_PALACE.slice(1)));
     expect(statusMessage(s, false)).toBe('The ukulele case is in Crystal Palace. Tap it to open it.');
@@ -574,7 +574,7 @@ describe('The Crystal Palace: rendering', () => {
     expect(game).toContain('Goal: find the ukulele case in Crystal Palace');
     expect(game).toContain('data-ukulele="closed"');                      // the goal panel: closed until opened
     expect(game).not.toMatch(/data-ukulele="open"|data-action="unlock"|class="gate[ "]|class="checklist/);
-    expect(game).toContain('<strong>Rune gate: Songbird Glade</strong><br/>Needs Grove, tier 2 of 4 on the pressure plate in Starting Glade');
+    expect(game).toContain('<strong>Rune gate: Songbird Glade</strong><br/>Needs Grove, tier 2 of 5 on the pressure plate in Starting Glade');
     expect(game).not.toMatch(/concealed|Hidden|pocket|alcove/);
     const all = tiles(game);
     expect(all).toHaveLength(256);
@@ -595,7 +595,7 @@ describe('The Crystal Palace: rendering', () => {
     expect(game).not.toMatch(PALACE_FLOOR);                               // no palace cells: no labels, focus or items
     expect((game.match(/class="region is-locked is-room"/g) ?? []).length).toBe(5);       // all but Starting Glade and the concealed part
     // The first tab stop is in Starting Glade, not the locked palace in the corner.
-    expect(game).toMatch(/aria-label="Row 8, column 2, Starting Glade: Grove, tier 1 of 4" aria-pressed="false" tabindex="0"/);
+    expect(game).toMatch(/aria-label="Row 8, column 2, Starting Glade: Grove, tier 1 of 5" aria-pressed="false" tabindex="0"/);
   });
 
   it('shows the checklist after the hub opens: each branch\'s gate, then its need, then done, and the palace', () => {
@@ -606,8 +606,8 @@ describe('The Crystal Palace: rendering', () => {
     expect(rows(panel(s))).toEqual(['Fern Glade: gate closed', 'Crystal Glade: gate closed', 'Woodland Lodge: gate closed', 'Crystal Palace0 of 3 symbols lit, sealed']);
     s = run(s, ...drops([...OPEN_BRANCHES, ...FINISH_CRYSTAL]));
     // Each need shows its item and exact tier (decorative), and says it in full to assistive technology.
-    expect(rows(panel(s))).toEqual(['Fern Gladetier 2 of 4: needs Grove, tier 2 of 4', 'Crystal Glade✓: complete',
-      'Woodland Lodgetier 3 of 4: needs Song, tier 3 of 4', 'Crystal Palace1 of 3 symbols lit, sealed']);
+    expect(rows(panel(s))).toEqual(['Fern Gladetier 2 of 5: needs Grove, tier 2 of 5', 'Crystal Glade✓: complete',
+      'Woodland Lodgetier 3 of 5: needs Song, tier 3 of 5', 'Crystal Palace1 of 3 symbols lit, sealed']);
     expect(panel(s)).toContain('<span class="check-need" aria-hidden="true"><span class="check-item"><svg');
     expect(panel(s)).toMatch(/<li class="is-done" data-task="4"><span class="check-symbol" aria-hidden="true"><svg[^>]*><g data-symbol="crystal" data-lit="true">/);
     const html = board(s);
@@ -616,7 +616,7 @@ describe('The Crystal Palace: rendering', () => {
     expect(html).toMatch(/data-symbol="fern" data-lit="false"/);
     expect((html.match(/class="fixed-lock"/g) ?? []).length).toBe(3);
     s = run(s, ...drops(REVEAL));
-    expect(rows(panel(s))[0]).toBe('Fern Gladetier 3 of 4tier 2 of 4: needs Crystal, tier 3 of 4 and Song, tier 2 of 4');
+    expect(rows(panel(s))[0]).toBe('Fern Gladetier 3 of 5tier 2 of 5: needs Crystal, tier 3 of 5 and Song, tier 2 of 5');
     s = run(s, ...drops([...FINISH_FERN, ...FINISH_LODGE]));
     expect(rows(panel(s))[3]).toBe('Crystal PalaceOpen');
     const open = board(s);
@@ -662,9 +662,9 @@ describe('The Crystal Palace: rendering', () => {
     s = run(s, ...drops([...REVEAL, ...FINISH_FERN]));
     const open = board(s);
     expect(sealedPart(open)).toHaveLength(0);
-    expect(open).toContain('aria-label="Row 1, column 1, Crystal Palace: Crystal, tier 1 of 4"');
-    expect(open).toContain('aria-label="Row 1, column 4, Crystal Palace, pressure plate for Crystal, tier 4 of 4: empty"');
-    expect(open).toContain('aria-label="Row 2, column 4, Crystal Palace, pressure plate for Song, tier 3 of 4: empty"');
+    expect(open).toContain('aria-label="Row 1, column 1, Crystal Palace: Crystal, tier 1 of 5"');
+    expect(open).toContain('aria-label="Row 1, column 4, Crystal Palace, pressure plate for Crystal, tier 4 of 5: empty"');
+    expect(open).toContain('aria-label="Row 2, column 4, Crystal Palace, pressure plate for Song, tier 3 of 5: empty"');
     expect(open).toContain('aria-label="Row 5, column 3, Crystal Palace: empty"');
     expect(open).not.toContain('ukulele');
     expect(open).toMatch(/data-region="6"[^>]*><span data-fx="unlock"/);

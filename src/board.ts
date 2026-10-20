@@ -1,6 +1,8 @@
 export type Family = 'grove' | 'song' | 'crystal' | 'elk';
-export type Tier = 0 | 1 | 2 | 3;
-export const MAX_TIER = 3;
+// Five tiers, shown as 1–5 of 5 (pips under the art). Handcrafted levels use the first four; generated puzzles may
+// target the fifth. The top tier never merges.
+export type Tier = 0 | 1 | 2 | 3 | 4;
+export const MAX_TIER = 4;
 export interface Item { readonly family: Family; readonly tier: Tier }
 export type Cell = Item | null;
 export type Board = readonly (readonly Cell[])[];

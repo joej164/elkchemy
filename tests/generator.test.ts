@@ -45,7 +45,7 @@ describe('configuration support', () => {
     CONFIGS.forEach((c) => expect(isSupportedConfig(c)).toBe(true));
   });
   it.each<[string, PuzzleConfig]>([
-    ['tier 2 of 4', { mode: 'goals', tier: 1, goals: 1 }],
+    ['tier 2 of 5', { mode: 'goals', tier: 1, goals: 1 }],
     ['zero goals', { mode: 'goals', tier: 3, goals: 0 }],
     ['four goals', { mode: 'goals', tier: 3, goals: 4 }],
     ['merge down to one with two goals', { mode: 'one', tier: 3, goals: 2 }],
@@ -66,14 +66,19 @@ describe('reproduction IDs', () => {
   });
   it('round-trip through parsePuzzleId for every config', () => {
     for (const config of CONFIGS) {
-      for (const seed of [0, 12345, 0xffffffff]) expect(parsePuzzleId(puzzleId(config, seed))).toEqual({ config, seed });
+      for (const seed of [0, 12345, 0xffffffff]) {
+        expect(parsePuzzleId(puzzleId(config, seed))).toEqual({ config, seed, version: GENERATOR_VERSION });
+      }
     }
-    expect(parsePuzzleId(` V${GENERATOR_VERSION}-ONE-T4-ABC `)).toEqual({ config: { mode: 'one', tier: 3, goals: 1 }, seed: parseInt('abc', 36) });
+    expect(parsePuzzleId(` V${GENERATOR_VERSION}-ONE-T4-ABC `)).toEqual({ config: { mode: 'one', tier: 3, goals: 1 }, seed: parseInt('abc', 36), version: 2 });
+    // Version 1 IDs still parse, for their own settings (tiers 3 and 4 of 5).
+    expect(parsePuzzleId('v1-goals-t3-g1-z7hukc')).toEqual({ config: { mode: 'goals', tier: 2, goals: 1 }, seed: parseInt('z7hukc', 36), version: 1 });
   });
   it('reject other versions, unsupported settings and malformed text', () => {
     for (const id of [
       `v${GENERATOR_VERSION + 1}-one-t4-abc`, `v${GENERATOR_VERSION}-one-t2-abc`, `v${GENERATOR_VERSION}-goals-t4-g4-abc`,
       `v${GENERATOR_VERSION}-goals-t4-abc`, `v${GENERATOR_VERSION}-one-t4-g1-abc`, `v${GENERATOR_VERSION}-one-t4-zzzzzzz`, 'nonsense', '',
+      'v0-one-t4-abc', 'v1-one-t5-abc', 'v1-goals-t5-g1-abc', `v${GENERATOR_VERSION}-one-t6-abc`,
     ]) expect(parsePuzzleId(id), id).toBeNull();
   });
 });
@@ -96,9 +101,12 @@ describe('determinism', () => {
   it.each([
     ['v1-goals-t4-g2-2n9c', 's0 e0 s1 e0 . e1 / s0 e0 e0 e1 e1 . / e1 . s1 . s0 . / s0 s1 . . . . / . e0 s2 s1 s0 . / e1 e0 . . . e1'],
     ['v1-one-t4-kf12', '. s0 . s0 . / . . . s0 s0 / s1 . s1 s0 . / s0 . s0 s0 s1 / s1 s1 . . .'],
+    ['v2-goals-t5-g2-2n9c', 'e2 . . . e1 s2 . / . . . . e1 e1 s1 / . . . s1 e2 . . / s2 e1 . e1 s1 e2 s2 / . s2 . s1 s1 e1 . / . s1 e1 e1 e2 e1 e1 / . . s1 . e1 s2 s1'],
+    ['v2-one-t5-kf12', 's2 . s1 . s0 s1 / . . s2 s0 . . / s1 s1 . s1 . s1 / . s1 . . . s2 / s0 s1 . . s1 . / . . s1 s1 . s1'],
   ])('%s keeps its board', (id, expected) => {
     const parsed = parsePuzzleId(id)!;
-    expect(fingerprint(generatePuzzle(parsed.config, parsed.seed).definition.board)).toBe(expected);
+    const puzzle = generatePuzzle(parsed.config, parsed.seed, parsed.version);
+    expect([puzzle.id, fingerprint(puzzle.definition.board)]).toEqual([id, expected]);
   });
 });
 
@@ -141,10 +149,10 @@ describe('generated puzzles across supported configs', () => {
           // The handcrafted-level evaluator, which does report losses, sees a reachable goal.
           expect(evaluateStatus(startSession({ ...p.definition, earlyLoss: true }))).toBe('playing');
           if (config.mode !== 'one') continue;
-          const counts = [0, 0, 0, 0];
+          const counts = [0, 0, 0, 0, 0];
           itemsOf(p.definition.board).forEach((i) => counts[i.tier]++);
           // Exactly one item is reachable at the target tier and at no other tier.
-          [0, 1, 2, 3].forEach((t) => expect(canLeaveOne(counts, t)).toBe(t === config.tier));
+          [0, 1, 2, 3, 4].forEach((t) => expect(canLeaveOne(counts, t)).toBe(t === config.tier));
         }
       });
 
@@ -156,6 +164,35 @@ describe('generated puzzles across supported configs', () => {
       });
     });
   }
+
+  it('Merge to goals has spare pieces in some boards (a choice of what to merge, left over by the witness); version 1 and Merge down to one never do', () => {
+    const leftovers = (p: GeneratedPuzzle) => {
+      let s = startSession(p.definition);
+      for (const m of p.witness) s = applyDrop(s, m.from, m.to);
+      return itemsOf(s.board).length - targetsOf(p).length;
+    };
+    for (const config of CONFIGS) {
+      const spare = SEEDS.map((seed) => leftovers(generatePuzzle(config, seed)));
+      if (config.mode === 'one') expect(spare.every((n) => n === 0)).toBe(true);
+      else {
+        expect(spare.some((n) => n > 0), puzzleId(config, 0)).toBe(true);
+        expect(Math.max(...spare)).toBeLessThanOrEqual(2 * config.goals);
+      }
+      if (config.tier < 4) expect(SEEDS.map((seed) => leftovers(generatePuzzle(config, seed, 1))).every((n) => n === 0)).toBe(true);
+    }
+  });
+
+  it('tier 5 boards are bigger and their winning lines longer than tier 4\'s, within 10 × 10', () => {
+    for (const mode of ['goals', 'one'] as const) {
+      const goals = mode === 'goals' ? 3 : 1;
+      const at = (tier: Tier) => SEEDS.map((seed) => generatePuzzle({ mode, tier, goals }, seed));
+      const mean = (ps: GeneratedPuzzle[], f: (p: GeneratedPuzzle) => number) => ps.reduce((a, p) => a + f(p), 0) / ps.length;
+      const [four, five] = [at(3), at(4)];
+      expect(mean(five, (p) => p.definition.board.length)).toBeGreaterThan(mean(four, (p) => p.definition.board.length));
+      expect(mean(five, (p) => p.witness.length)).toBeGreaterThan(mean(four, (p) => p.witness.length));
+      expect(Math.max(...five.map((p) => p.definition.board.length))).toBeLessThanOrEqual(10);
+    }
+  });
 
   it('include starting boards that mix tiers', () => {
     const mixed = SEEDS.map((seed) => generatePuzzle({ mode: 'one', tier: 3, goals: 1 }, seed))
@@ -249,8 +286,8 @@ describe('play loop on a generated puzzle', () => {
 
 describe('reported puzzle v1-goals-t3-g1-z7hukc', () => {
   // Five Elk tier 1 and one Elk tier 2; the goal is Elk tier 3, which needs the 5-merge.
-  const { config, seed } = parsePuzzleId('v1-goals-t3-g1-z7hukc')!;
-  const puzzle = generatePuzzle(config, seed);
+  const { config, seed, version } = parsePuzzleId('v1-goals-t3-g1-z7hukc')!;
+  const puzzle = generatePuzzle(config, seed, version);
   const p = (row: number, col: number) => ({ row, col });
   const stuck = (s = initUi(puzzle.definition)) => reduceUi(s, { type: 'drop', from: p(3, 1), to: p(1, 3) }); // a 3-merge
 

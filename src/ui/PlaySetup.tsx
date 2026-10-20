@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import landscapeArt from '../assets/art/alisha-elk-play-landscape-v4.webp';
 import portraitArt from '../assets/art/alisha-elk-play-portrait-v1.webp';
 import { SceneArt } from './SceneArt';
+import { MAX_TIER } from '../board';
 import { GOAL_COUNTS, TARGET_TIERS, type PuzzleConfig, type PuzzleMode } from '../generator';
 
 const MODES: readonly (readonly [PuzzleMode, string])[] = [['goals', 'Merge to goals'], ['one', 'Merge down to one']];
@@ -52,7 +53,7 @@ export function PlaySetup({ config, onConfig, onStart, onHome, error, musicContr
           onChange={(mode) => onConfig({ ...config, mode })} />
         <p className="menu-note">{MODE_TEXT[config.mode]}</p>
         <div className="choice-row">
-          <Choice name="tier" legend="Target tier" options={TARGET_TIERS.map((t) => [t, `Tier ${t + 1} of 4`] as const)}
+          <Choice name="tier" legend="Target tier" options={TARGET_TIERS.map((t) => [t, `Tier ${t + 1} of ${MAX_TIER + 1}`] as const)}
             value={config.tier} onChange={(tier) => onConfig({ ...config, tier })} />
           {config.mode === 'goals' && (
             <Choice name="goals" legend="Goals" options={GOAL_COUNTS.map((n) => [n, String(n)] as const)}

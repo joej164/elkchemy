@@ -1,4 +1,4 @@
-import { drop, previewMerge, type Board, type Cell, type Family, type Item, type Pos, type Tier } from './board';
+import { drop, MAX_TIER, previewMerge, type Board, type Cell, type Family, type Item, type Pos, type Tier } from './board';
 import { applyDrop, nextUint32, startSession, type LevelDefinition, type LevelGoal } from './session';
 import { evaluateStatus } from './status';
 
@@ -14,19 +14,26 @@ import { evaluateStatus } from './status';
 // each group, then the merge). The resulting winning sequence is replayed through the session and
 // status rules before the puzzle is returned. Candidates that fail are discarded; after a bounded
 // number of attempts generation throws rather than returning an unverified puzzle.
+//
+// Version 2 adds tier-5 targets, boards up to 10 × 10, and (Merge to goals) spare pieces. Version 1 IDs still
+// reproduce their original boards: version 1 keeps its tiers, its 8 × 8 limit and no spares, and draws the same
+// random numbers in the same order.
 
-export const GENERATOR_VERSION = 1;
+export const GENERATOR_VERSION = 2;
+/** Versions whose IDs this generator still reproduces. */
+export const GENERATOR_VERSIONS: readonly number[] = [1, 2];
 
 export type PuzzleMode = 'goals' | 'one';
 
-/** `tier` uses Item.tier numbering (2 is shown as tier 3 of 4). `goals` is always 1 for 'one'. */
+/** `tier` uses Item.tier numbering (2 is shown as tier 3 of 5). `goals` is always 1 for 'one'. */
 export interface PuzzleConfig {
   readonly mode: PuzzleMode;
   readonly tier: Tier;
   readonly goals: number;
 }
 
-export const TARGET_TIERS: readonly Tier[] = [2, 3];
+export const TARGET_TIERS: readonly Tier[] = [2, 3, 4];
+const V1_TIERS: readonly Tier[] = [2, 3];
 export const GOAL_COUNTS: readonly number[] = [1, 2, 3];
 
 export interface Move { readonly from: Pos; readonly to: Pos }
@@ -47,38 +54,42 @@ const FAMILIES: readonly Family[] = ['grove', 'song', 'crystal', 'elk'];
 
 // Starting pieces per target family, [min, max], by mode and target tier. A first bounded mix,
 // to be tuned through playtesting; Merge down to one gets a few more pieces since it has one family.
+// Tier 5 (version 2) starts from mostly middle-tier pieces, so its chains are longer without a much bigger board.
 const PIECES: Record<PuzzleMode, Partial<Record<Tier, readonly [number, number]>>> = {
-  goals: { 2: [5, 8], 3: [8, 12] },
-  one: { 2: [6, 9], 3: [9, 14] },
+  goals: { 2: [5, 8], 3: [8, 12], 4: [11, 16] },
+  one: { 2: [6, 9], 3: [9, 14], 4: [14, 20] },
 };
 
-export const MAX_BOARD_SIDE = 8;
+/** The largest board side: 8 in version 1, 10 since (tier 5 and three goals with spares need up to 10 × 10). */
+export const MAX_BOARD_SIDE = 10;
+const maxSide = (version: number) => (version === 1 ? 8 : MAX_BOARD_SIDE);
 const MAX_ATTEMPTS = 20;
 
-export function isSupportedConfig(config: PuzzleConfig): boolean {
+export function isSupportedConfig(config: PuzzleConfig, version = GENERATOR_VERSION): boolean {
   const { mode, tier, goals } = config;
   if (mode !== 'goals' && mode !== 'one') return false;
-  if (!TARGET_TIERS.includes(tier)) return false;
+  if (!(version === 1 ? V1_TIERS : TARGET_TIERS).includes(tier)) return false;
   return mode === 'one' ? goals === 1 : GOAL_COUNTS.includes(goals);
 }
 
 const isSeed = (seed: number) => Number.isInteger(seed) && seed >= 0 && seed <= 0xffffffff;
 
-/** Compact reproduction ID, e.g. `v1-goals-t4-g2-1x9k3` or `v1-one-t3-5f2a0`. Tiers are shown 1-based. */
-export function puzzleId(config: PuzzleConfig, seed: number): string {
+/** Compact reproduction ID, e.g. `v2-goals-t5-g2-1x9k3` or `v1-one-t3-5f2a0`. Tiers are shown 1-based. */
+export function puzzleId(config: PuzzleConfig, seed: number, version = GENERATOR_VERSION): string {
   const goals = config.mode === 'goals' ? `-g${config.goals}` : '';
-  return `v${GENERATOR_VERSION}-${config.mode}-t${config.tier + 1}${goals}-${seed.toString(36)}`;
+  return `v${version}-${config.mode}-t${config.tier + 1}${goals}-${seed.toString(36)}`;
 }
 
-/** The config and seed in an ID made by this generator version, or null. */
-export function parsePuzzleId(id: string): { config: PuzzleConfig; seed: number } | null {
+/** The config, seed and version in an ID made by a version this generator reproduces, or null. */
+export function parsePuzzleId(id: string): { config: PuzzleConfig; seed: number; version: number } | null {
   const m = /^v(\d+)-(goals|one)-t(\d)(?:-g(\d))?-([0-9a-z]{1,7})$/.exec(id.trim().toLowerCase());
-  if (!m || Number(m[1]) !== GENERATOR_VERSION) return null;
+  const version = Number(m?.[1]);
+  if (!m || !GENERATOR_VERSIONS.includes(version)) return null;
   const mode = m[2] as PuzzleMode;
   if ((mode === 'goals') !== (m[4] !== undefined)) return null;
   const config: PuzzleConfig = { mode, tier: (Number(m[3]) - 1) as Tier, goals: mode === 'goals' ? Number(m[4]) : 1 };
   const seed = parseInt(m[5], 36);
-  return isSupportedConfig(config) && isSeed(seed) ? { config, seed } : null;
+  return isSupportedConfig(config, version) && isSeed(seed) ? { config, seed, version } : null;
 }
 
 /** Uniform integer in [0, n) from a seeded stream (rejection sampling avoids modulo bias). */
@@ -106,7 +117,7 @@ function shuffle<T>(list: T[], rand: (n: number) => number): T[] {
 function decompose(
   family: Family, target: Tier, [min, max]: readonly [number, number], rand: (n: number) => number,
 ): { items: Item[]; plan: PlannedMerge[] } | null {
-  const counts = [0, 0, 0, 0];
+  const counts = Array.from({ length: MAX_TIER + 1 }, () => 0);
   counts[target] = 1;
   let pieces = 1;
   const want = min + rand(max - min + 1);
@@ -224,13 +235,23 @@ function replayWins(definition: LevelDefinition, moves: readonly Move[]): boolea
   return true;
 }
 
-function candidate(config: PuzzleConfig, seed: number, rand: (n: number) => number): GeneratedPuzzle | null {
+/**
+ * Version 2, Merge to goals: up to two spare pieces of a goal's family, each at a tier its plan merges. A set then
+ * holds more than its merge needs, so the player chooses which pieces to merge (or makes a 5 → 2 merge instead);
+ * spares may be left over, as any leftover may in this mode.
+ */
+function spares(family: Family, plan: readonly PlannedMerge[], rand: (n: number) => number): Item[] {
+  return Array.from({ length: rand(3) }, (): Item => ({ family, tier: plan[rand(plan.length)].tier }));
+}
+
+function candidate(config: PuzzleConfig, seed: number, version: number, rand: (n: number) => number): GeneratedPuzzle | null {
   const families = shuffle([...FAMILIES], rand).slice(0, config.goals);
   const parts = families.map((f) => decompose(f, config.tier, PIECES[config.mode][config.tier]!, rand));
   if (parts.some((p) => p === null)) return null;
-  const items = parts.flatMap((p) => p!.items);
+  const extra = version >= 2 && config.mode === 'goals' ? families.flatMap((f, i) => spares(f, parts[i]!.plan, rand)) : [];
+  const items = [...parts.flatMap((p) => p!.items), ...extra];
   const side = boardSide(items.length);
-  if (side > MAX_BOARD_SIDE) return null;
+  if (side > maxSide(version)) return null;
   const cells = shuffle(Array.from({ length: side * side }, (_, i) => i), rand);
   const board: Cell[][] = Array.from({ length: side }, () => Array.from({ length: side }, (): Cell => null));
   items.forEach((item, i) => { board[Math.floor(cells[i] / side)][cells[i] % side] = item; });
@@ -242,17 +263,20 @@ function candidate(config: PuzzleConfig, seed: number, rand: (n: number) => numb
   const definition: LevelDefinition = { seed, board, supply: [], goal, earlyLoss: false };
   const witness = findWinningMoves(board, parts.flatMap((p) => p!.plan));
   if (!witness || !replayWins(definition, witness)) return null;
-  return { id: puzzleId(config, seed), config, seed, definition, witness };
+  return { id: puzzleId(config, seed, version), config, seed, definition, witness };
 }
 
-/** The verified puzzle for `config` and `seed` (deterministic). Throws for unsupported input or if no candidate verifies. */
-export function generatePuzzle(config: PuzzleConfig, seed: number): GeneratedPuzzle {
-  if (!isSupportedConfig(config)) throw new Error('Unsupported puzzle configuration');
+/**
+ * The verified puzzle for `config` and `seed` (deterministic), by the current generator or, for an older ID, the
+ * `version` it names. Throws for unsupported input or if no candidate verifies.
+ */
+export function generatePuzzle(config: PuzzleConfig, seed: number, version = GENERATOR_VERSION): GeneratedPuzzle {
+  if (!GENERATOR_VERSIONS.includes(version) || !isSupportedConfig(config, version)) throw new Error('Unsupported puzzle configuration');
   if (!isSeed(seed)) throw new Error('Puzzle seed must be a 32-bit unsigned integer');
   const rand = seededRandom(seed);
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
-    const puzzle = candidate(config, seed, rand);
+    const puzzle = candidate(config, seed, version, rand);
     if (puzzle) return puzzle;
   }
-  throw new Error(`No verified puzzle found for ${puzzleId(config, seed)}`);
+  throw new Error(`No verified puzzle found for ${puzzleId(config, seed, version)}`);
 }

@@ -10,7 +10,7 @@ const F: Record<string, Family> = { g: 'grove', s: 'song', c: 'crystal', e: 'elk
 function make(rows: string[]): Board {
   return rows.map((r) =>
     r.trim().split(/\s+/).map((c): Cell =>
-      c === '.' ? null : { family: F[c[0]], tier: Number(c[1]) as 0 | 1 | 2 | 3 },
+      c === '.' ? null : { family: F[c[0]], tier: Number(c[1]) as 0 | 1 | 2 | 3 | 4 },
     ),
   );
 }
@@ -214,7 +214,7 @@ function bruteForce(counts: number[]): boolean {
     const hit = memo.get(key);
     if (hit !== undefined) return hit;
     let ok = false;
-    for (let t = 0; t < 3 && !ok; t++) {
+    for (let t = 0; t < 4 && !ok; t++) {
       if (c[t] >= 3) { const n = [...c]; n[t] -= 3; n[t + 1] += 1; ok = go(n); }
       if (!ok && c[t] >= 5) { const n = [...c]; n[t] -= 5; n[t + 1] += 2; ok = go(n); }
     }
@@ -279,15 +279,17 @@ describe('canLeaveOne', () => {
     for (let c0 = 0; c0 <= 12; c0++) {
       for (let c1 = 0; c1 <= 7; c1++) {
         for (let c2 = 0; c2 <= 5; c2++) {
-          for (let c3 = 0; c3 <= 2; c3++) {
-            const counts = [c0, c1, c2, c3];
-            expect(canLeaveOne(counts), counts.join(',')).toBe(bruteForce(counts));
-            checked++;
+          for (let c3 = 0; c3 <= 4; c3++) {
+            for (let c4 = 0; c4 <= 1; c4++) {
+              const counts = [c0, c1, c2, c3, c4];
+              expect(canLeaveOne(counts), counts.join(',')).toBe(bruteForce(counts));
+              checked++;
+            }
           }
         }
       }
     }
-    expect(checked).toBe(13 * 8 * 6 * 3);
+    expect(checked).toBe(13 * 8 * 6 * 5 * 2);
   });
 });
 
@@ -398,7 +400,7 @@ describe('item goals without early loss', () => {
     expect(evaluateStatus(startSession(items))).toBe('lost');
     expect(evaluateStatus(startSession({ ...items, board: make(['g2 g2 s1 s1', 's0 s0 . .']) }))).toBe('lost');
     // Items at the maximum tier never merge, however many there are.
-    const maxTier: LevelDefinition = { ...items, board: make(['c3 c3 c3', 'g2 s1 .']) };
+    const maxTier: LevelDefinition = { ...items, board: make(['c4 c4 c4', 'g2 s1 .']) };
     expect(canArrangeMerge(startSession(maxTier))).toBe(false);
     expect(evaluateStatus(startSession(maxTier))).toBe('lost');
     // Unspent supply counts toward a possible merge.
