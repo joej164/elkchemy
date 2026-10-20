@@ -27,3 +27,35 @@ export function actionEffect(state: UiState): EffectCue | null {
 export function palaceOpeningPending(state: UiState): boolean {
   return viewCue(state)?.kind === 'palace';
 }
+
+/**
+ * Calls `recover` for user gestures of the kinds browsers accept for starting audio, in the capture phase, so it runs
+ * before the gesture's own handlers (a drop, and the cue it plays):
+ * - pointerup, from any pointer. For touch it comes before the drop, which may remove the touched item.
+ * - touchend, iOS Safari's usual audio-unlock event, kept in case Safari ignores pointerup. It goes to the element the
+ *   touch began on, and once a drop has removed that element it never reaches the window, so it is heard there.
+ * - keydown.
+ * `again` is true for a later event of the same press (touchend after pointerup): resume may be asked for again, but
+ * nothing may be cancelled, as the gesture's own cue may have started. Returns the cleanup.
+ */
+export function onAudioGesture(target: EventTarget, recover: (again: boolean) => void): () => void {
+  let called = false;
+  let touched: EventTarget | null = null;
+  const end = () => { recover(called); called = true; };
+  const untrack = () => { touched?.removeEventListener('touchend', end); touched = null; };
+  const begin = () => { called = false; };
+  const touchstart = (e: Event) => {
+    begin();
+    untrack();
+    touched = e.target;
+    touched?.addEventListener('touchend', end, { once: true, passive: true });
+  };
+  const listeners: [string, (e: Event) => void][] = [
+    ['pointerdown', begin], ['touchstart', touchstart], ['pointerup', end], ['keydown', () => recover(false)],
+  ];
+  for (const [type, listener] of listeners) target.addEventListener(type, listener, { capture: true, passive: true });
+  return () => {
+    untrack();
+    for (const [type, listener] of listeners) target.removeEventListener(type, listener, { capture: true });
+  };
+}

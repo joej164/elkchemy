@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { SoundEffects, type EffectCue } from '../effects';
 import type { MusicState } from '../music';
+import { onAudioGesture } from './audioEvents';
 
 export function useEffects() {
   const player = useRef<SoundEffects | null>(null);
@@ -14,7 +15,9 @@ export function useEffects() {
     document.addEventListener('visibilitychange', visibility);
     window.addEventListener('pagehide', hide);
     window.addEventListener('pageshow', visibility);
+    const stopRecovery = onAudioGesture(window, (again) => effects.recover(again));
     return () => {
+      stopRecovery();
       document.removeEventListener('visibilitychange', visibility);
       window.removeEventListener('pagehide', hide);
       window.removeEventListener('pageshow', visibility);

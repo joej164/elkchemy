@@ -4,6 +4,137 @@ Each entry records what changed, how it was verified, and known limitations. **U
 
 Earlier published builds are not backfilled here. The previous build, `20261018-195510`, has five handcrafted levels and optional looping music; its verification is recorded in TODO.md under Current baseline and Audio.
 
+## 20261020-145234 — Audio recovery and Merge to treasure ingredient variety (October 20, 2026)
+
+Implemented by Claude from Codex's investigation of owner feedback on `20261020-025257`. Independent Codex review passed; owner authorized commit → push → deploy after verification. Physical iPad/Safari and owner retest remain pending.
+
+Independent final verification: 604 tests, typecheck, production build and diff checks passed. Chromium emulated touch drag after explicit suspension resumed both contexts before the drop; the later fallback did not cancel the merge cue. No console errors. Owner clarified the reported route: iPad Home Screen app → game Home button → different game mode. This does not establish physical Safari interruption behavior.
+
+### Audio recovery
+
+- **Report:** with Music and Sound effects on, game → Home → new level went silent until both were toggled off and on.
+- **Confirmed gap, not a confirmed cause:** Codex found that ordinary navigation on the live site works in Chromium. Scripted suspension of both audio contexts, with the page still visible, was never recovered by entering a level or by a merge; only the toggles restored them. Nothing resumed a context stopped by something other than mute or backgrounding:
+  - `SoundEffects.play` never resumes.
+  - `BackgroundMusic` resumes only on enable, on a visibility change or on a different track.
+
+  What actually stopped audio on the owner's device is unknown. The clarifying questions remain open: Safari or the Home Screen app, game Home or device Home, and backgrounding or lock.
+- **Change:** `recover()` on both players (`src/music.ts`, `src/effects.ts`).
+  - **When it acts:** only for audio that is on, a visible page, and an existing context whose state is neither `running` nor `closed`, so `suspended` and Safari's `interrupted` both count. It calls `resume()`, with the rejection handled.
+  - **Effects:** a gesture's first call cancels any voice started, or cue still loading, while stopped, so nothing plays late. A later event of the same gesture (`recover(true)`) only asks to resume again: by then that gesture's own cue may have started.
+  - **What it never does:** create a context, fetch, change the on/off state, or unmute.
+- **Gestures:** `onAudioGesture` (`src/ui/audioEvents.ts`) wires both hooks to capture-phase listeners. They run before the gesture's own handlers, so `resume()` is called inside the gesture and before its drop and cue:
+  - `pointerup` from any pointer, including touch;
+  - `touchend`, the usual iOS audio-unlock event, kept as a fallback in case Safari doesn't accept `pointerup`. It is heard on the element the touch began on (registered at `touchstart`), not the window.
+  - `keydown`.
+
+  The helper tracks each press (reset on `pointerdown`/`touchstart`). The first of its events recovers; a later one (a touch's `touchend` after `pointerup`, or a pen's on iPad) calls `recover(true)`. Each key press recovers. Any navigation tap, board tap or drag, or key press is covered, whatever the screen or track. There is no automatic retry outside gestures.
+- **Codex review fix (touch drags):** the first version skipped touch `pointerup` and relied on a window `touchend`. Codex reproduced the failure in Chromium touch emulation by dragging a level-1 Grove onto a matching pair after a simulated interruption. The merge succeeded, but both contexts stayed suspended and the cue was silent.
+  - **Event order:** touch `pointerup` reaches the window, then the board's `pointerup` handler commits the drop, then React removes the touched item's art. `touchend` then fires on that detached element and never reaches the window.
+  - **Fix:** recover on touch `pointerup` too, before the drop. Hear `touchend` on the touched element itself, where it still arrives once detached. Mark a press's later event as a repeat, so it cannot cancel the drop's fresh cue.
+  - **Duplicate calls:** while audio is still stopped, a touch press asks each player to resume at most twice (`pointerup`, then `touchend`). The second call only repeats `resume()`, with no cancelling, no state change and no new bookkeeping. Once the context reports `running`, neither call does anything.
+- **Unchanged:** default-off toggles, independent Music and Effects, lazy loading, mute and background suspension, three-voice limit, cue cancellation on stop/Undo/Retry/mute/hide.
+
+### Merge to treasure: ingredient inventories (generator version 4)
+
+- **Finding (Codex):** across 500 seeds, version 3 started each tier-3 ingredient in only four ways. Its random splits within a 5–8-piece budget left out nine low pieces, the all-3-merge route. Recipes only change families, and tier-4/5 goals share the same ingredient patterns.
+- **Fixed rules allow little more:**
+  - With nothing left over, a tier-3 ingredient can start in exactly six ways (tested exhaustively with `canLeaveOne`): 3 middle, 3 low + 2 middle, 5 low + 1 middle, 6 low + 1 middle, 8 low, 9 low. Low is tier 1 and middle is tier 2.
+  - Each fixes its merge route. 9 low needs three 3-merges, and a 5-merge strands a piece. 8 low needs one 5-merge and one 3-merge. 6 + 1 needs 3-merges. 5 + 1 needs the 5-merge.
+- **Change:** version 4 picks each ingredient evenly from five fixed plans (`INGREDIENT_PLANS` in `src/generator.ts`), all of these except 3 middle. That one is a single merge with nothing to work out, so it's left out.
+  - Recipes, one recipe per board, fixed contents, two-item crafting, tier-4/5 goals and tier-5 supporting pieces are unchanged.
+  - Merge to goals and Merge down to one are unchanged, under `v4-…` IDs.
+- **IDs:** `v4-treasure-<recipe>-t4|t5-<seed>`; `v1`–`v3` still parse.
+  - Before the change, 1,262 fingerprints were recorded and all matched afterwards. They cover 800 version-3 treasure boards with their winning lines, 100 version-2 treasure boards, 360 goals/one boards and 2 pinned IDs.
+  - `v3-treasure-songbird-t5-9ix` and `v3-treasure-woodland-t4-9iw` are pinned in tests.
+- **Survey:** 500 seeds per tier, recipe = seed mod 4 as the app picks; 1,000 ingredients per tier. Tier 4 and tier 5 had identical ingredient counts because the ingredient draws come first; tier 5 then adds supporting pieces.
+
+  | Ingredient start | Version 3 | Version 4 |
+  | --- | --- | --- |
+  | 8 low | 44.9% | 21.5% |
+  | 5 low + 1 middle | 24.9% | 17.1% |
+  | 6 low + 1 middle | 17.3% | 19.8% |
+  | 3 low + 2 middle | 12.9% | 19.5% |
+  | 9 low | 0% | 22.1% |
+  | Ingredient pairs per board | 10 kinds (8 low + 8 low: 21.2%) | 15 kinds (each 2.4–10%) |
+  | Both ingredients start the same way | 32.6% | 18.6% |
+
+  - **Identical pairs:** independent, even selection from five starts predicts the same start for both ingredients on 1 in 5 boards. Codex's survey of 1,000 version-4 boards found 199 (19.9%). This is by design: selection doesn't force different starts. (An earlier Claude handoff wrongly said 2–5%; that range was the share of each individual identical pairing.)
+
+  - **Rejection bias:** over 5,000 seeds, version 4 gives 19.6–20.5% each. No board's inventories differed from the first candidate's draw, so retries don't skew the mix.
+  - **Size and time:** tier 4 averages 14.2 pieces (version 3: 13.9), at most 18 (16), on boards that are 74% 5 × 5 and 26% 6 × 6 (79% and 21%). Tier 5 averages 23.9 (23.7), at most 30 (28), and is 7 × 7 for 70%, as before. The average winning line is unchanged: 12.3 steps at tier 4 and 21.2 (21.3) at tier 5. No generation failures; at most 5.9ms.
+- **Limits:**
+  - **Bounded variety:** five starts and 15 pairs, with both ingredients starting the same way on about 1 board in 5. Recipes still only relabel families, and tier 4 and 5 share the ingredient mix.
+  - **Shared seeds:** a seed gives the same ingredient starts at both tiers.
+  - **No added depth claimed:** placement differs but adds no strategic depth. Each start's forced route (avoid a 5-merge on 9 low; make one on 8 low or 5 + 1) is the only added decision.
+  - **Untested difficulty:** whether the nine-low trap is fair or fun for Alisha is unknown; it needs a playtest. A stranded piece ends in "No merges left", and Undo or Retry recovers.
+  - **Bigger scope:** wider structural variety needs new rules (other ingredient tiers, counts or recipes), a separate owner decision.
+
+### Verification (Claude)
+
+- **Automated:** 604 tests in 24 files, typecheck, production build and `git diff --check` pass.
+  - **`tests/audioRecovery.test.ts` (18 tests):** a small event model stands in for the browser (window capture listeners hear an event only while its target is attached; a removed element still hears its own). Covered:
+    - which events recover: touch, mouse and pen `pointerup`, `keydown`, and a touch's `touchend` as a repeat, including when the drop removed the touched item;
+    - a touch with no `pointerup` recovering on `touchend`;
+    - cleanup, which also forgets the touched element;
+    - the previous wiring never recovering in the touch-drag order;
+    - the regression order with real players and a slow resume: touch `pointerup` → drop removes the item and plays its cue → `touchend` on the detached item. Both contexts recover, the stale cue is stopped, and the drop's cue survives the `touchend` repeat, whether it was cached or still loading. The music loop is never restarted.
+    - a new touch cancelling cues left from an earlier touch whose resume never completed;
+    - `suspended` and `interrupted` contexts recovered, including a same-track level change;
+    - nothing done while off, muted, hidden or before the first enable;
+    - a delayed music load during recovery;
+    - a rejected resume giving no error state, with a later gesture retrying;
+    - a cue started while stopped cancelled, and the gesture's own cue kept;
+    - a cue loading while stopped dropped;
+    - effects-only, music-only, both and neither recovered independently by one touch drag.
+  - **Mutation checks:** first version: with `recover()` disabled, 10 tests failed; removing only the effects cancel failed the late-cue tests. Touch-drag fix:
+    - skipping touch `pointerup` again: 4 tests fail;
+    - letting the `touchend` repeat cancel effects: 3 fail;
+    - listening for `touchend` on the window instead of the touched element: 3 fail.
+  - **`tests/treasure.test.tsx`:**
+    - the six exact inventories;
+    - the five plans;
+    - all five inventories over 400 generated boards, each above 12%, and none with an ingredient piece at tier 3+;
+    - version 3 never starting nine low;
+    - version-3 pins;
+    - goals/one identical in versions 2, 3 and 4.
+
+    The existing full-controller wins and chest-necessity checks now run on version 4: 15 seeds × 4 recipes × 2 tiers.
+- **Playwright Chromium, touch-drag fix:** the fixed production build `20261020-144432` was compared with the unfixed tree built the same way (`before-touch-fix`), both via `vite preview`.
+  - **Method:** real emulated touch drags (CDP `Input.dispatchTouchEvent`), and taps, with `hasTouch` at 820×1180 and 390×844. Interruptions are SIMULATED (both contexts `suspend()`ed, page visible). This is Chromium touch emulation, not iOS.
+  - **Steps:** enable both, start level 1, warm the merge cue with a tap merge, Retry, simulate an interruption, then touch-drag the Grove at row 1, column 1 onto the pair at column 2. Both builds and sizes logged the same event order: `pointerdown/touch, touchstart, pointerup/touch, touchend` on a detached target.
+  - **Unfixed:** the merge succeeded but both contexts stayed suspended, with its cue queued on the stopped context. A cue started without a gesture was still queued after the next drag, and the contexts stayed suspended. With effects off, a drag left music suspended.
+  - **Fixed, both sizes:**
+    - **Touch-drag merge:** both contexts running. Its cue, scheduled while the resume was pending, was kept.
+    - **Tap-tap merge:** both running; cue kept.
+    - **Stale cue:** a cue started without a gesture (synthetic clicks) was stopped at the same frozen `currentTime` it was scheduled for, so it never sounded. The next drag's own cue was kept and both contexts recovered.
+    - **Effects off:** after a drag, music was running, effects stayed suspended with no new cue, and the button still read off. Turning effects on restored them.
+    - **Home → different mode:** level 1 → Home tap → Play → Merge down to one: both running at each step.
+    - No console errors or warnings.
+  - **Emulation artifact:** at 820×1180, Chromium dropped a tap made 0.4s after an emulated drag, in both builds; after 1.2s it registered, so the recorded run pauses 1.2s after each drag. It is unrelated to audio and wasn't seen at phone size.
+- **Playwright Chromium against the production build, first version** (`20261020-071217` via `vite preview`, before the touch-drag fix):
+  - **Method:** an init script observed AudioContext states and buffer-source start/stop, and pinned the seed.
+  - **Interruptions are SIMULATED** by calling `suspend()` on both contexts while the page stays visible.
+  - Phone 390×844 used mouse clicks; iPad 820×1180 used touch emulation (`hasTouch`, taps fire `touchend`). Both gave the same results:
+    - **Normal navigation:** both on → `v4-treasure-crystal-t4-s2` → merge: both contexts running, merge cue started.
+    - **Recovery:** after simulated interruption both were back to running on each of these: in game → Home tap; on Home → Play → Start (same track); in game → successful merge. In the last case, the merge's cue started and was kept.
+    - **Stale cue:** a merge triggered by synthetic `element.click()` on a suspended context (no gesture) scheduled a cue at the frozen `currentTime`. The next real tap stopped it at that same time, so it never sounded, and resumed both contexts.
+    - **Effects off:** an interruption plus a tap brought music back to running while effects stayed suspended; turning effects on restored them.
+    - **Full wins:**
+      - `v4-treasure-crystal-t4-s2`: 9 low + 5 low/1 middle, 5 × 5, 12 steps. It ended with Song tier 4 alone and "Goal complete!".
+      - `v4-treasure-crystal-t5-ru`: 8 low + 9 low, 7 × 7, 19 steps, including craft and open. It ended with Song tier 5 alone.
+
+      There was no horizontal overflow: cells were 64px on the phone, which pans as before, and 92px on the iPad. No console errors or warnings.
+  - **Comparison, live `20261020-025257`:** the same simulated sequence with a version-3 seed (`v3-treasure-crystal-t4-sm`) left both contexts suspended through Home, Play → Start, a merge and later taps. Only toggling Effects restored that context. This reproduces Codex's finding.
+- **Not verified:**
+  - physical iPad/Safari or Home Screen app behaviour;
+  - whether iOS honours `resume()` from touch `pointerup`, or needs the `touchend` repeat;
+  - whether iOS delivers `touchend` to a removed element as Chromium does; if it doesn't and also ignores `pointerup`, drags would still not recover;
+  - what silenced the owner's device;
+  - a context that reports `running` while silent (recovery doesn't act on it; toggling does suspend + resume);
+  - perceived sound;
+  - playtesting of the new inventories.
+- **Not added:** a player-facing in-game Release notes entry (`src/ui/ReleaseNotes.tsx`), to be written at release.
+
 ## 20261020-025257 — Merge to treasure: drop-to-craft, four recipes and tier-5 goals (October 19, 2026)
 
 Implemented by Claude from the owner's latest decisions; independent Codex review and fix verification completed. Owner authorized commit → push → deploy. These rules supersede the Craft button and "consume every ingredient-family piece" rules of `20261020-010722`. Physical iPad/Safari and owner playtesting are not yet available.

@@ -6,6 +6,15 @@ export interface ReleaseNote { readonly title: string; readonly date: string; re
 
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    title: 'Sound recovery and more merge patterns',
+    date: 'October 20, 2026',
+    notes: [
+      'Enabled audio can recover on your next tap, drag or key press after an interruption.',
+      'Treasure ingredients now use five starting patterns, including nine small pieces that need three-piece merges.',
+      'Older puzzle IDs still reproduce their boards. Music and Sound effects remain separate and start off.',
+    ],
+  },
+  {
     title: 'More treasure recipes',
     date: 'October 19, 2026',
     notes: [

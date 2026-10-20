@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
 import type { Board, Cell, Family, Item, Pos, Tier } from '../src/board';
 import {
-  canReach, generatePuzzle, GOAL_COUNTS, isSupportedConfig, parsePuzzleId, TARGET_TIERS, TREASURE_TIERS, treasureConfig,
-  type GeneratedPuzzle, type PuzzleConfig, type Step,
+  canReach, generatePuzzle, GOAL_COUNTS, INGREDIENT_PLANS, isSupportedConfig, parsePuzzleId, TARGET_TIERS, TREASURE_TIERS,
+  treasureConfig, type GeneratedPuzzle, type PuzzleConfig, type Step,
 } from '../src/generator';
 import { RECIPES, recipeById, type Recipe } from '../src/recipes';
 import { applyDrop, contentCells, openChest, startSession, type LevelDefinition } from '../src/session';
@@ -12,6 +12,7 @@ import { actionEffect } from '../src/ui/audioEvents';
 import { Board as BoardView } from '../src/ui/Board';
 import { initUi, reduceUi, type UiAction, type UiState } from '../src/ui/controller';
 import { NO_MERGES_MESSAGE, NO_ROOM_MESSAGE, statusMessage } from '../src/ui/messages';
+import { canLeaveOne } from '../src/status';
 import { PlaySetup, switchMode } from '../src/ui/PlaySetup';
 
 const WOODLAND = recipeById('woodland')!;
@@ -182,13 +183,61 @@ describe('Merge to treasure: generated puzzles', () => {
 
   it('have IDs naming the version, recipe and goal tier, which reproduce them', () => {
     const pz = generatePuzzle(treasureConfig('songbird', 4), 12345);
-    expect(pz.id).toBe('v3-treasure-songbird-t5-9ix');
-    expect(parsePuzzleId(pz.id)).toEqual({ config: treasureConfig('songbird', 4), seed: 12345, version: 3 });
+    expect(pz.id).toBe('v4-treasure-songbird-t5-9ix');
+    expect(parsePuzzleId(pz.id)).toEqual({ config: treasureConfig('songbird', 4), seed: 12345, version: 4 });
     expect(generatePuzzle(treasureConfig('songbird', 4), 12345)).toEqual(pz);
     expect(puzzleLabel(pz.config)).toBe('Merge to treasure · Tier 5 of 5 · Songbird chest');
-    for (const id of ['v3-treasure-songbird-9ix', 'v3-treasure-songbird-t3-9ix', 'v3-treasure-songbird-t6-9ix', 'v3-treasure-meadow-t4-9ix',
-      'v2-treasure-woodland-t4-9ix', 'v2-treasure-songbird-9ix', 'v1-treasure-woodland-9ix']) expect(parsePuzzleId(id), id).toBeNull();
+    expect(parsePuzzleId('v3-treasure-songbird-t5-9ix')).toEqual({ config: treasureConfig('songbird', 4), seed: 12345, version: 3 });
+    for (const id of ['v4-treasure-songbird-9ix', 'v3-treasure-songbird-9ix', 'v3-treasure-songbird-t3-9ix', 'v3-treasure-songbird-t6-9ix',
+      'v3-treasure-meadow-t4-9ix', 'v2-treasure-woodland-t4-9ix', 'v2-treasure-songbird-9ix', 'v1-treasure-woodland-9ix']) {
+      expect(parsePuzzleId(id), id).toBeNull();
+    }
     expect(isSupportedConfig({ ...treasureConfig('grove', 3), goals: 2 })).toBe(false);
+  });
+
+  it('start each ingredient as one of the five leftover-free inventories (3 middle, a single merge, left out), evenly', () => {
+    // Every way to make one tier-3 ingredient from tiers 1 and 2 with nothing left over: there are six.
+    const ways: string[] = [];
+    for (let low = 0; low <= 15; low++) for (let mid = 0; mid <= 5; mid++) if (canLeaveOne([low, mid], 2)) ways.push(`${low}L${mid}M`);
+    expect(ways).toEqual(['0L3M', '3L2M', '5L1M', '6L1M', '8L0M', '9L0M']);
+    const inventory = (counts: number[]) => `${counts[0]}L${counts[1]}M`;
+    const planned = INGREDIENT_PLANS.map((plan) => {
+      const counts = [0, 0, 1];
+      for (const [below, size] of [...plan].reverse()) {
+        counts[3 - below] -= size === 3 ? 1 : 2;
+        counts[2 - below] += size;
+        expect(counts.every((n) => n >= 0)).toBe(true);
+      }
+      return inventory(counts);
+    });
+    expect(planned).toEqual(['3L2M', '5L1M', '6L1M', '8L0M', '9L0M']);
+
+    const seen = new Map<string, number>();
+    for (const r of RECIPES) for (const tier of TREASURE_TIERS) for (let i = 0; i < 50; i++) {
+      const pz = generatePuzzle(treasureConfig(r.id, tier), Math.imul(i + 1, 2246822519) >>> 0);
+      for (const { item } of r.ingredients) {
+        const counts = [0, 0, 0, 0, 0];
+        for (const c of items(pz.definition.board)) if (c.family === item.family) counts[c.tier]++;
+        expect(counts.slice(2).every((n) => n === 0), pz.id).toBe(true);
+        seen.set(inventory(counts), (seen.get(inventory(counts)) ?? 0) + 1);
+      }
+    }
+    expect([...seen.keys()].sort()).toEqual(planned);
+    for (const n of seen.values()) expect(n / 800).toBeGreaterThan(0.12);
+    // Version 3 never started an ingredient as nine low pieces.
+    const nineLow = (pz: GeneratedPuzzle) => pz.definition.recipe!.ingredients.some(({ item }) =>
+      items(pz.definition.board).filter((c) => c.family === item.family && c.tier === 0).length === 9);
+    expect(RECIPES.some((r) => SEEDS.some((seed) => nineLow(generatePuzzle(treasureConfig(r.id, 3), seed, 3))))).toBe(false);
+  });
+
+  // Recorded from the version-3 generator before version 4 changed the ingredients: their boards must not change.
+  it.each([
+    ['v3-treasure-songbird-t5-9ix', '. s0 g0 s0 c1 c1 g0 / . c2 c1 s0 . g0 . / g1 g0 c2 . c2 . c2 / s0 c1 . . . . . / s0 s0 . . s0 . . / . . . . . s0 c1 / . g0 g0 . . c1 .'],
+    ['v3-treasure-woodland-t4-9iw', 'g0 . c0 . c0 / . c0 . c0 g0 / c0 g0 c0 g0 . / . g1 . . . / g0 . c0 c0 .'],
+  ])('version 3 ID %s keeps its board', (id, board) => {
+    const { config, seed, version } = parsePuzzleId(id)!;
+    const pz = generatePuzzle(config, seed, version);
+    expect([pz.id, pz.definition.board.map((r) => r.map(code).join(' ')).join(' / ')]).toEqual([id, board]);
   });
 
   // Recorded from the version-2 generator before crafting moved to the drop: their boards must not change.
@@ -202,15 +251,18 @@ describe('Merge to treasure: generated puzzles', () => {
     expect(pz.config).toEqual(treasureConfig('woodland', 3));
   });
 
-  it('leave Merge to goals and Merge down to one as in version 2', () => {
+  it('leave Merge to goals and Merge down to one as in version 2 (versions 3 and 4)', () => {
     const configs2: PuzzleConfig[] = [
       ...TARGET_TIERS.flatMap((tier) => GOAL_COUNTS.map((goals): PuzzleConfig => ({ mode: 'goals', tier, goals }))),
       ...TARGET_TIERS.map((tier): PuzzleConfig => ({ mode: 'one', tier, goals: 1 })),
     ];
     for (const c of configs2) for (const seed of SEEDS.slice(0, 5)) {
-      const [v2, v3] = [generatePuzzle(c, seed, 2), generatePuzzle(c, seed, 3)];
-      expect(v3.definition).toEqual(v2.definition);
-      expect(v3.id).toBe(v2.id.replace(/^v2/, 'v3'));
+      const v2 = generatePuzzle(c, seed, 2);
+      for (const v of [3, 4]) {
+        const later = generatePuzzle(c, seed, v);
+        expect(later.definition).toEqual(v2.definition);
+        expect(later.id).toBe(v2.id.replace(/^v2/, `v${v}`));
+      }
     }
   });
 });

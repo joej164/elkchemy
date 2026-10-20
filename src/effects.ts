@@ -51,6 +51,18 @@ export class SoundEffects {
     else void this.context?.suspend().catch(() => {});
   }
 
+  /**
+   * As BackgroundMusic.recover. Cues started or loading while the context was stopped are cancelled first, so they
+   * never play late; the gesture's own cue comes after this. `again` (a later event of the same gesture; see
+   * onAudioGesture) only asks to resume again: by then that gesture's own cue may have started.
+   */
+  recover(again = false): void {
+    const state = this.context?.state;
+    if (!this.enabled || !this.visible || this.disposed || !state || state === 'running' || state === 'closed') return;
+    if (!again) this.stop();
+    void this.context!.resume().catch(() => {});
+  }
+
   private buffer(cue: EffectCue): Promise<AudioBuffer> {
     let pending = this.buffers.get(cue);
     if (!pending) {

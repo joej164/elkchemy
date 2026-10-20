@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { BackgroundMusic, type MusicState } from '../music';
+import { onAudioGesture } from './audioEvents';
 
 export function useMusic(track: string) {
   const player = useRef<BackgroundMusic | null>(null);
@@ -15,7 +16,9 @@ export function useMusic(track: string) {
     document.addEventListener('visibilitychange', visibility);
     window.addEventListener('pagehide', hide);
     window.addEventListener('pageshow', visibility);
+    const stopRecovery = onAudioGesture(window, () => music.recover());
     return () => {
+      stopRecovery();
       document.removeEventListener('visibilitychange', visibility);
       window.removeEventListener('pagehide', hide);
       window.removeEventListener('pageshow', visibility);

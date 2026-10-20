@@ -16,8 +16,12 @@ import { evaluateStatus } from './status';
 // status rules before the puzzle is returned. Candidates that fail are discarded; after a bounded
 // number of attempts generation throws rather than returning an unverified puzzle.
 //
-// Merge to treasure builds the recipe's ingredients (and, for a tier-5 goal, supporting pieces) the same way; its
-// winning line then drops one ingredient onto the other (crafting the chest), opens the chest and merges.
+// Merge to treasure builds the recipe's ingredients (from fixed inventories since version 4) and, for a tier-5 goal,
+// supporting pieces the same way; its winning line then drops one ingredient onto the other (crafting the chest), opens
+// the chest and merges.
+//
+// Version 4 changes only Merge to treasure's ingredients: each starts as one of five fixed inventories, chosen evenly
+// (INGREDIENT_PLANS), instead of version 3's random splits within 5–8 pieces. Version 3 IDs reproduce their boards.
 //
 // Version 3 makes Merge to treasure's catalog of four recipes and its goals of tier 4 or 5, with crafting by dropping
 // one ingredient onto the other. Merge to goals and Merge down to one generate exactly as in version 2. Version 2's
@@ -28,9 +32,9 @@ import { evaluateStatus } from './status';
 // reproduce their original boards: version 1 keeps its tiers, its 8 × 8 limit and no spares, and draws the same
 // random numbers in the same order.
 
-export const GENERATOR_VERSION = 3;
+export const GENERATOR_VERSION = 4;
 /** Versions whose IDs this generator still reproduces. */
-export const GENERATOR_VERSIONS: readonly number[] = [1, 2, 3];
+export const GENERATOR_VERSIONS: readonly number[] = [1, 2, 3, 4];
 
 export type PuzzleMode = 'goals' | 'one' | 'treasure';
 
@@ -297,10 +301,37 @@ function place(items: readonly Item[], version: number, rand: (n: number) => num
   return board;
 }
 
-// Merge to treasure: pieces per ingredient, as for a tier-3 goal in Merge to goals (no spares); and per supporting
-// item (a tier-5 goal), as many as each breaks into.
+// Merge to treasure: pieces per ingredient (version 3), as for a tier-3 goal in Merge to goals (no spares); and per
+// supporting item (a tier-5 goal), as many as each breaks into.
 const TREASURE_PIECES: readonly [number, number] = [5, 8];
 const SUPPORT_PIECES: readonly [number, number] = [3, 6];
+
+/**
+ * Version 4: the ways to make one ingredient from pieces one ("middle") and two ("low") tiers below it with nothing
+ * left over, as forward merge plans of [tiers below, size]. Each fixes the merges: 9 low needs three 3-merges (a 5-merge
+ * would strand one), 8 low one 5-merge, 6 low + 1 middle two 3-merges, 5 low + 1 middle the 5-merge. The sixth way,
+ * 3 middle, is a single merge and is left out. Version 3's splits within 5–8 pieces gave 8 low to 45% and never 9.
+ */
+export const INGREDIENT_PLANS: readonly (readonly (readonly [1 | 2, 3 | 5])[])[] = [
+  [[2, 3], [1, 3]],                 // 3 low + 2 middle
+  [[2, 5], [1, 3]],                 // 5 low + 1 middle
+  [[2, 3], [2, 3], [1, 3]],         // 6 low + 1 middle
+  [[2, 5], [2, 3], [1, 3]],         // 8 low
+  [[2, 3], [2, 3], [2, 3], [1, 3]], // 9 low
+];
+
+/** Version 4: an ingredient's starting pieces and merge plan, from an evenly chosen INGREDIENT_PLANS entry. */
+function ingredientParts({ family, tier }: Item, rand: (n: number) => number): { items: Item[]; plan: PlannedMerge[] } {
+  const plan = INGREDIENT_PLANS[rand(INGREDIENT_PLANS.length)]
+    .map(([below, size]): PlannedMerge => ({ family, tier: (tier - below) as Tier, size }));
+  const counts = Array.from({ length: MAX_TIER + 1 }, () => 0);
+  counts[tier] = 1;
+  for (const m of [...plan].reverse()) {
+    counts[m.tier + 1] -= m.size === 3 ? 1 : 2;
+    counts[m.tier] += m.size;
+  }
+  return { items: counts.flatMap((n, t) => Array.from({ length: n }, (): Item => ({ family, tier: t as Tier }))), plan };
+}
 
 /** Whether some sequence of 3- and 5-merges of one family's items (counts by tier) makes an item of `tier` or above. */
 export function canReach(counts: readonly number[], tier: number): boolean {
@@ -335,7 +366,7 @@ const positionOf = (board: Board, item: Item): Pos | null => {
 };
 
 /**
- * Merge to treasure: each ingredient decomposed into starting pieces, and for a goal two tiers above the contents
+ * Merge to treasure: each ingredient's starting pieces (see INGREDIENT_PLANS), and for a goal two tiers above the contents
  * (tier 5), two supporting items of the reward family at the contents' merge tier, decomposed too: with the contents'
  * merge they make the three that merge into the goal. The supporting pieces alone must never reach the goal's tier, so
  * the chest is needed. The winning line merges everything into the two ingredients (and the supporting items), drops
@@ -347,7 +378,8 @@ function treasureCandidate(config: PuzzleConfig, seed: number, version: number, 
   const content = recipe.contents.item;
   const tall = config.tier > content.tier + 1;
   const ingredients = recipe.ingredients.flatMap(({ item, count }) =>
-    Array.from({ length: count }, () => decompose(item.family, item.tier, TREASURE_PIECES, rand)));
+    Array.from({ length: count }, () =>
+      (version >= 4 ? ingredientParts(item, rand) : decompose(item.family, item.tier, TREASURE_PIECES, rand))));
   const support = tall ? [0, 1].map(() => decompose(content.family, (content.tier + 1) as Tier, SUPPORT_PIECES, rand)) : [];
   const parts = [...ingredients, ...support];
   if (parts.some((p) => p === null)) return null;

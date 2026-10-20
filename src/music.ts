@@ -62,6 +62,16 @@ export class BackgroundMusic {
     }
   }
 
+  /**
+   * Resumes music that something else suspended or interrupted (the device, not mute or backgrounding) while it is on
+   * and the page visible. Called from a user gesture, where browsers that require one allow it. Never unmutes.
+   */
+  recover(): void {
+    const state = this.context?.state;
+    if (!this.enabled || !this.visible || this.disposed || !state || state === 'running' || state === 'closed') return;
+    void this.context!.resume().catch(() => {});
+  }
+
   private async buffer(track: string): Promise<AudioBuffer> {
     let pending = this.buffers.get(track);
     if (!pending) {
