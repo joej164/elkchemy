@@ -72,7 +72,7 @@ describe('reproduction IDs', () => {
         expect(parsePuzzleId(puzzleId(config, seed))).toEqual({ config, seed, version: GENERATOR_VERSION });
       }
     }
-    expect(parsePuzzleId(` V${GENERATOR_VERSION}-ONE-T4-ABC `)).toEqual({ config: { mode: 'one', tier: 3, goals: 1 }, seed: parseInt('abc', 36), version: 2 });
+    expect(parsePuzzleId(` V${GENERATOR_VERSION}-ONE-T4-ABC `)).toEqual({ config: { mode: 'one', tier: 3, goals: 1 }, seed: parseInt('abc', 36), version: GENERATOR_VERSION });
     // Version 1 IDs still parse, for their own settings (tiers 3 and 4 of 5).
     expect(parsePuzzleId('v1-goals-t3-g1-z7hukc')).toEqual({ config: { mode: 'goals', tier: 2, goals: 1 }, seed: parseInt('z7hukc', 36), version: 1 });
   });

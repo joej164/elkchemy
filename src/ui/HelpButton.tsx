@@ -56,7 +56,7 @@ export function HelpButton({ goal, largeBoard = false, puzzle = false, regions, 
         <div className="help-content">
           <h2 id={titleId}>How to play</h2>
           <ul>
-            <li>{recipe ? recipeHelp(recipe) : helpObjective(goal, regions)}{puzzle ? '' : ' Winning unlocks the next level.'}</li>
+            <li>{recipe ? recipeHelp(recipe, goal) : helpObjective(goal, regions)}{puzzle ? '' : ' Winning unlocks the next level.'}</li>
             <li>Drag an item, or tap it then tap where it should go.</li>
             <li>Drop onto a matching item to merge its connected group. Merge 3 for 1 upgraded item; merge 5 for 2.</li>
             {largeBoard && <li>{LARGE_BOARD_HINT} Center board recenters the view.</li>}

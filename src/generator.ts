@@ -1,6 +1,6 @@
 import { drop, MAX_TIER, previewMerge, type Board, type Cell, type Family, type Item, type Pos, type Tier } from './board';
 import { finalItem, recipeById } from './recipes';
-import { applyDrop, craft, nextUint32, openChest, startSession, type LevelDefinition, type LevelGoal } from './session';
+import { applyDrop, nextUint32, openChest, startSession, type LevelDefinition, type LevelGoal } from './session';
 import { evaluateStatus } from './status';
 
 // Seeded puzzle generation. A puzzle is fully determined by (generator version, config, seed);
@@ -16,16 +16,21 @@ import { evaluateStatus } from './status';
 // status rules before the puzzle is returned. Candidates that fail are discarded; after a bounded
 // number of attempts generation throws rather than returning an unverified puzzle.
 //
-// Merge to treasure (added within version 2; no earlier ID names it) builds the recipe's ingredients the same way,
-// then its winning line crafts the chest, opens it and merges the contents.
+// Merge to treasure builds the recipe's ingredients (and, for a tier-5 goal, supporting pieces) the same way; its
+// winning line then drops one ingredient onto the other (crafting the chest), opens the chest and merges.
+//
+// Version 3 makes Merge to treasure's catalog of four recipes and its goals of tier 4 or 5, with crafting by dropping
+// one ingredient onto the other. Merge to goals and Merge down to one generate exactly as in version 2. Version 2's
+// treasure IDs (one recipe, `v2-treasure-woodland-…`, its goal tier 4) still reproduce their original boards, which
+// are now played with the drop-to-craft rules (their Craft button is gone).
 //
 // Version 2 adds tier-5 targets, boards up to 10 × 10, and (Merge to goals) spare pieces. Version 1 IDs still
 // reproduce their original boards: version 1 keeps its tiers, its 8 × 8 limit and no spares, and draws the same
 // random numbers in the same order.
 
-export const GENERATOR_VERSION = 2;
+export const GENERATOR_VERSION = 3;
 /** Versions whose IDs this generator still reproduces. */
-export const GENERATOR_VERSIONS: readonly number[] = [1, 2];
+export const GENERATOR_VERSIONS: readonly number[] = [1, 2, 3];
 
 export type PuzzleMode = 'goals' | 'one' | 'treasure';
 
@@ -41,12 +46,14 @@ export interface PuzzleConfig {
 }
 
 export const TARGET_TIERS: readonly Tier[] = [2, 3, 4];
+/** Merge to treasure (version 3): goal tiers 4 and 5 of 5. */
+export const TREASURE_TIERS: readonly Tier[] = [3, 4];
 const V1_TIERS: readonly Tier[] = [2, 3];
 export const GOAL_COUNTS: readonly number[] = [1, 2, 3];
 
 export interface Move { readonly from: Pos; readonly to: Pos }
-/** A step of a winning line: a drop, or (Merge to treasure) crafting the chest or opening it. */
-export type Step = Move | { readonly action: 'craft' | 'open' };
+/** A step of a winning line: a drop (crafting included), or (Merge to treasure) opening the chest. */
+export type Step = Move | { readonly action: 'open' };
 
 export interface GeneratedPuzzle {
   readonly id: string;
@@ -79,7 +86,10 @@ export function isSupportedConfig(config: PuzzleConfig, version = GENERATOR_VERS
   const { mode, tier, goals, recipe } = config;
   if (mode === 'treasure') {
     const r = recipe === undefined ? undefined : recipeById(recipe);
-    return version >= 2 && !!r && goals === 1 && tier === finalItem(r).tier;
+    if (!r || goals !== 1) return false;
+    // Version 2 had the Woodland chest only, its contents' merge the goal.
+    if (version === 2) return r.id === 'woodland' && tier === finalItem(r).tier;
+    return version >= 3 && TREASURE_TIERS.includes(tier);
   }
   if ((mode !== 'goals' && mode !== 'one') || recipe !== undefined) return false;
   if (!(version === 1 ? V1_TIERS : TARGET_TIERS).includes(tier)) return false;
@@ -88,30 +98,34 @@ export function isSupportedConfig(config: PuzzleConfig, version = GENERATOR_VERS
 
 const isSeed = (seed: number) => Number.isInteger(seed) && seed >= 0 && seed <= 0xffffffff;
 
-/** The config for Merge to treasure with a recipe. */
-export function treasureConfig(recipe: string): PuzzleConfig {
+/** The config for Merge to treasure with a recipe and goal tier (default: its contents' merge, tier 4). */
+export function treasureConfig(recipe: string, tier?: Tier): PuzzleConfig {
   const r = recipeById(recipe);
-  return { mode: 'treasure', tier: r ? finalItem(r).tier : 0, goals: 1, recipe };
+  return { mode: 'treasure', tier: tier ?? (r ? finalItem(r).tier : 0), goals: 1, recipe };
 }
 
 /**
- * Compact reproduction ID, e.g. `v2-goals-t5-g2-1x9k3`, `v1-one-t3-5f2a0` or `v2-treasure-woodland-3k1`. Tiers are
- * shown 1-based.
+ * Compact reproduction ID, e.g. `v3-goals-t5-g2-1x9k3`, `v1-one-t3-5f2a0` or `v3-treasure-songbird-t5-3k1`
+ * (`v2-treasure-woodland-3k1` in version 2, which had no tier choice). Tiers are shown 1-based.
  */
 export function puzzleId(config: PuzzleConfig, seed: number, version = GENERATOR_VERSION): string {
-  if (config.mode === 'treasure') return `v${version}-treasure-${config.recipe}-${seed.toString(36)}`;
+  if (config.mode === 'treasure') {
+    return `v${version}-treasure-${config.recipe}${version >= 3 ? `-t${config.tier + 1}` : ''}-${seed.toString(36)}`;
+  }
   const goals = config.mode === 'goals' ? `-g${config.goals}` : '';
   return `v${version}-${config.mode}-t${config.tier + 1}${goals}-${seed.toString(36)}`;
 }
 
 /** The config, seed and version in an ID made by a version this generator reproduces, or null. */
 export function parsePuzzleId(id: string): { config: PuzzleConfig; seed: number; version: number } | null {
-  const m = /^v(\d+)-(?:(goals|one)-t(\d)(?:-g(\d))?|treasure-([a-z]+))-([0-9a-z]{1,7})$/.exec(id.trim().toLowerCase());
+  const m = /^v(\d+)-(?:(goals|one)-t(\d)(?:-g(\d))?|treasure-([a-z]+)(?:-t(\d))?)-([0-9a-z]{1,7})$/.exec(id.trim().toLowerCase());
   const version = Number(m?.[1]);
   if (!m || !GENERATOR_VERSIONS.includes(version)) return null;
-  const seed = parseInt(m[6], 36);
+  const seed = parseInt(m[7], 36);
   if (m[5] !== undefined) {
-    const config = treasureConfig(m[5]);
+    // Version 3 names the goal tier; version 2 had none.
+    if ((m[6] !== undefined) !== (version >= 3)) return null;
+    const config = treasureConfig(m[5], m[6] === undefined ? undefined : (Number(m[6]) - 1) as Tier);
     return isSupportedConfig(config, version) && isSeed(seed) ? { config, seed, version } : null;
   }
   const mode = m[2] as PuzzleMode;
@@ -256,7 +270,7 @@ function replayWins(definition: LevelDefinition, steps: readonly Step[]): boolea
   if (steps.length === 0 || evaluateStatus(state) !== 'playing') return false;
   for (let i = 0; i < steps.length; i++) {
     const step = steps[i];
-    const next = !('action' in step) ? applyDrop(state, step.from, step.to) : step.action === 'craft' ? craft(state) : openChest(state);
+    const next = 'action' in step ? openChest(state) : applyDrop(state, step.from, step.to);
     if (next === state) return false;
     state = next;
     if (evaluateStatus(state) !== (i === steps.length - 1 ? 'won' : 'playing')) return false;
@@ -283,36 +297,83 @@ function place(items: readonly Item[], version: number, rand: (n: number) => num
   return board;
 }
 
-// Merge to treasure: pieces per ingredient, as for a tier-3 goal in Merge to goals (no spares).
+// Merge to treasure: pieces per ingredient, as for a tier-3 goal in Merge to goals (no spares); and per supporting
+// item (a tier-5 goal), as many as each breaks into.
 const TREASURE_PIECES: readonly [number, number] = [5, 8];
+const SUPPORT_PIECES: readonly [number, number] = [3, 6];
+
+/** Whether some sequence of 3- and 5-merges of one family's items (counts by tier) makes an item of `tier` or above. */
+export function canReach(counts: readonly number[], tier: number): boolean {
+  const seen = new Set<string>();
+  const go = (c: number[]): boolean => {
+    if (c.slice(tier).some((n) => n > 0)) return true;
+    const key = c.join();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    for (let t = 0; t < tier; t++) {
+      for (const [take, give] of [[3, 1], [5, 2]]) {
+        if (c[t] < take) continue;
+        const next = [...c];
+        next[t] -= take;
+        next[t + 1] += give;
+        if (go(next)) return true;
+      }
+    }
+    return false;
+  };
+  return go(Array.from({ length: MAX_TIER + 1 }, (_, t) => counts[t] ?? 0));
+}
+
+const positionOf = (board: Board, item: Item): Pos | null => {
+  for (let row = 0; row < board.length; row++) {
+    for (let col = 0; col < board[row].length; col++) {
+      const c = board[row][col];
+      if (c && c.family === item.family && c.tier === item.tier) return { row, col };
+    }
+  }
+  return null;
+};
 
 /**
- * Merge to treasure: each ingredient decomposed into starting pieces; a winning line that merges them into exactly the
- * ingredients, crafts the chest, opens it and merges its contents into the final item, replayed before it is returned.
+ * Merge to treasure: each ingredient decomposed into starting pieces, and for a goal two tiers above the contents
+ * (tier 5), two supporting items of the reward family at the contents' merge tier, decomposed too: with the contents'
+ * merge they make the three that merge into the goal. The supporting pieces alone must never reach the goal's tier, so
+ * the chest is needed. The winning line merges everything into the two ingredients (and the supporting items), drops
+ * the first ingredient onto the second (crafting), opens the chest and merges up to the goal; it is replayed before
+ * it is returned.
  */
 function treasureCandidate(config: PuzzleConfig, seed: number, version: number, rand: (n: number) => number): GeneratedPuzzle | null {
   const recipe = recipeById(config.recipe!)!;
-  const parts = recipe.ingredients.flatMap(({ item, count }) =>
+  const content = recipe.contents.item;
+  const tall = config.tier > content.tier + 1;
+  const ingredients = recipe.ingredients.flatMap(({ item, count }) =>
     Array.from({ length: count }, () => decompose(item.family, item.tier, TREASURE_PIECES, rand)));
+  const support = tall ? [0, 1].map(() => decompose(content.family, (content.tier + 1) as Tier, SUPPORT_PIECES, rand)) : [];
+  const parts = [...ingredients, ...support];
   if (parts.some((p) => p === null)) return null;
+  const supportItems = support.flatMap((p) => p!.items);
+  const counts = Array.from({ length: MAX_TIER + 1 }, () => 0);
+  for (const it of supportItems) counts[it.tier]++;
+  if (tall && canReach(counts, config.tier)) return null;
   const board = place(parts.flatMap((p) => p!.items), version, rand);
   if (!board) return null;
+  const goalItem: Item = { family: content.family, tier: config.tier };
   const definition: LevelDefinition = {
-    seed, board, supply: [], goal: { kind: 'leaveOne', item: finalItem(recipe) }, earlyLoss: false, recipe,
+    seed, board, supply: [], goal: { kind: 'leaveOne', item: goalItem }, earlyLoss: false, recipe,
   };
   const merges = findWinningMoves(board, parts.flatMap((p) => p!.plan));
   if (!merges) return null;
   let state = startSession(definition);
   for (const m of merges) state = applyDrop(state, m.from, m.to);
-  // Exactly the ingredients are left, so crafting consumes only them.
-  const left = state.board.flat().filter((c): c is Item => c !== null).map((c) => `${c.family}${c.tier}`).sort();
-  const wanted = recipe.ingredients.flatMap(({ item, count }) => Array.from({ length: count }, () => `${item.family}${item.tier}`)).sort();
-  if (left.join() !== wanted.join()) return null;
-  state = openChest(craft(state));
-  const { item } = recipe.contents;
-  const last = findWinningMoves(state.board, [{ family: item.family, tier: item.tier, size: 3 }]);
+  const [a, b] = recipe.ingredients.map((i) => positionOf(state.board, i.item));
+  if (!a || !b) return null;
+  const craft: Move = { from: a, to: b };
+  state = openChest(applyDrop(state, a, b));
+  const finish: PlannedMerge[] = [{ family: content.family, tier: content.tier, size: 3 }];
+  if (tall) finish.push({ family: content.family, tier: (content.tier + 1) as Tier, size: 3 });
+  const last = findWinningMoves(state.board, finish);
   if (!last) return null;
-  const witness: Step[] = [...merges, { action: 'craft' }, { action: 'open' }, ...last];
+  const witness: Step[] = [...merges, craft, { action: 'open' }, ...last];
   if (!replayWins(definition, witness)) return null;
   return { id: puzzleId(config, seed, version), config, seed, definition, witness };
 }

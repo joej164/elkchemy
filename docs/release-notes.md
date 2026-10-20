@@ -4,6 +4,100 @@ Each entry records what changed, how it was verified, and known limitations. **U
 
 Earlier published builds are not backfilled here. The previous build, `20261018-195510`, has five handcrafted levels and optional looping music; its verification is recorded in TODO.md under Current baseline and Audio.
 
+## 20261020-025257 — Merge to treasure: drop-to-craft, four recipes and tier-5 goals (October 19, 2026)
+
+Implemented by Claude from the owner's latest decisions; independent Codex review and fix verification completed. Owner authorized commit → push → deploy. These rules supersede the Craft button and "consume every ingredient-family piece" rules of `20261020-010722`. Physical iPad/Safari and owner playtesting are not yet available.
+
+### Decisions (owner) and design
+
+- **One recipe per board**, on the sign by the board. Other combinations never craft there.
+- **Recipe catalog** (`src/recipes.ts`; every ingredient and content is tier 3 of 5):
+
+  | Chest | Ingredients | Fixed contents |
+  | --- | --- | --- |
+  | Woodland | 1 Grove + 1 Crystal | 3 Elk |
+  | Songbird | 1 Grove + 1 Song | 3 Crystal |
+  | Crystal | 1 Crystal + 1 Elk | 3 Song |
+  | Grove | 1 Song + 1 Elk | 3 Grove |
+
+  The reward family is never one of its recipe's ingredients. All chests use the existing chest art.
+- **Crafting:** drop either exact ingredient onto the other, or tap one and then the other, in either order.
+  - It's recognised in the session's drop before the ordinary swap. Any other drop keeps its meaning, including a wrong tier, another recipe's pair, or a second pair after the chest exists.
+  - Only those two items are consumed; every other piece stays, leftover ingredient-family pieces included.
+  - The chest stands at the destination.
+  - It's one undoable action: the completion cue and "Crafted the … chest. Tap it to open it."
+  - The Craft button is gone. Crafting happens once per board.
+- **Opening:** tap the chest, or Enter/Space on its cell.
+  - The contents go on the chest's cell, then the nearest empty cells by distance, then reading order. The consumed ingredient's cell is often among them. Nothing is overwritten.
+  - It's checked first: without room, nothing changes, no cue plays, and the banner says "The … chest needs 2 empty cells to open. Merge items to make room."
+  - With no merge left either, the board reports "No room to open the chest and no merges left—Undo, Retry, or New Puzzle.", and Undo un-crafts.
+  - Opening is a checkpoint (Undo cleared, discovery cue) and happens once.
+- **Win:** exactly one item, of the reward family at the goal tier, with no closed chest. A leftover piece blocks it.
+- **Status:** a possible craft or an openable chest is never reported as "No merges left".
+- **Goals:** Tier 4 or 5 of 5 on the Play screen.
+  - **Tier 4:** the ingredients only. Craft, open, then merge the three contents.
+  - **Tier 5:** adds supporting pieces of the reward family. Two items of tier 4 are each decomposed into 3–6 pieces, and with the contents' merge they make the three that merge into tier 5. The contents stay exactly as listed.
+  - **The chest is needed:** a candidate is rejected unless its supporting pieces alone can never reach tier 5. An exact search over 3- and 5-merges (`canReach`) checks this, and every tier-5 board passes it.
+- **Recipe choice:** the app picks the recipe from the puzzle's seed when it starts (seed mod 4) and puts it in the ID. New puzzle can bring another; Retry keeps it. Nothing is randomised while rendering or opening.
+- **Winning lines:** merges into the two ingredients (and, for tier 5, the two supporting items), then one ingredient dropped onto the other, open, then merges. They're replayed through the session and status rules before a puzzle is returned. Witness steps are drops plus `{ action: 'open' }`.
+- **Versioning:** generator version 3.
+  - New IDs read `v3-treasure-<recipe>-t4|t5-<seed>`, e.g. `v3-treasure-songbird-t5-9ix`.
+  - Merge to goals and Merge down to one generate exactly as in version 2 (tested), under `v3-…` IDs.
+  - `v1-…` and `v2-…` IDs still parse.
+  - **Legacy treasure IDs:** `v2-treasure-woodland-<seed>` IDs still reproduce their original boards. They are now played with the drop-to-craft rules, because the Craft button no longer exists. All 400 boards recorded from the previous generator matched; two are pinned in tests.
+  - Rejected: v2 with a tier or another recipe, v3 without a tier or with tier 3 or 6, unknown recipes.
+
+### Verification (Claude)
+
+- **Automated:** 582 tests, typecheck, production build and `git diff --check` pass. `tests/treasure.test.tsx` is rewritten (18 tests):
+  - the catalog;
+  - crafting by both drag directions and both tap orders, at the destination;
+  - wrong tier, another recipe's pair and moves keeping their meaning;
+  - only two consumed; once only; drops onto the chest refused;
+  - Undo of a craft; Retry at every stage;
+  - deterministic opening that never overwrites; waiting for room and the no-room dead end; no repeated reward;
+  - the win only with the single goal item; a leftover blocking it;
+  - stalling with a possible craft;
+  - all four recipes at tiers 4 and 5 over 15 seeds each, won through the controller;
+  - chest necessity;
+  - IDs, rejections, pinned v2 boards, and goals/one unchanged from version 2;
+  - the sign (no Craft button), the chest label and the Play tiers.
+- **Generation survey:** 500 seeds for each recipe and tier, no failures, at most 2.7ms. Tier 4 is 5 × 5 or 6 × 6, with about 12 steps; tier 5 is 6 × 6 or 7 × 7, with about 21 steps. The chest was needed in all 4000.
+- **Playwright Chromium against the production build** (local build `20261020-013118`, seeds pinned in the page):
+  - **820×1180, `v3-treasure-woodland-t4-9iw`:**
+    - Tap-merged to the ingredients.
+    - Drag A→B put the chest at B, and Undo restored both. Drag B→A put it at A, tap B then A put it at A, and tap A then B put it at B.
+    - Enter on the chest opened it and disabled Undo; a dragged final merge won.
+    - Undo after the win returned to play, and Retry restored all 14 pieces. No Craft button.
+  - **820×1180, `v3-treasure-songbird-t5-9ix`:**
+    - The sign read "1 × Grove, tier 3 of 5", "1 × Song, tier 3 of 5", "Songbird chest", "3 × Crystal, tier 3 of 5 inside", "Goal: make Crystal, tier 5 of 5".
+    - Two supporting Crystal tier-4 survived a drag-craft at the destination. Tap opened the chest.
+    - The contents merged to a third tier 4, and that merged to Crystal tier 5 and the win.
+    - Undo of the final merge, then Retry restored all 25 pieces.
+  - **390×844, 844×390, 1180×820 and 820×1180 (tier 5, 7 × 7):** the sign is one row inside its panel (87–95px). There's no horizontal overflow; buttons are 56px and Play choices at least 44px. Phones pan by dragging empty ground. At 820×1180, Undo's bottom edge is at 1127px. No console errors.
+- **Not verified:** physical iPad/Safari, VoiceOver, and whether the gesture is discovered and the mode is fun (owner playtest).
+
+### Codex review fixes (unreleased)
+
+Codex independently verified the implementation above: 582 tests, typecheck, build and diff check; 1,000 legacy treasure boards matched the committed generator; a full tier-5 browser win with Craft Undo, keyboard opening, final Undo and Retry. Two findings, fixed by Claude:
+
+- **Target tier on switching modes** (`src/ui/PlaySetup.tsx`): with Tier 3 chosen in Merge to goals or Merge down to one, switching to Merge to treasure showed no tier checked, while Start silently made Tier 4. Switching mode now keeps the tier when the new mode offers it (`TARGET_TIERS` or `TREASURE_TIERS`), otherwise takes that mode's lowest tier, so what is shown is what starts. The goal count and recipe selection are unchanged.
+- **README:** it described the first slice (Craft button, all ingredient-family pieces consumed, `v2-treasure` IDs); it now describes the four recipes, drop-to-craft, tier 4/5 goals, the room rule, v3 IDs and legacy v2 reproduction.
+- **Checks (Claude):**
+  - **Tests:** a focused regression test covers Tier 3 in either older mode switching to treasure (Tier 4, shown selected), Tier 4/5 kept both ways, and the goal count kept. 583 tests, typecheck, production build and `git diff --check` pass.
+  - **Playwright Chromium against the production build** (local build `20261020-025024`), at 820×1180 and 390×844:
+    - Tier 3 in each older mode → Merge to treasure showed Tier 4 selected, and Start made a Tier 4 puzzle (for example `v3-treasure-woodland-t4-1ozlqys`, "Goal: make Elk, tier 4 of 5").
+    - Tier 4 and Tier 5 stayed selected, and Start made those tiers.
+    - Switching back kept the tier and the goal count.
+    - No horizontal overflow or console errors.
+    - At 820×1180, Home's bottom edge is 3px below the window.
+
+### Known limitations
+
+- The recipe follows the seed (seed mod 4), so a given seed always has the same recipe at either tier, and the four recipes share piece shapes for a given seed.
+- A drag onto the matching ingredient shows the ordinary drop highlight; there is no special craft preview.
+- On phones the 7 × 7 tier-5 board pans, like other large boards.
+
 ## 20261020-010722 — Merge to treasure: a first recipe and chest (October 19, 2026)
 
 Published release build `20261020-010722`, implemented by Claude; independent Codex review completed. Owner authorized commit → push → deploy. Physical iPad/Safari and owner playtesting are not yet available.

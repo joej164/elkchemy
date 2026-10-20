@@ -1,8 +1,8 @@
 import { useEffect, useReducer, useRef, useState, type ReactNode } from 'react';
 import { LEVELS, nextLevelIndex, type Level } from '../levels';
 import { MAX_TIER, type Item } from '../board';
-import { generatePuzzle, treasureConfig, type GeneratedPuzzle, type PuzzleConfig } from '../generator';
-import { finalItem, RECIPES, recipeById, type Recipe } from '../recipes';
+import { generatePuzzle, TREASURE_TIERS, treasureConfig, type GeneratedPuzzle, type PuzzleConfig } from '../generator';
+import { RECIPES, recipeById, type Recipe } from '../recipes';
 import type { LevelDefinition, LevelGoal, SessionState } from '../session';
 import { hasItem } from '../status';
 import { availableTasks, isOpen, nextLocked, sealedRegion, type Region, type Task, type TaskUnlock } from '../regions';
@@ -28,7 +28,7 @@ import { useEffects } from './useEffects';
 import { actionEffect, palaceOpeningPending } from './audioEvents';
 import type { EffectCue } from '../effects';
 import {
-  canCraft, canPlaceSupply, canUndo, canUnlock, initUi, nextSupplyItem, openedRegion, reduceUi, supplyRemaining,
+  canPlaceSupply, canUndo, canUnlock, initUi, nextSupplyItem, openedRegion, reduceUi, supplyRemaining,
   type LastAction, type UiState,
 } from './controller';
 
@@ -88,8 +88,8 @@ function randomSeed(avoid?: number): number {
 }
 
 export function puzzleLabel(config: PuzzleConfig): string {
-  if (config.mode === 'treasure') return `Merge to treasure · ${recipeById(config.recipe ?? '')?.name ?? 'Recipe'}`;
   const tier = `Tier ${config.tier + 1} of ${MAX_TIER + 1}`;
+  if (config.mode === 'treasure') return `Merge to treasure · ${tier} · ${recipeById(config.recipe ?? '')?.name ?? 'Recipe'}`;
   if (config.mode === 'one') return `Merge down to one · ${tier}`;
   return `Merge to goals · ${tier} · ${config.goals} ${config.goals === 1 ? 'goal' : 'goals'}`;
 }
@@ -131,7 +131,11 @@ export function App({ levels = LEVELS }: { levels?: readonly Level[] }) {
   // Generation is bounded and only returns verified puzzles; if it fails, nothing unverified is shown.
   const startPuzzle = (cfg: PuzzleConfig, avoid?: number) => {
     try {
-      show({ kind: 'puzzle', puzzle: generatePuzzle(cfg, randomSeed(avoid)) });
+      const seed = randomSeed(avoid);
+      // Merge to treasure: the seed picks the board's one recipe (in the ID), so New puzzle may bring another and Retry
+      // keeps it.
+      const config = cfg.mode === 'treasure' ? treasureConfig(RECIPES[seed % RECIPES.length].id, cfg.tier) : cfg;
+      show({ kind: 'puzzle', puzzle: generatePuzzle(config, seed) });
     } catch {
       show({ kind: 'play', error: "Couldn't make a puzzle with those settings. Please try again." });
     }
@@ -152,7 +156,8 @@ export function App({ levels = LEVELS }: { levels?: readonly Level[] }) {
       )}
       {screen.kind === 'play' && (
         <PlaySetup config={config} onConfig={setConfig} error={screen.error} musicControl={musicControl} onHome={toHome}
-          onStart={() => startPuzzle(config.mode === 'treasure' ? treasureConfig(RECIPES[0].id)
+          onStart={() => startPuzzle(config.mode === 'treasure'
+            ? treasureConfig(RECIPES[0].id, TREASURE_TIERS.includes(config.tier) ? config.tier : TREASURE_TIERS[0])
             : { ...config, goals: config.mode === 'one' ? 1 : config.goals })} />
       )}
       {screen.kind === 'notes' && <ReleaseNotes musicControl={musicControl} onHome={toHome} />}
@@ -253,11 +258,13 @@ interface GameProps {
 }
 
 /**
- * Merge to treasure: the recipe on a sign by the board (each ingredient with its count, ticked once on the board, then
- * the chest and what it holds), the goal, and Craft chest, enabled once every ingredient is here.
+ * Merge to treasure: the board's one recipe on a sign by it (each ingredient with its exact tier and count, ticked once
+ * on the board, then the chest and its fixed contents) and the goal. Crafting is a drop of one ingredient onto the
+ * other on the board; the banner and Help say so.
  */
-export function RecipeSign({ recipe, state, onCraft }: { recipe: Recipe; state: UiState; onCraft: () => void }) {
+export function RecipeSign({ recipe, state }: { recipe: Recipe; state: UiState }) {
   const { session } = state;
+  const { goal } = session.level;
   const items = session.board.flat();
   const crafted = !!session.chest || session.opened;
   const contents = recipe.contents;
@@ -289,12 +296,7 @@ export function RecipeSign({ recipe, state, onCraft }: { recipe: Recipe; state: 
           <span className="art"><ItemArt item={contents.item} /></span>
         </span>
       </div>
-      <div className="recipe-foot">
-        <button type="button" className="btn btn-craft" data-action="craft" disabled={!canCraft(state)} onClick={onCraft}>
-          Craft chest
-        </button>
-        <p>Goal: make {itemLabel(finalItem(recipe))}</p>
-      </div>
+      {goal.kind === 'leaveOne' && goal.item && <p className="recipe-goal">Goal: make {itemLabel(goal.item)}</p>}
     </section>
   );
 }
@@ -369,7 +371,7 @@ export function Game({ definition, label, musicControl, onHome, winLabel, onWin,
           </div>
         </div>
         <p className="level-label">{label}</p>
-        {recipe ? <RecipeSign recipe={recipe} state={state} onCraft={() => dispatch({ type: 'craft' })} /> : (
+        {recipe ? <RecipeSign recipe={recipe} state={state} /> : (
         <div className={`panel goal${puzzle ? ' is-wide' : ''}`}>
           {goal.kind === 'items' ? (
             <div className="targets">

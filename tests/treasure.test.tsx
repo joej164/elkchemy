@@ -1,235 +1,257 @@
 import { describe, expect, it } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
 import type { Board, Cell, Family, Item, Pos, Tier } from '../src/board';
-import { generatePuzzle, isSupportedConfig, parsePuzzleId, treasureConfig, type Step } from '../src/generator';
-import { finalItem, RECIPES, type Recipe } from '../src/recipes';
-import { applyDrop, contentCells, craft, craftReady, openChest, retry, startSession, undo, type LevelDefinition, type SessionState } from '../src/session';
-import { evaluateStatus } from '../src/status';
+import {
+  canReach, generatePuzzle, GOAL_COUNTS, isSupportedConfig, parsePuzzleId, TARGET_TIERS, TREASURE_TIERS, treasureConfig,
+  type GeneratedPuzzle, type PuzzleConfig, type Step,
+} from '../src/generator';
+import { RECIPES, recipeById, type Recipe } from '../src/recipes';
+import { applyDrop, contentCells, openChest, startSession, type LevelDefinition } from '../src/session';
 import { describeAction, puzzleLabel, RecipeSign } from '../src/ui/App';
 import { actionEffect } from '../src/ui/audioEvents';
 import { Board as BoardView } from '../src/ui/Board';
-import { canCraft, initUi, reduceUi, type UiAction, type UiState } from '../src/ui/controller';
-import { NO_MERGES_MESSAGE, statusMessage } from '../src/ui/messages';
-import { PlaySetup } from '../src/ui/PlaySetup';
+import { initUi, reduceUi, type UiAction, type UiState } from '../src/ui/controller';
+import { NO_MERGES_MESSAGE, NO_ROOM_MESSAGE, statusMessage } from '../src/ui/messages';
+import { PlaySetup, switchMode } from '../src/ui/PlaySetup';
 
-const RECIPE = RECIPES[0];
-const CONFIG = treasureConfig(RECIPE.id);
-const SEEDS = [0, 1, 0xffffffff, ...Array.from({ length: 40 }, (_, i) => Math.imul(i + 1, 2654435761) >>> 0)];
+const WOODLAND = recipeById('woodland')!;
+const SEEDS = [0, 1, 0xffffffff, ...Array.from({ length: 12 }, (_, i) => Math.imul(i + 1, 2654435761) >>> 0)];
 const F: Record<string, Family> = { g: 'grove', s: 'song', c: 'crystal', e: 'elk' };
 const p = (row: number, col: number): Pos => ({ row, col });
 const make = (rows: string[]): Board => rows.map((r) => r.trim().split(/\s+/).map((c): Cell =>
   (c === '.' ? null : { family: F[c[0]], tier: Number(c[1]) as Tier })));
-const level = (rows: string[], recipe: Recipe = RECIPE): LevelDefinition => ({
-  seed: 1, board: make(rows), supply: [], goal: { kind: 'leaveOne', item: finalItem(recipe) }, earlyLoss: false, recipe,
+/** A Merge to treasure board: `goalTier` defaults to the contents' merge (tier 4 of 5). */
+const level = (rows: string[], recipe: Recipe = WOODLAND, goalTier: Tier = 3): LevelDefinition => ({
+  seed: 1, board: make(rows), supply: [], earlyLoss: false, recipe,
+  goal: { kind: 'leaveOne', item: { family: recipe.contents.item.family, tier: goalTier } },
 });
 const code = (c: Cell) => (c ? `${c.family[0]}${c.tier}` : '.');
 const rowsOf = (b: Board) => b.map((r) => r.map(code).join(' '));
 const items = (b: Board) => b.flat().filter((c): c is Item => c !== null);
-const toAction = (step: Step, s: UiState): UiAction =>
-  !('action' in step) ? { type: 'drop', from: step.from, to: step.to }
-    : step.action === 'craft' ? { type: 'craft' } : { type: 'tap', pos: s.session.chest! };
+const drop = (from: Pos, to: Pos): UiAction => ({ type: 'drop', from, to });
+const toAction = (step: Step, s: UiState): UiAction => ('action' in step ? { type: 'tap', pos: s.session.chest! } : drop(step.from, step.to));
 
-describe('Merge to treasure: the recipe', () => {
-  it('ships one recipe: two distinct ingredient families, a chest, and three identical contents of another family', () => {
-    expect(RECIPES).toHaveLength(1);
-    expect(RECIPE).toMatchObject({ id: 'woodland', name: 'Woodland chest', container: 'chest' });
-    expect(RECIPE.id).toMatch(/^[a-z]+$/);
-    const families = RECIPE.ingredients.map((i) => i.item.family);
-    expect(new Set(families).size).toBe(2);
-    expect(RECIPE.contents).toEqual({ item: { family: 'elk', tier: 2 }, count: 3 });
-    expect(families).not.toContain(RECIPE.contents.item.family);
-    expect(finalItem(RECIPE)).toEqual({ family: 'elk', tier: 3 });
+describe('Merge to treasure: the recipe catalog', () => {
+  it('is the four owner-chosen recipes: two tier-3 ingredients of different families, three tier-3 contents of a third', () => {
+    const table = RECIPES.map((r) => [r.id, r.name, ...r.ingredients.map((i) => `${i.count} ${i.item.family}${i.item.tier}`),
+      `${r.contents.count} ${r.contents.item.family}${r.contents.item.tier}`, r.container]);
+    expect(table).toEqual([
+      ['woodland', 'Woodland chest', '1 grove2', '1 crystal2', '3 elk2', 'chest'],
+      ['songbird', 'Songbird chest', '1 grove2', '1 song2', '3 crystal2', 'chest'],
+      ['crystal', 'Crystal chest', '1 crystal2', '1 elk2', '3 song2', 'chest'],
+      ['grove', 'Grove chest', '1 song2', '1 elk2', '3 grove2', 'chest'],
+    ]);
+    for (const r of RECIPES) expect(r.ingredients.map((i) => i.item.family)).not.toContain(r.contents.item.family);
   });
 });
 
-describe('Merge to treasure: crafting', () => {
-  it('is ready only with every ingredient at its exact family and tier', () => {
-    expect(craftReady(startSession(level(['g2 . .', '. . c2'])))).toBe(true);
-    expect(craftReady(startSession(level(['g2 . .', '. . .'])))).toBe(false);          // an ingredient missing
-    expect(craftReady(startSession(level(['g1 . .', '. . c2'])))).toBe(false);         // tier too low
-    expect(craftReady(startSession(level(['g3 . .', '. . c2'])))).toBe(false);         // tier too high
-    expect(craftReady(startSession(level(['s2 . .', '. . c2'])))).toBe(false);         // another family
-    const missing = startSession(level(['g2 g0 .', '. . .']));
-    expect(craft(missing)).toBe(missing);
+describe('Merge to treasure: crafting by dropping one ingredient onto the other', () => {
+  it('crafts in either drag direction, the chest standing at the destination, consuming only those two', () => {
+    const start = startSession(level(['g2 c2 g2', 's1 g0 c0']));
+    const a = applyDrop(start, p(0, 0), p(0, 1));
+    expect([rowsOf(a.board), a.chest, a.moves]).toEqual([['. . g2', 's1 g0 c0'], p(0, 1), 1]);
+    const b = applyDrop(start, p(0, 1), p(0, 0));
+    expect([rowsOf(b.board), b.chest]).toEqual([['. . g2', 's1 g0 c0'], p(0, 0)]);
   });
 
-  it('consumes every piece of the ingredient families, spares too, and stands the chest where the first ingredient was', () => {
-    const s0 = startSession(level(['g0 c2 s1', '. g2 c0', 'g2 . .']));
-    const s1 = craft(s0);
-    expect(rowsOf(s1.board)).toEqual(['. . s1', '. . .', '. . .']);     // other families stay
-    expect(s1.chest).toEqual(p(1, 1));                                     // the first Grove, tier 3 in reading order
-    expect([s1.opened, s1.moves]).toEqual([false, 1]);
-    // The chest's cell takes no drop, and Craft cannot repeat.
-    expect(applyDrop(s1, p(0, 2), p(1, 1))).toBe(s1);
-    expect(craft(s1)).toBe(s1);
+  it('crafts by tap then tap, in either order, as one action with its own announcement and cue', () => {
+    for (const [first, second] of [[p(0, 0), p(1, 1)], [p(1, 1), p(0, 0)]]) {
+      const s = ([{ type: 'tap', pos: first }, { type: 'tap', pos: second }] as UiAction[]).reduce(reduceUi, initUi(level(['g2 .', 's0 c2'])));
+      expect([s.session.chest, s.lastAction, s.actionSeq]).toEqual([second, { kind: 'craft' }, 1]);
+      expect(actionEffect(s)).toBe('completion');
+      expect(describeAction(s.lastAction, 'Puzzle', s.session.level.goal, undefined, undefined, WOODLAND))
+        .toBe('Crafted the Woodland chest. Tap it to open it.');
+    }
   });
 
-  it('is undoable; Retry restores the original puzzle', () => {
-    const s0 = startSession(level(['g2 . .', '. . c2']));
-    const s1 = craft(s0);
-    expect(s1.undo).not.toBeNull();
-    const back = undo(s1);
-    expect([rowsOf(back.board), back.chest, back.opened]).toEqual([rowsOf(s0.board), null, false]);
-    expect(retry(openChest(s1))).toEqual(s0);
+  it("needs the exact ingredients of this board's recipe; any other drop keeps its ordinary meaning", () => {
+    const swap = (rows: string[], from: Pos, to: Pos, recipe = WOODLAND) => {
+      const s = applyDrop(startSession(level(rows, recipe)), from, to);
+      return [rowsOf(s.board), s.chest];
+    };
+    expect(swap(['g1 c2'], p(0, 0), p(0, 1))).toEqual([['c2 g1'], null]);          // a tier too low
+    expect(swap(['g3 c2'], p(0, 0), p(0, 1))).toEqual([['c2 g3'], null]);          // a tier too high
+    expect(swap(['g2 s2'], p(0, 0), p(0, 1))).toEqual([['s2 g2'], null]);          // the Songbird chest's pair
+    expect(swap(['g2 s2'], p(0, 0), p(0, 1), recipeById('songbird')!)).toEqual([['. .'], p(0, 1)]);
+    expect(swap(['g2 c2 .'], p(0, 0), p(0, 2))).toEqual([['. c2 g2'], null]);       // a move
+  });
+
+  it('happens once: the chest takes no drops, and a second pair only swaps', () => {
+    const s = applyDrop(startSession(level(['g2 c2', 'g2 c2'])), p(0, 0), p(0, 1));
+    expect(applyDrop(s, p(1, 0), p(0, 1))).toBe(s);                                 // onto the chest: refused
+    expect(rowsOf(applyDrop(s, p(1, 0), p(1, 1)).board)).toEqual(['. .', 'c2 g2']); // another pair: a swap
+  });
+
+  it('is undoable; Retry restores the exact start at every stage', () => {
+    const def = level(['g2 c2 .', '. . .', '. . .']);
+    const start = initUi(def);
+    const crafted = reduceUi(start, drop(p(0, 0), p(0, 1)));
+    const undone = reduceUi(crafted, { type: 'undo' });
+    expect([undone.session.board, undone.session.chest, actionEffect(undone)]).toEqual([def.board, null, null]);
+    const opened = reduceUi(crafted, { type: 'tap', pos: p(0, 1) });
+    const merged = reduceUi(opened, drop(p(0, 0), p(0, 1)));
+    expect(merged.lastAction?.kind).toBe('merge');
+    for (const s of [crafted, opened, merged]) {
+      const r = reduceUi(s, { type: 'retry' });
+      expect([r.session, actionEffect(r)]).toEqual([startSession(def), null]);
+    }
   });
 });
 
 describe('Merge to treasure: opening the chest', () => {
-  it('puts the contents on the chest cell and the nearest empty cells, by distance then reading order, once', () => {
-    const s1 = craft(startSession(level(['. . . .', '. g2 . .', '. . . c2', '. . . .'])));
-    expect(s1.chest).toEqual(p(1, 1));
-    expect(contentCells(s1)).toEqual([p(1, 1), p(0, 1), p(1, 0)]);
-    const s2 = openChest(s1);
-    expect(rowsOf(s2.board)).toEqual(['. e2 . .', 'e2 e2 . .', '. . . .', '. . . .']);
-    expect([s2.chest, s2.opened, s2.undo]).toEqual([null, true, null]);     // a checkpoint: Undo is cleared
-    expect(openChest(s2)).toBe(s2);                                          // never again, so never duplicated
-    expect(items(s2.board)).toHaveLength(3);
+  it('fills the chest cell and the nearest empty cells (distance, then reading order), never overwriting a piece', () => {
+    const s = applyDrop(startSession(level(['s0 g2 c2 .', '. s0 . .', '. . . .'])), p(0, 1), p(0, 2));
+    // The consumed ingredient's cell (0,1) is empty again, and nearest in reading order.
+    expect(contentCells(s)).toEqual([p(0, 2), p(0, 1), p(0, 3)]);
+    const o = openChest(s);
+    expect(rowsOf(o.board)).toEqual(['s0 e2 e2 e2', '. s0 . .', '. . . .']);
+    expect([o.chest, o.opened, o.undo]).toEqual([null, true, null]);                 // a checkpoint
+    expect(openChest(o)).toBe(o);                                                    // its contents come once
   });
 
-  it('never opens without room for every item, and loses nothing', () => {
-    // Only possible with other items on the board; generated puzzles have none, so their chest always has room.
-    const full = craft(startSession(level(['g2 s0', 's1 c2'])));
-    const crowded: SessionState = { ...full, board: make(['. s0', 's1 s2']) };
-    expect(contentCells(crowded)).toBeNull();
-    expect(openChest(crowded)).toBe(crowded);
-    expect(evaluateStatus(crowded)).toBe('playing');
+  it('waits for room without losing anything, says why, and reports a dead end only when no merge can make room', () => {
+    const roomy = initUi(level(['g2 c2 s0', 's0 s0 s1', 's1 s0 s1']));
+    const tight = reduceUi(roomy, drop(p(0, 0), p(0, 1)));                         // one empty cell: not enough
+    expect(contentCells(tight.session)).toBeNull();
+    expect(reduceUi(tight, { type: 'tap', pos: p(0, 1) })).toBe(tight);             // no change, no sound
+    expect([tight.status, statusMessage(tight, false)]).toEqual(['playing', 'The Woodland chest needs 2 empty cells to open. Merge items to make room.']);
+    const room = reduceUi(tight, drop(p(1, 0), p(1, 1)));                           // a merge frees cells
+    expect(contentCells(room.session)).not.toBeNull();
+    const stuck = reduceUi(initUi(level(['g2 c2 s0', 's1 e0 s2', 'g1 s3 c1'])), drop(p(0, 0), p(0, 1)));
+    expect([stuck.status, statusMessage(stuck, false)]).toEqual(['lost', NO_ROOM_MESSAGE]);
+    expect(reduceUi(stuck, { type: 'undo' }).session.chest).toBeNull();              // Undo un-crafts
   });
 });
 
-describe('Merge to treasure: status by stage', () => {
-  it('wins only on the final merge; crafting and opening keep the game going', () => {
-    let s = initUi(level(['g2 . .', '. . c2', '. . .']));
-    s = reduceUi(s, { type: 'craft' });
-    expect([s.status, s.lastAction?.kind]).toEqual(['playing', 'craft']);
-    s = reduceUi(s, { type: 'tap', pos: s.session.chest! });
-    expect([s.status, s.lastAction?.kind]).toEqual(['playing', 'open']);
-    s = reduceUi(s, { type: 'drop', from: p(0, 1), to: p(0, 0) });
-    expect(s.status).toBe('won');
-    expect(statusMessage(s, false)).toBe('Goal complete! You made Elk, tier 4 of 5 from the Woodland chest.');
+describe('Merge to treasure: winning and stalling', () => {
+  it('wins only with the single goal item left, after the last merge', () => {
+    let s = initUi(level(['g2 c2 .', '. . .', '. . .']));
+    s = reduceUi(s, drop(p(0, 0), p(0, 1)));
+    expect(s.status).toBe('playing');
+    s = reduceUi(s, { type: 'tap', pos: p(0, 1) });
+    expect([s.status, actionEffect(s)]).toEqual(['playing', 'discovery']);
+    s = reduceUi(s, drop(p(0, 0), p(0, 1)));                                        // contents at (0,1), (0,0), (0,2)
+    expect([s.status, statusMessage(s, false)]).toEqual(['won', 'Goal complete! You made Elk, tier 4 of 5 with the Woodland chest.']);
+    // A leftover piece blocks the win.
+    let t = initUi(level(['g2 c2 g0', '. . .', '. . .']));
+    t = reduceUi(reduceUi(t, drop(p(0, 0), p(0, 1))), { type: 'tap', pos: p(0, 1) });
+    t = reduceUi(t, drop(p(0, 0), p(0, 1)));                                        // contents at (0,1), (0,0), (1,1)
+    expect([items(t.session.board).length, t.status]).toEqual([2, 'lost']);
   });
 
-  it('is not stuck while the recipe can be crafted or a closed chest waits, and is once nothing can happen', () => {
-    const ready = initUi(level(['g2 s0 .', '. . c2']));            // no merge left, but Craft is ready
-    expect([ready.status, canCraft(ready)]).toEqual(['playing', true]);
-    const crafted = reduceUi(ready, { type: 'craft' });             // nothing on the board but the chest and s0
-    expect(crafted.status).toBe('playing');
+  it('keeps playing while crafting is possible, even with no merges left', () => {
+    const ready = initUi(level(['g2 s0 .', '. . c2']));
+    expect([ready.status, statusMessage(ready, false)])
+      .toEqual(['playing', 'Drop Grove, tier 3 of 5 onto Crystal, tier 3 of 5, or the other way round, to craft the Woodland chest. Only those two are used.']);
     const stuck = initUi(level(['g1 g0 .', '. . c2']));
     expect([stuck.status, statusMessage(stuck, false)]).toEqual(['lost', NO_MERGES_MESSAGE]);
-    // Undo after a fatal move, as in the other modes.
-    expect(initUi(level(['g1 g1 g1', '. . c2'])).status).toBe('playing');
-  });
-
-  it('tells the player each stage in the banner', () => {
-    let s = initUi(level(['g1 g1 g1', '. . c2', '. . .']));
-    expect(statusMessage(s, false)).toBe('Merge pieces into Grove, tier 3 of 5 and Crystal, tier 3 of 5, then craft the Woodland chest.');
-    s = reduceUi(s, { type: 'drop', from: p(0, 0), to: p(0, 1) });
-    expect(statusMessage(s, false)).toBe('Ready: press Craft chest. It uses up every Grove and Crystal piece.');
-    s = reduceUi(s, { type: 'craft' });
-    expect(statusMessage(s, false)).toBe('Tap the Woodland chest to open it.');
-    s = reduceUi(s, { type: 'tap', pos: s.session.chest! });
-    expect(statusMessage(s, false)).toBe('Merge the three Elk, tier 3 of 5 into Elk, tier 4 of 5.');
   });
 });
 
 describe('Merge to treasure: generated puzzles', () => {
-  const puzzles = SEEDS.map((seed) => generatePuzzle(CONFIG, seed));
+  const configs: PuzzleConfig[] = RECIPES.flatMap((r) => TREASURE_TIERS.map((t) => treasureConfig(r.id, t)));
+  const all = configs.flatMap((c) => SEEDS.map((seed) => generatePuzzle(c, seed)));
+  const reward = (pz: GeneratedPuzzle) => pz.definition.recipe!.contents.item.family;
 
-  it('use only the ingredient families, below their tiers, on boards with room', () => {
-    for (const pz of puzzles) {
-      const { board, supply, earlyLoss, recipe } = pz.definition;
-      expect([supply, earlyLoss, recipe]).toEqual([[], false, RECIPE]);
-      expect(board.length).toBeGreaterThanOrEqual(4);
-      expect(board.length).toBeLessThanOrEqual(6);
-      for (const it_ of items(board)) {
-        const ing = RECIPE.ingredients.find((i) => i.item.family === it_.family)!;
-        expect(it_.tier).toBeLessThan(ing.item.tier);
-      }
-    }
-  });
-
-  it('are won by their winning line through the controller: merges to exactly the ingredients, craft, open, final merge', () => {
-    for (const pz of puzzles) {
+  it('are won by their winning line through the controller: merges, one ingredient dropped onto the other, open, merges', () => {
+    for (const pz of all) {
       let s = initUi(pz.definition);
+      const kinds: string[] = [];
       pz.witness.forEach((step, i) => {
-        if ('action' in step && step.action === 'craft') {
-          // Exactly the ingredients are left: crafting consumes only them.
-          expect(items(s.session.board).map(code).sort()).toEqual(RECIPE.ingredients.map((r) => code(r.item)).sort());
-        }
         const next = reduceUi(s, toAction(step, s));
         expect(next).not.toBe(s);
         s = next;
-        expect(s.status).toBe(i === pz.witness.length - 1 ? 'won' : 'playing');
+        kinds.push(s.lastAction!.kind);
+        expect(s.status, pz.id).toBe(i === pz.witness.length - 1 ? 'won' : 'playing');
       });
-      expect(items(s.session.board)).toEqual([finalItem(RECIPE)]);
-      expect(pz.witness.filter((st) => 'action' in st)).toEqual([{ action: 'craft' }, { action: 'open' }]);
+      expect(kinds.filter((k) => k === 'craft' || k === 'open')).toEqual(['craft', 'open']);
+      expect(items(s.session.board)).toEqual([{ family: reward(pz), tier: pz.config.tier }]);
     }
   });
 
-  it('Undo after crafting un-crafts; Retry at any stage restores the original puzzle', () => {
-    const pz = puzzles[0];
-    const start = initUi(pz.definition);
-    let s = start;
-    const at = pz.witness.findIndex((st) => 'action' in st);
-    for (const step of pz.witness.slice(0, at)) s = reduceUi(s, toAction(step, s));
-    const crafted = reduceUi(s, { type: 'craft' });
-    expect(reduceUi(crafted, { type: 'undo' }).session.board).toEqual(s.session.board);
-    const opened = reduceUi(crafted, { type: 'tap', pos: crafted.session.chest! });
-    expect(reduceUi(opened, { type: 'undo' })).toBe(opened);          // nothing to undo after the checkpoint
-    for (const state of [crafted, opened]) expect(reduceUi(state, { type: 'retry' }).session).toEqual(start.session);
+  it("need the chest: tier 4 starts with no reward pieces; tier 5's supporting pieces can never reach tier 5 alone", () => {
+    for (const pz of all) {
+      const counts = [0, 0, 0, 0, 0];
+      for (const it_ of items(pz.definition.board)) if (it_.family === reward(pz)) counts[it_.tier]++;
+      expect(canReach(counts, pz.config.tier), pz.id).toBe(false);
+      if (pz.config.tier === 3) expect(counts.every((n) => n === 0)).toBe(true);
+      else expect(counts.some((n) => n > 0)).toBe(true);
+      expect(pz.definition.board.length).toBeLessThanOrEqual(7);
+    }
   });
 
-  it('are deterministic, with IDs naming the recipe', () => {
-    const pz = puzzles[3];
-    expect(pz.id).toBe(`v2-treasure-woodland-${pz.seed.toString(36)}`);
-    expect(generatePuzzle(CONFIG, pz.seed)).toEqual(pz);
-    expect(parsePuzzleId(pz.id)).toEqual({ config: CONFIG, seed: pz.seed, version: 2 });
-    expect(parsePuzzleId(' V2-TREASURE-WOODLAND-ABC ')).toEqual({ config: CONFIG, seed: parseInt('abc', 36), version: 2 });
-    for (const id of ['v1-treasure-woodland-abc', 'v2-treasure-meadow-abc', 'v2-treasure-abc', 'v2-treasure-woodland-g1-abc']) {
-      expect(parsePuzzleId(id), id).toBeNull();
+  it('have IDs naming the version, recipe and goal tier, which reproduce them', () => {
+    const pz = generatePuzzle(treasureConfig('songbird', 4), 12345);
+    expect(pz.id).toBe('v3-treasure-songbird-t5-9ix');
+    expect(parsePuzzleId(pz.id)).toEqual({ config: treasureConfig('songbird', 4), seed: 12345, version: 3 });
+    expect(generatePuzzle(treasureConfig('songbird', 4), 12345)).toEqual(pz);
+    expect(puzzleLabel(pz.config)).toBe('Merge to treasure · Tier 5 of 5 · Songbird chest');
+    for (const id of ['v3-treasure-songbird-9ix', 'v3-treasure-songbird-t3-9ix', 'v3-treasure-songbird-t6-9ix', 'v3-treasure-meadow-t4-9ix',
+      'v2-treasure-woodland-t4-9ix', 'v2-treasure-songbird-9ix', 'v1-treasure-woodland-9ix']) expect(parsePuzzleId(id), id).toBeNull();
+    expect(isSupportedConfig({ ...treasureConfig('grove', 3), goals: 2 })).toBe(false);
+  });
+
+  // Recorded from the version-2 generator before crafting moved to the drop: their boards must not change.
+  it.each([
+    ['v2-treasure-woodland-1kpj5az', 'c0 c0 . g0 . . / . g0 c0 . . c0 / . . . g0 . . / g0 . c0 . . c0 / c0 . . g0 . . / g0 g0 c0 . . g0'],
+    ['v2-treasure-woodland-tksv2k', 'g0 g0 . g0 . / . . . . c0 / . g0 c0 g0 c0 / g0 c0 g0 . g0 / . c1 c0 . .'],
+  ])('version 2 ID %s keeps its board (now played with the drop to craft)', (id, board) => {
+    const { config, seed, version } = parsePuzzleId(id)!;
+    const pz = generatePuzzle(config, seed, version);
+    expect([pz.id, pz.definition.board.map((r) => r.map(code).join(' ')).join(' / ')]).toEqual([id, board]);
+    expect(pz.config).toEqual(treasureConfig('woodland', 3));
+  });
+
+  it('leave Merge to goals and Merge down to one as in version 2', () => {
+    const configs2: PuzzleConfig[] = [
+      ...TARGET_TIERS.flatMap((tier) => GOAL_COUNTS.map((goals): PuzzleConfig => ({ mode: 'goals', tier, goals }))),
+      ...TARGET_TIERS.map((tier): PuzzleConfig => ({ mode: 'one', tier, goals: 1 })),
+    ];
+    for (const c of configs2) for (const seed of SEEDS.slice(0, 5)) {
+      const [v2, v3] = [generatePuzzle(c, seed, 2), generatePuzzle(c, seed, 3)];
+      expect(v3.definition).toEqual(v2.definition);
+      expect(v3.id).toBe(v2.id.replace(/^v2/, 'v3'));
     }
-    expect(isSupportedConfig({ ...CONFIG, tier: 2 })).toBe(false);
-    expect(isSupportedConfig({ mode: 'goals', tier: 2, goals: 1, recipe: 'woodland' })).toBe(false);
-    expect(puzzleLabel(CONFIG)).toBe('Merge to treasure · Woodland chest');
   });
 });
 
-describe('Merge to treasure: sounds, announcements and drawing', () => {
-  it('plays one cue per step, never the victory cue, and none on Undo or Retry', () => {
-    let s = initUi(level(['g1 g1 g1', '. . c2', '. . .']));
-    s = reduceUi(s, { type: 'drop', from: p(0, 0), to: p(0, 1) });
-    expect(actionEffect(s)).toBe('merge-three');
-    s = reduceUi(s, { type: 'craft' });
-    expect(actionEffect(s)).toBe('completion');
-    expect(actionEffect(reduceUi(s, { type: 'undo' }))).toBeNull();
-    s = reduceUi(s, { type: 'tap', pos: s.session.chest! });
-    expect(actionEffect(s)).toBe('discovery');
-    expect(actionEffect(reduceUi(s, { type: 'retry' }))).toBeNull();
-    const say = (st: UiState) => describeAction(st.lastAction, 'Puzzle', st.session.level.goal, undefined, undefined, RECIPE);
-    expect(say(s)).toBe('Opened the Woodland chest: three Elk, tier 3 of 5.');
+describe('Merge to treasure: the recipe sign, the chest and the Play screen', () => {
+  it('shows the one recipe with exact tiers and counts, the chest, its contents and the goal; no Craft button', () => {
+    const s = initUi(level(['g1 g1 g1', '. . c2'], WOODLAND, 4));
+    const sign = renderToStaticMarkup(<RecipeSign recipe={WOODLAND} state={s} />);
+    expect(sign).toContain('aria-label="1 × Grove, tier 3 of 5"');
+    expect(sign).toContain('aria-label="1 × Crystal, tier 3 of 5, ready"');
+    expect(sign).toContain('aria-label="Woodland chest"');
+    expect(sign).toContain('aria-label="3 × Elk, tier 3 of 5 inside"');
+    expect(sign).toContain('Goal: make Elk, tier 5 of 5');
+    expect(sign).not.toContain('data-action="craft"');
+    const crafted = reduceUi(initUi(level(['g2 c2 .'])), drop(p(0, 0), p(0, 1)));
+    expect(renderToStaticMarkup(<BoardView state={crafted} dispatch={() => {}} />))
+      .toContain('aria-label="Row 1, column 2: Woodland chest, closed, tap to open"');
   });
 
-  it('shows the recipe sign with counts, the chest and its contents, and Craft only when ready', () => {
-    const sign = (st: UiState) => renderToStaticMarkup(<RecipeSign recipe={RECIPE} state={st} onCraft={() => {}} />);
-    const early = sign(initUi(level(['g1 g1 g1', '. . c2'])));
-    expect(early).toContain('aria-label="1 × Grove, tier 3 of 5"');
-    expect(early).toContain('aria-label="1 × Crystal, tier 3 of 5, ready"');
-    expect(early).toContain('aria-label="Woodland chest"');
-    expect(early).toContain('aria-label="3 × Elk, tier 3 of 5 inside"');
-    expect(early).toContain('Goal: make Elk, tier 4 of 5');
-    expect(early).toMatch(/<button[^>]*data-action="craft"[^>]*disabled=""/);
-    const ready = sign(initUi(level(['g2 . .', '. . c2'])));
-    expect(ready).not.toMatch(/<button[^>]*data-action="craft"[^>]*disabled/);
-    const chest = reduceUi(initUi(level(['g2 . .', '. . c2'])), { type: 'craft' });
-    const board = renderToStaticMarkup(<BoardView state={chest} dispatch={() => {}} />);
-    expect(board).toContain('aria-label="Row 1, column 1: Woodland chest, closed, tap to open"');
-    expect(board).toContain('data-chest');
+  it('switching to Merge to treasure from Tier 3 selects Tier 4; supported tiers and the goal count are kept', () => {
+    const play = (c: PuzzleConfig) => renderToStaticMarkup(<PlaySetup config={c} onConfig={() => {}} onStart={() => {}}
+      onHome={() => {}} musicControl={null} />);
+    const selected = (html: string) => [...html.matchAll(/class="choice-option is-on"><input[^>]*name="tier"[^>]*><span>([^<]*)</g)].map((m) => m[1]);
+    for (const from of [{ mode: 'goals', tier: 2, goals: 2 }, { mode: 'one', tier: 2, goals: 1 }] as PuzzleConfig[]) {
+      const t = switchMode(from, 'treasure');
+      expect(t).toEqual({ ...from, mode: 'treasure', tier: 3 });
+      expect(selected(play(t))).toEqual(['Tier 4 of 5']);
+    }
+    for (const tier of [3, 4] as Tier[]) {
+      expect(switchMode({ mode: 'goals', tier, goals: 3 }, 'treasure')).toEqual({ mode: 'treasure', tier, goals: 3 });
+      expect(switchMode({ mode: 'treasure', tier, goals: 3 }, 'goals')).toEqual({ mode: 'goals', tier, goals: 3 });
+      expect(switchMode({ mode: 'treasure', tier, goals: 1 }, 'one')).toEqual({ mode: 'one', tier, goals: 1 });
+    }
   });
 
-  it('offers the mode on the Play screen without a tier or goal choice', () => {
-    const play = renderToStaticMarkup(<PlaySetup config={CONFIG} onConfig={() => {}} onStart={() => {}} onHome={() => {}} musicControl={null} />);
-    expect(play).toContain('Merge to treasure');
-    expect(play).not.toContain('Target tier');
+  it('offers tiers 4 and 5 for Merge to treasure, without a goal count', () => {
+    const play = renderToStaticMarkup(<PlaySetup config={treasureConfig('woodland', 4)} onConfig={() => {}} onStart={() => {}}
+      onHome={() => {}} musicControl={null} />);
+    expect(play).toContain('Tier 4 of 5');
+    expect(play).toContain('Tier 5 of 5');
+    expect(play).not.toContain('Tier 3 of 5');
     expect(play).not.toContain('>Goals</legend>');
   });
 });
-

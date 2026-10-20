@@ -1,8 +1,9 @@
 import {
   availableTasks, isOpen, nextLocked, sealedRegion, unlockReady, type GateSymbol, type Plate, type Region, type Task, type TaskUnlock,
 } from '../regions';
-import { finalItem, type Recipe } from '../recipes';
-import { craftReady, treasureRevealed, type LevelGoal, type Prize, type SessionState } from '../session';
+import type { Item } from '../board';
+import type { Recipe } from '../recipes';
+import { contentCells, craftReady, treasureRevealed, type LevelGoal, type Prize, type SessionState } from '../session';
 import { FAMILY_NAMES, itemLabel } from './ItemArt';
 import type { UiState } from './controller';
 
@@ -75,6 +76,8 @@ export function helpObjective(goal: LevelGoal, regions?: readonly Region[]): str
 
 /** Owner-approved text for a generated puzzle with no merges left. */
 export const NO_MERGES_MESSAGE = 'No merges left—Undo, Retry, or New Puzzle.';
+/** Merge to treasure: a closed chest without room for its contents, and no merge left to make room. */
+export const NO_ROOM_MESSAGE = 'No room to open the chest and no merges left—Undo, Retry, or New Puzzle.';
 
 /** Region levels with no useful merge and no unlock left (there is no New Puzzle). */
 export const REGION_STUCK_MESSAGE = 'No useful merges left—Undo or Retry.';
@@ -283,23 +286,41 @@ export function recipeNeed(recipe: Recipe): string {
   return parts.length > 1 ? `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}` : parts[0];
 }
 
+/** Merge to treasure: the goal item (one of it, alone on the board). */
+const recipeGoal = (goal: LevelGoal): Item | undefined => (goal.kind === 'leaveOne' ? goal.item : undefined);
+
+/** Merge to treasure: the drop that crafts, e.g. "Drop Grove, tier 3 of 5 onto Crystal, tier 3 of 5, or the other way round". */
+const craftDrop = (recipe: Recipe) => {
+  const [a, b] = recipe.ingredients.map((i) => itemLabel(i.item));
+  return `Drop ${a} onto ${b}, or the other way round`;
+};
+
 /** Merge to treasure: the next step, by stage. */
 function recipeStep(state: UiState, recipe: Recipe): string {
   const { session } = state;
-  if (session.chest) return `Tap the ${recipe.name} to open it.`;
-  if (session.opened) return `Merge the three ${itemLabel(recipe.contents.item)} into ${itemLabel(finalItem(recipe))}.`;
-  if (craftReady(session)) return `Ready: press Craft chest. It uses up every ${recipeFamilies(recipe)} piece.`;
-  return `Merge pieces into ${recipeNeed(recipe)}, then craft the ${recipe.name}.`;
+  const goal = recipeGoal(session.level.goal)!;
+  const contents = recipe.contents;
+  if (session.chest) {
+    return contentCells(session) ? `Tap the ${recipe.name} to open it.`
+      : `The ${recipe.name} needs ${contents.count - 1} empty cells to open. Merge items to make room.`;
+  }
+  if (session.opened) {
+    return goal.tier === contents.item.tier + 1 ? `Merge the three ${itemLabel(contents.item)} into ${itemLabel(goal)}.`
+      : `Merge everything into one ${itemLabel(goal)}.`;
+  }
+  if (craftReady(session)) return `${craftDrop(recipe)}, to craft the ${recipe.name}. Only those two are used.`;
+  return `Merge pieces into ${recipeNeed(recipe)}, then drop one onto the other to craft the ${recipe.name}.`;
 }
-
-const recipeFamilies = (recipe: Recipe) => recipe.ingredients.map(({ item }) => FAMILY_NAMES[item.family]).join(' and ');
 
 /** Merge to treasure: the help dialog's objective. */
-export function recipeHelp(recipe: Recipe): string {
-  return `Goal: merge the pieces into the recipe's ingredients (${recipeNeed(recipe)}) and press Craft chest; it uses ` +
-    `up every ${recipeFamilies(recipe)} piece. Tap the ${recipe.name} to open it: three ${itemLabel(recipe.contents.item)} ` +
-    `come out. Merge them into ${itemLabel(finalItem(recipe))} to win. Opening the chest can't be undone.`;
+export function recipeHelp(recipe: Recipe, goal: LevelGoal): string {
+  const item = recipeGoal(goal);
+  return `Goal: make ${item ? itemLabel(item) : 'the goal item'} with the ${recipe.name}, with nothing else left. Merge ` +
+    `pieces into ${recipeNeed(recipe)}. ${craftDrop(recipe)} (or tap one, then the other), to craft the chest: only those ` +
+    `two are used. Tap the chest to open it: ${contents(recipe)} come out. Opening the chest can't be undone.`;
 }
+
+const contents = (recipe: Recipe) => `three ${itemLabel(recipe.contents.item)}`;
 
 /** `pannable`: the board overflows its viewport; defaults to the size-based guess. */
 export function statusMessage(state: UiState, pannable = isLargeBoard(state.session.board)): string {
@@ -313,12 +334,12 @@ export function statusMessage(state: UiState, pannable = isLargeBoard(state.sess
     if (goal.kind === 'treasure') return prizeText(goal).won;
     if (goal.kind === 'items') return `Goal complete! You made ${allOf(goal.items.length)}.`;
     if (goal.kind === 'item') return `Goal complete! You made ${itemLabel(goal.item)}${goalPlace(goal, regions)}.`;
-    if (recipe) return `Goal complete! You made ${itemLabel(finalItem(recipe))} from the ${recipe.name}.`;
+    if (recipe) return `Goal complete! You made ${itemLabel(recipeGoal(goal)!)} with the ${recipe.name}.`;
     const last = state.session.board.flat().find((c) => c !== null);
     return last ? `Goal complete! Only ${itemLabel(last)} remains.` : 'Goal complete!';
   }
   if (regions) return REGION_STUCK_MESSAGE;
-  if (state.session.level.earlyLoss === false) return NO_MERGES_MESSAGE;
+  if (state.session.level.earlyLoss === false) return state.session.chest ? NO_ROOM_MESSAGE : NO_MERGES_MESSAGE;
   if (goal.kind === 'items') return 'A goal item can no longer be made. Undo or retry.';
   if (goal.kind === 'item') {
     return `The goal is out of reach with the ${FAMILY_NAMES[goal.item.family]} items left. Undo or retry.`;

@@ -6,6 +6,15 @@ export interface ReleaseNote { readonly title: string; readonly date: string; re
 
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    title: 'More treasure recipes',
+    date: 'October 19, 2026',
+    notes: [
+      'Craft a chest by dropping either ingredient onto the other, or tapping one and then the other. Only those two pieces are used.',
+      'Treasure puzzles now choose from four recipes, with fixed chest rewards and a four-dot or five-dot final goal.',
+      'The recipe sign shows what to make. Opening still clears Undo, and Retry keeps the same puzzle and recipe.',
+    ],
+  },
+  {
     title: 'Merge to treasure',
     date: 'October 19, 2026',
     notes: [

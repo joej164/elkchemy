@@ -1,7 +1,7 @@
 import type { Item, Pos, Tier } from '../board';
 import { inRegion, isFixed, isOpen, nextLocked, regionAt, roomOf, unlockReady } from '../regions';
 import {
-  applyDrop, canDrop, chooseSupplyCell, collect, craft, craftReady, isCellOpen, openChest, placeSupplyRandom, previewDrop, retry, startSession,
+  applyDrop, canDrop, chooseSupplyCell, collect, isCellOpen, openChest, placeSupplyRandom, previewDrop, retry, startSession,
   treasureRevealed, undo, unlock,
   type LevelDefinition, type SessionState,
 } from '../session';
@@ -54,7 +54,6 @@ export type UiAction =
   | { readonly type: 'drop'; readonly from: Pos; readonly to: Pos }
   | { readonly type: 'placeSupply' }
   | { readonly type: 'unlock'; readonly region?: number }
-  | { readonly type: 'craft' }
   | { readonly type: 'undo' }
   | { readonly type: 'retry' }
   | { readonly type: 'clearSelection' };
@@ -93,11 +92,6 @@ export function canPlaceSupply(state: UiState): boolean {
 /** Region levels: whether Unlock (or, with `region`, that region's gate) would open the next region now. */
 export function canUnlock(state: UiState, region?: number): boolean {
   return state.status === 'playing' && unlockReady(state.session) && (region === undefined || region === nextLocked(state.session));
-}
-
-/** Merge to treasure: whether Craft would make the chest now. */
-export function canCraft(state: UiState): boolean {
-  return state.status === 'playing' && craftReady(state.session);
 }
 
 /** Whether the item at `pos` can be picked up (tapped to select, or dragged): playing, not locked away and not fixed. */
@@ -170,6 +164,8 @@ function doDrop(state: UiState, from: Pos, to: Pos): UiState {
   const next = applyDrop(session, from, to);
   if (next === session) return state;
   state = { ...state, musicArea: areaAt(state, to) };
+  // Merge to treasure: one ingredient dropped onto the other crafted the chest (instead of swapping them).
+  if (next.chest && !session.chest) return withSession(state, next, { kind: 'craft' });
   if (next.done.length > session.done.length) {
     const { regions } = session.level;
     const opened = regions!.flatMap((r, i) => (isOpen(next, i) && !isOpen(session, i) ? [i] : []));
@@ -221,11 +217,6 @@ export function reduceUi(state: UiState, action: UiAction): UiState {
       if (isOver(state)) return state;
       const next = unlock(state.session, action.region);
       return next === state.session ? state : withSession(state, next, { kind: 'unlock', region: next.unlocked });
-    }
-    case 'craft': {
-      if (isOver(state)) return state;
-      const next = craft(state.session);
-      return next === state.session ? state : withSession(state, next, { kind: 'craft' });
     }
     case 'undo':
       return canUndo(state) ? withSession(state, undo(state.session), { kind: 'undo' }) : state;

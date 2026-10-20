@@ -1,6 +1,6 @@
 import { MAX_TIER, type Board, type Family, type Item } from './board';
 import { hasItemIn, isOpen, nextLocked, unlockReady, type Region } from './regions';
-import { craftReady, type SessionState } from './session';
+import { contentCells, craftReady, type SessionState } from './session';
 
 // Supported assumption: the board is rectangular and
 //   (non-null board cells) + (unspent supply items) <= rows * cols.
@@ -152,6 +152,7 @@ export function isGoalMet(state: SessionState): boolean {
   }
   if (goal.kind === 'items') return goal.items.every((t) => hasItem(board, t));
   if (goal.kind === 'treasure') return state.collected;
+  if (state.chest) return false;      // Merge to treasure: a closed chest still holds items
   const items = board.flat().filter((c): c is Item => c !== null);
   if (supplyIndex < level.supply.length || items.length !== 1) return false;
   return !goal.item || (items[0].family === goal.item.family && items[0].tier === goal.item.tier);
@@ -207,8 +208,9 @@ export function evaluateStatus(state: SessionState): GameStatus {
   // Generated puzzles: no early loss from counting, even after a fatal choice; 'lost' only once no merges are left.
   if (state.level.earlyLoss === false) {
     if (isGoalMet(state)) return 'won';
-    // Merge to treasure: a craftable recipe or a closed chest is still a way on.
-    if (state.chest || craftReady(state)) return 'playing';
+    // Merge to treasure: crafting, or opening a chest with room for its contents, is still a way on. A chest without
+    // room waits for a merge to free cells; with none left, only Undo or Retry help.
+    if (craftReady(state) || contentCells(state)) return 'playing';
     return canArrangeMerge(state) ? 'playing' : 'lost';
   }
   if (goal.kind === 'item') return evaluateItemGoal(state, goal.item);

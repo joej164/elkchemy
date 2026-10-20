@@ -1,5 +1,5 @@
 import { drop, previewMerge, type Board, type Cell, type Item, type Pos } from './board';
-import type { Recipe } from './recipes';
+import { isIngredientPair, type Recipe } from './recipes';
 import {
   availableTasks, isFixed, isOpen, nextLocked, platesHold, platesMet, regionAt, roomOf, unlockReady, validateRegions, type Region, type Task,
 } from './regions';
@@ -44,8 +44,9 @@ export interface LevelDefinition {
    */
   readonly tasks?: readonly Task[];
   /**
-   * Merge to treasure (generated puzzles): the pieces merge into the recipe's ingredients, which craft its chest (see
-   * craft); the chest opens to its contents (see openChest), which merge into the goal (`leaveOne` with that item).
+   * Merge to treasure (generated puzzles): the board's one recipe. Its ingredients craft its chest when one is dropped
+   * onto the other (see craftAt); the chest opens to its contents (see openChest); everything then merges into the
+   * goal (`leaveOne` with that item: it alone left, and no closed chest).
    */
   readonly recipe?: Recipe;
 }
@@ -149,6 +150,8 @@ export function applyDrop(state: SessionState, from: Pos, to: Pos): SessionState
   if (!canDrop(state, from, to)) return state;
   const src = board[from.row][from.col]!;
   if (from.row === to.row && from.col === to.col) return state;
+  const crafted = craftAt(state, from, to);
+  if (crafted) return crafted;
   const result = drop(board, from, to, connects(state, from));
   if (result.kind === 'none') return state;
   const tgt = board[to.row][to.col];
@@ -176,31 +179,31 @@ export function collect(state: SessionState): SessionState {
   return { ...state, collected: true, moves: state.moves + 1, undo: snapshot(state) };
 }
 
-/** Recipe levels: whether Craft would make the chest now: no chest yet, and every ingredient (exact family and tier) here. */
+/** Recipe levels: the one chest has not been crafted yet. */
+const canStillCraft = (state: SessionState) => !!state.level.recipe && !state.chest && !state.opened;
+
+/** Recipe levels: whether crafting is possible now: no chest yet, and both ingredients (exact family and tier) here. */
 export function craftReady(state: SessionState): boolean {
-  const { recipe } = state.level;
-  if (!recipe || state.chest || state.opened) return false;
+  if (!canStillCraft(state)) return false;
   const items = state.board.flat();
-  return recipe.ingredients.every(({ item, count }) =>
+  return state.level.recipe!.ingredients.every(({ item, count }) =>
     items.filter((c) => c && c.family === item.family && c.tier === item.tier).length >= count);
 }
 
 /**
- * Recipe levels: crafts the chest, consuming every remaining piece of the ingredients' families (spare pieces too),
- * and stands it where the first ingredient was (the first such item in reading order). One undoable move.
+ * Recipe levels: the drop of one ingredient onto the other (either way round) crafts the chest: those two items are
+ * consumed, every other piece stays, and the chest stands at the destination. One undoable move. Null for any other
+ * drop, which keeps its ordinary meaning (a swap, for two different items).
  */
-export function craft(state: SessionState): SessionState {
-  if (!craftReady(state)) return state;
-  const { recipe } = state.level;
-  const families = new Set(recipe!.ingredients.map((i) => i.item.family));
-  const first = recipe!.ingredients[0].item;
-  let chest: Pos | null = null;
-  const board = state.board.map((r, row) => r.map((c, col): Cell => {
-    if (!c || !families.has(c.family)) return c;
-    if (!chest && c.family === first.family && c.tier === first.tier) chest = { row, col };
-    return null;
-  }));
-  return { ...state, board, chest, moves: state.moves + 1, undo: snapshot(state) };
+export function craftAt(state: SessionState, from: Pos, to: Pos): SessionState | null {
+  if (!canStillCraft(state)) return null;
+  const a = state.board[from.row]?.[from.col];
+  const b = state.board[to.row]?.[to.col];
+  if (!a || !b || !isIngredientPair(state.level.recipe!, a, b)) return null;
+  const board: Cell[][] = state.board.map((r) => [...r]);
+  board[from.row][from.col] = null;
+  board[to.row][to.col] = null;
+  return { ...state, board, chest: { row: to.row, col: to.col }, moves: state.moves + 1, undo: snapshot(state) };
 }
 
 /**
