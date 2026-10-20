@@ -8,6 +8,8 @@ Earlier published builds are not backfilled here. The previous build, `20261018-
 
 Implemented by Claude from Codex's investigation of owner feedback on `20261020-025257`. Independent Codex review passed; owner authorized commit → push → deploy after verification. Physical iPad/Safari and owner retest remain pending.
 
+Published build `20261020-145234`. Firebase Hosting reported release complete. Live Chromium confirmed the build and new history, then simulated suspension followed by an emulated touch-drag merge: both contexts resumed and the cue played; no console errors. Release commit `b285353`. Physical iPad/Safari retest remains required.
+
 Independent final verification: 604 tests, typecheck, production build and diff checks passed. Chromium emulated touch drag after explicit suspension resumed both contexts before the drop; the later fallback did not cancel the merge cue. No console errors. Owner clarified the reported route: iPad Home Screen app → game Home button → different game mode. This does not establish physical Safari interruption behavior.
 
 ### Audio recovery

@@ -23,6 +23,8 @@ These resolve older conflicting entries below.
 
 ## Current baseline
 
+- Published build `20261020-145234`: gesture-based interrupted-audio recovery including touch drags, and generator v4 with five balanced treasure ingredient inventories. 604 tests and independent touch-drag verification passed; authorized commit → push → deploy completed, with live audio recovery verified under simulated interruption. Owner retest in the iPad Home Screen app remains.
+
 - Published build `20261020-025257`: ingredient-on-ingredient crafting, four treasure recipes and tier-4/5 goals, plus the tier-switch fix. Owner authorized commit → push → deploy; live build/history, mode switch and full tier-5 treasure win verified. Physical iPad/Safari and owner playtest remain.
 
 - Published build `20261020-010722`: third generated mode, Merge to treasure, with the Woodland chest recipe. Owner authorized commit → push → deploy; live version, history and full craft/open/final-merge win verified. Physical iPad/Safari and clarity/fun playtesting remain.
