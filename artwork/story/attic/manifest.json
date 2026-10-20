@@ -1,0 +1,51 @@
+[
+  {
+    "file": "opening-1-draft-v1.png",
+    "width": 1448,
+    "height": 1086,
+    "bytes": 2369329,
+    "sha256": "7fc420e6e73c121842a140a5b7f48d2367e9b59c3f1fde39ffd18c1897fbb0b7"
+  },
+  {
+    "file": "opening-2-draft-v2.png",
+    "width": 1448,
+    "height": 1086,
+    "bytes": 2305796,
+    "sha256": "c4ba48ddc7bbf4d72556fc5fad021e99b459da5085022f7be53c9e3a0a01843a"
+  },
+  {
+    "file": "opening-3-draft-v1.png",
+    "width": 1448,
+    "height": 1086,
+    "bytes": 2410666,
+    "sha256": "be2fe0917add18e5a4e7bfed7b4ee576634b8e28acd1a59e12485a1e3d51e4dd"
+  },
+  {
+    "file": "opening-4-draft-v1.png",
+    "width": 1448,
+    "height": 1086,
+    "bytes": 2440973,
+    "sha256": "e8ccc342f90adb8367255b82ff4a0d64bd0f5475b2740aede6ad4ece34542e13"
+  },
+  {
+    "file": "closing-1-draft-v1.png",
+    "width": 1448,
+    "height": 1086,
+    "bytes": 2512659,
+    "sha256": "14ace24e88ffbfd6608792f704983ffdbf03820af5f6fd5a0273f41ff005a4f2"
+  },
+  {
+    "file": "closing-2-draft-v1.png",
+    "width": 1448,
+    "height": 1086,
+    "bytes": 2509442,
+    "sha256": "15bffe9a7de55d557664be5649e3d2623caf47c04295624289cf5b3eeeef4bad"
+  },
+  {
+    "file": "contact-sheet-v1.png",
+    "width": 1600,
+    "height": 1000,
+    "bytes": 1692490,
+    "sha256": "3ee5ae497566ac1d4e8ee045044a8de6a43c4798e449f447d2ca50f474dec454"
+  }
+]

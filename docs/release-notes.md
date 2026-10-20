@@ -4,6 +4,133 @@ Each entry records what changed, how it was verified, and known limitations. **U
 
 Earlier published builds are not backfilled here. The previous build, `20261018-195510`, has five handcrafted levels and optional looping music; its verification is recorded in TODO.md under Current baseline and Audio.
 
+## 20261020-231857 — Story prototype: The Attic (October 20, 2026)
+
+Implemented by Claude (rules, board, wiring, tests, docs; two Sonnet agents drew the item/container/room SVG art and built the comic component and panels). Reviewed by Codex; owner authorized commit, push and deployment on October 20, 2026. Existing levels and generated modes are unchanged; the prototype has its own Home entry and does not replace the campaign. Story direction and the owner-approved core rules are in [game-vision.md](game-vision.md).
+
+Release build `20261020-231857`. Codex independently verified all 655 tests, typecheck, production build and diff check; played opening → puzzle → closing → replay → Home in Chromium, with no horizontal overflow at 820×1180, 1180×820, 390×844 and 844×390. Actual sound output and physical iPad/Safari remain unverified.
+
+### Flow and exact inventories
+
+- **Entry:** Home → Story prototype: The Attic (side by side with Music / Scores, so Home gains no height).
+- **Opening comic** (4 panels): on a rainy afternoon, Alisha's granddaughter helps her tidy the attic; she asks about the photos and what's under the old sheet; Alisha: "Loose photos first. Three make a tidy bundle." Then Start tidying. (Dialogue as revised with the approved art; see Comic artwork and dialogue.)
+- **Puzzle** (`ATTIC_LEVEL`, `src/attic.ts`), a 4×4 floor, no supply, goal Memory book (book tier 2 of 5):
+
+  ```text
+  L  L  .  K      L loose photos (photo tier 1)   B photo bundle (tier 2)
+  .  .  .  .      K old wooden box (covered by a dust sheet): 3 old books (book tier 1)
+  L  .  B  .      S shoebox of stored belongings: 3 loose photos
+  .  .  .  S
+  ```
+
+  Item chains: loose photos → photo bundle → photo album; old book → memory book. Ordinary 3 → 1 merges throughout.
+- **Cleanup → reveal:** the album needs three bundles (the one there, one from the three loose photos, one from the shoebox's three). The move that makes the album uncovers the box; that move's Undo covers it again.
+- **Box → win:** tapping the uncovered box releases exactly three books (a checkpoint); merging them makes the memory book and wins. Opening does not win.
+- **Closing comic** (4 panels): the three books became the memory book; a photo slips out face down; it is Aunt Fiona, the elk; Alisha invites her granddaughter to sit beside her and begins her story. Then Back to Home or Play The Attic again.
+
+### Rules and model
+
+- `LevelDefinition.containers` (`Container`: cell, name, art, a batch of one or more items, optional `hiddenUntil` item) and `SessionState.unpacked` (`src/session.ts`). A container's cell holds no item and takes no drops; `openContainer` releases the whole batch onto its cell and the nearest empty cells (distance, then reading order; the chest's placement, now shared as `releaseFrom`), never onto another closed container, or nothing without room. It removes the container, counts one move and clears Undo. `startSession` rejects containers on occupied or duplicate cells, empty batches, and container levels with supply, regions or a recipe.
+- Tap opens an uncovered container whatever is selected; a covered one or one without room only ends a selection (`src/ui/controller.ts`). `LastAction` gains `unpack` and `revealed`.
+- Status: container levels never report a loss (`src/status.ts`); the attic is built and tested so nothing is stranded.
+- Text: the banner's step-by-step guidance (`atticGuide`) asks for one action at a time: the loose photos (with how to drag or tap, until the first move), opening the shoebox, the bundles, the box, the books; it asks to move items side by side when no merge is ready, and otherwise to pick one up and drop it where the matching items light up (see Review fixes). Announcements name what a container released and what the merge uncovered. Help explains boxes and checkpoints, without supply or next-level lines.
+- Sound (existing cues, no new audio): opening a container and uncovering the box play `discovery`; the memory-book merge plays `case-victory`, as the story's prize; other merges keep their merge sounds.
+
+### Presentation
+
+- Hidden grid (attic only, `scene="attic"` on `Game`/`Board`, CSS in `src/ui/app.css`): the same grid, positions, input and keyboard navigation, drawn as a plank floor with tiles hidden. The board's padding is a frame (rafters, round window, hanging lamp, stored boxes, side shelves), so decoration never covers a cell; tile size subtracts it and stays at least 64px. Items sit on soft floor shadows. Idle, the floor shows no grid; empty spaces are subtly outlined only while an item is selected or dragged (see Review fixes); merge previews and drop targets are softened gold. Cell art keeps the absolute-inset sizing. Containers show their contents on a corner tag; a header checklist lists each box, what it holds or what uncovers it, ticked once opened.
+- The dust sheet lifts away (800ms) on the uncovering move; opening reuses the merge sparkle on the released cells. Under reduced motion the sheet is simply gone and comic panels appear without animation.
+- Comic (`src/ui/Comic.tsx`, `comic.css`, panels in `src/ui/atticStory.tsx`): panel by panel, by tapping the panels or the Next button (focused on entry, the same button throughout, named "Next panel, 2 of 4" and so on); earlier panels stay; unrevealed ones are empty frames; each new panel is announced; the button stays reachable on short screens. No timers: Home unmounts it, cancelling everything.
+
+### Art provenance and owner review
+
+As first implemented. The comic placeholders below were later replaced by the approved art (see Comic artwork and dialogue).
+
+- **No raster art was generated.** The imagegen skill is Codex's built-in tool; this Claude session had no image tool, no Codex CLI and no `OPENAI_API_KEY`.
+- **Placeholders needing owner review:** comic panels 1–6 and the framing of 7–8 are simple code-native SVG/CSS scenes (`data-placeholder="true"`), with nonspecific figures. Alisha is hinted by a brown updo with a grey streak, round glasses and small leafy antlers. Raster comic art from the approved reference remains to be made.
+- **Reused unchanged:** panel 7's photograph is `public/icons/icon-512.png`, resized earlier from the approved `artwork/elkchemy-icon-v1.png`. Panel 8 is `src/assets/art/woodland-home-landscape-v1.webp` with a CSS sepia vignette.
+- **New code-native SVG for owner review:** items (loose photos, photo bundle, photo album, old book, memory book), containers (shoebox, keepsake box, dust sheet) and room props (`src/ui/ItemArt.tsx`, `src/ui/AtticArt.tsx`).
+- **Unchanged files:** `artwork/`, `public/` and `src/assets/` are untouched. The approved Alisha reference's SHA-256 still matches `365002398195fb49b6ad2080cd995b3784f56b002c6a16a73bc0759436d84404`.
+
+### Verification (Claude)
+
+- **Automated:** 651 tests in 26 files (604 before), typecheck, production build and `git diff --check` pass. `tests/session.test.ts`'s snapshot helper gained the new field.
+  - **`tests/attic.test.tsx` (21):** batches of one and five, mixed, in deterministic order; never onto another box; no room → no partial release, and the tap only ends a selection; opening once; checkpoint (Undo up to, not past) and exact Retry; no drops onto boxes; covering, uncovering and Undo re-covering; unsupported levels rejected; the exact inventories; a full scripted win with the banner text at each step; gathering guidance; opening the shoebox first with a 5-merge still winning; announcements, cues, board markup, checklist, Home and Help.
+  - **Solvability:** a count model (per family and tier, plus which boxes are open; positions don't matter, since drops reach any cell) searches every reachable inventory from the start. All can still make the memory book. In every one, items plus closed boxes leave at least two free cells, and an openable box has room for its whole batch. 400 random games on the real rules (drops, taps, Undo, mixed with solver steps) are each solved from their end and straight after each of 715 shoebox and 554 box openings: all win.
+  - **`tests/comic.test.tsx` (6)** and **`tests/itemArt.test.tsx`** (photo/book labels and art, containers, room props).
+- **Chromium (Playwright MCP, production build via `vite preview`):**
+  - Intro comic by keyboard (Enter, Space, focus kept) and by tapping; cleanup by real mouse drags and tap-tap; Undo before the shoebox; opening the shoebox (Undo then disabled); album → sheet lifts.
+  - Undo re-covers the box; a tap on the covered sheet does nothing; box opened (not a win); book merge → won, Continue the story → closing comic → Play The Attic again.
+  - Retry after both checkpoints restores the floor and both boxes. Home mid-comic cancels it, and re-entry starts at panel 1. Retry during the sheet's lift removes it. Home during the lift asks before discarding (dismiss keeps the game, accept leaves).
+  - Keyboard-only: Tab to the board, arrows, Enter to select and merge, Space on the shoebox; visible focus ring.
+  - Reduced motion: no panel animation, no lift. Sound effects on through a full win.
+  - Level 1 and a generated puzzle keep their tiles, woodland backdrop and supply. No console warnings or errors.
+  - **Sizes:** no horizontal overflow at 375×667, 390×844, 844×390, 820×1180, 1180×820 and 1024×768. The attic board fits without panning everywhere except 844×390, where it pans like the existing 4×4 levels do. Tiles are 68–146px. At 820×1180 Undo/Retry/Home are on screen in play and after winning. Home scroll matches the previous build (32px at 375×667, 0 at the others); 320×568 is 14px more than before.
+- **Not verified:** physical iPad/Safari, actual audio playback of the cues (only cue selection is tested), and whether the tutorial is clear and fun.
+
+### Review fixes (October 20, 2026)
+
+From Codex's review of the prototype. Small patch; merge and placement rules unchanged.
+
+- **Idle grid hidden.** Empty attic cells had a permanent faint dashed border. They now keep a transparent 2px dashed border (so sizing and hit areas are unchanged), shown subtly only while an item is selected or dragged. Keyboard focus (the white outline), selection, valid and blocked drop targets and merge previews are unchanged, apart from the selection colour below.
+- **Actionable merge guidance.** `mergeTargets` and `mergeSources` (`src/ui/controller.ts`) apply the existing `previewCells` to every cell: where a picked-up item would merge, and which items would merge somewhere.
+  - In the attic only, while an item is selected or dragged, its merge targets get a dashed gold ring.
+  - If it merges nowhere from where it stands (an L's corner, or one of the starting pair), the items that would merge get a solid gold ring instead. The banner says: "From there this loose photo won't merge. Tap it again to put it down, then pick up a highlighted one."
+  - With targets, the banner says "Drop it on a highlighted loose photo: 3 → 1." (or 5 → 2 for a five), for photos, bundles and books alike.
+  - Idle banners now say to pick one up and drop it where the matching items light up, instead of implying any drop onto a pair merges.
+  - Cell labels add ", merges here" or ", can merge" for screen readers.
+  - The rings are static (nothing changes under reduced motion) and are recomputed from the current board, so they follow moves, openings, Undo and Retry. Every action clears the selection.
+- **Selection colour.** A picked-up attic item now sits on a cream ring with a lift shadow (it was gold), so gold always means guidance. Other boards keep their amber selection.
+- **Art boundary unchanged.** Comic placeholders stay marked `data-placeholder="true"`. Final raster comic art still needs a separate Codex image-generation pass and owner review; no new tools or credentials were used.
+
+**Evidence before this patch:** 651 tests and the complete story flow, recorded under Verification above, and (per the owner) re-verified by Codex.
+
+**Checks run for this patch (Claude):**
+- **Automated:** 655 tests in 26 files, typecheck, production build and `git diff --check` pass. `tests/attic.test.tsx` has 4 new tests (25 in all), and the banner strings in two existing tests were updated:
+  - targets and sources for the start, the photo L and the book L (each corner has none, each arm two);
+  - selection banners for photos, bundles, books, a five (5 → 2), and none when nothing is ready;
+  - board rings and labels on the attic only;
+  - guidance clearing and following the board after a move, Undo and Retry.
+- **Chromium (Playwright MCP, production build via `vite preview`):**
+  - **Idle:** no empty cell has a visible border at 820×1180, 1180×820, 375×667, 390×844 and 844×390; tiles keep their sizes (146, 136, 68, 71, 64px).
+  - **Picking up:** 10 empty spaces outlined. Mid-drag shows outlines, dashed targets, the hovered group's merge preview and the drop target. Over the bundle: a swap target, no merge preview. Over the dust sheet: the blocked outline.
+  - **Keyboard:** the white focus outline shows on occupied and empty cells and on a highlighted target. After selecting a pair photo, the lone photo's label adds "can merge"; the keyboard merge works.
+  - **Guidance shown:** the starting pair (won't merge, the lone photo ringed), the shoebox's photo L (corner: arms ringed; arm: corner and other arm targeted), the bundles, and the book L (same).
+  - **Flow:** completed to the win. Undo then returns to three books with guidance recomputed; Retry restores the covered box, the closed shoebox and the opening guidance.
+  - **Layout:** no horizontal overflow at those sizes; the 844×390 board still pans, as before. Level 1 keeps its visible tiles, amber selection and no guidance rings. No console warnings or errors.
+- **Not run this time:** the comics, the closing flow and reduced-motion emulation (unchanged by this patch; covered by the earlier evidence), and physical iPad/Safari.
+
+### Comic artwork and dialogue (October 20, 2026)
+
+Presentation pass integrating the owner-approved art and dialogue (`artwork/story/attic/storyboard.html`, its README and `manifest-v2.json`). Puzzle, rules, comic behaviour and sound cues unchanged.
+
+- **Story decisions (owner):** older Alisha tidies the attic with her granddaughter and background helpers, all unnamed. The elk is Fiona, "Aunt Fiona" to the granddaughter. Fiona is not in the attic; she appears only in the photograph and the woodland memory, and her absence is not explained.
+- **Art:** panels 1–6 are the approved illustrations, as 960 × 720 WebP delivery copies (`src/assets/art/attic-*.webp`, 102–127 KB each, 685 KB together; method in `src/assets/art/README.md`) imported through Vite. Panels 7–8 reuse the elk photo and the tinted woodland memory, as before. The art is 4:3 like the frame, so each image shows whole: no face, covered box, memory book or slipping photo is cropped. The placeholder SVG scenes and `data-placeholder` markers are gone. Sources, earlier drafts and review pages are unchanged and not shipped.
+- **Dialogue:** the storyboard captions verbatim (typographic apostrophes, unspaced em dash) as HTML text: the granddaughter asks the questions, "Grandma, is that Aunt Fiona?" / "Yes. That photograph was taken a long time ago.", and "Come sit beside me. I’ll start at the beginning." Panel descriptions (alt text, announced) follow the storyboard's, adding "and her granddaughter" to panel 4 (she is in the art) and "face down" to panel 6, so the spoken text also keeps the photo's reveal for panel 7.
+- **Music:** revealing the closing comic's last panel, the woodland memory, switches to Woodland Journey (existing `JOURNEY_MUSIC`) through the existing `setTrack` crossfade. `Comic` reports the panels shown (`onShown`); App keeps the flag and clears it on every screen change, so Home, Back to Home and Play The Attic again return to Woodland Stroll. With Music off nothing loads or plays; turning it on at that panel starts Woodland Journey. No new audio, cue or audio system.
+- **Comic behaviour unchanged:** reveal by tap or Next, labels, focus, announcements, Home, replay and reduced motion. There is no separate Skip control (there was none before); Home leaves at any point.
+
+**Checks (Claude):**
+- **Automated:** 655 tests in 26 files, typecheck, production build and `git diff --check` pass. In `tests/comic.test.tsx`, the dialogue test now compares every panel's exact lines and speakers with the storyboard, and the art test checks each panel's image, one decorative image (`alt=""`) per panel, and no placeholders, SVG or text in the art. The build contains the six WebPs and no review page or contact sheet.
+- **Chromium (Playwright MCP, production build via `vite preview`), 820×1180 unless noted:**
+  - Opening by keyboard (Enter, Space): focus stays on the one button ("Next panel, 2 of 4" … "Start tidying"); each announcement gives the panel's description and exact lines. Quick repeated Enter presses advance one panel each.
+  - Full puzzle by taps → Continue the story (Next focused) → closing by tapping the panels → Play The Attic again (panel 1, Next focused) → Home. Home mid-comic, then re-entry, starts at panel 1.
+  - All eight images loaded and fill their frames (natural 960×720, 512×512, 1672×941); visible captions match the storyboard exactly.
+  - Music, by logging which track each audio source starts and stops: with Music off (the default), the whole flow fetched and played nothing. With Music turned on at Home, Woodland Stroll ran unbroken through the opening, puzzle and closing panels 1–3; panel 4 fetched Woodland Journey and crossfaded to it; the game's Home button returned to Woodland Stroll. Music turned off at closing panel 1: reaching panel 4 started nothing, turning it on there started Woodland Journey, and off/on again resumed it. Play The Attic again returned to Woodland Stroll.
+  - Reduced motion: revealed panels have no animation (`comic-rise` otherwise).
+  - **Sizes:** both comics fully revealed at 820×1180, 1180×820, 390×844 and 844×390: no horizontal overflow, no image clipped, no caption overflowing, the action button on screen. Panels are 371, 213, 156 and 187px wide. Phones scroll vertically (113–150px), as before; at 844×390 the sticky buttons cover the last caption lines until scrolled, and every caption clears them at the bottom. No console warnings or errors.
+- **Not verified:** physical iPad/Safari and Home Screen mode (Chromium emulation only); audible output (sources were logged, not heard); slow networks: each panel's image loads when the panel is revealed (no preloading), so on a slow connection it may appear a moment after its frame.
+
+### Limitations and Codex review points
+
+- **Corner-onto-arm drops:** a batch lands in an L. Dropping its corner item onto an arm does nothing (the existing rule: the target's group excludes the dragged item). Addressed by guidance, not a rule change (see Review fixes); whether beginners read the highlights unaided needs a playtest.
+- **No room:** the "no room" path cannot occur in the attic, so the banner has no text for it.
+- **Generality:** container status never reports a loss; any future container level must be checked like the attic. `releaseFrom` was refactored out of `contentCells` (chest placement unchanged; treasure tests pass).
+- **Cue choice:** `case-victory` for the memory-book merge departs from ordinary merge wins keeping merge sounds.
+- **Phone layout:** at 844×390 the attic board pans, and the comic needs vertical scrolling on phones.
+- **Art:** the comic now uses the approved art. Carried-over art review notes: Alisha's apparent age and small ornament details vary slightly between panels; in panel 6 the granddaughter's head meets the top edge and antler tips touch it in panels 2 and 4, as drawn. Item, box and room art remain code-native placeholders.
+- **Release preparation:** player-facing release notes added for The Attic.
+
 ## 20261020-145234 — Audio recovery and Merge to treasure ingredient variety (October 20, 2026)
 
 Implemented by Claude from Codex's investigation of owner feedback on `20261020-025257`. Independent Codex review passed; owner authorized commit → push → deploy after verification. Physical iPad/Safari and owner retest remain pending.

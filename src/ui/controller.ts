@@ -1,8 +1,8 @@
 import type { Item, Pos, Tier } from '../board';
 import { inRegion, isFixed, isOpen, nextLocked, regionAt, roomOf, unlockReady } from '../regions';
 import {
-  applyDrop, canDrop, chooseSupplyCell, collect, isCellOpen, openChest, placeSupplyRandom, previewDrop, retry, startSession,
-  treasureRevealed, undo, unlock,
+  applyDrop, canDrop, chooseSupplyCell, closedContainerAt, collect, containerShown, isCellOpen, openChest, openContainer, placeSupplyRandom,
+  previewDrop, releaseCells, retry, startSession, treasureRevealed, undo, unlock,
   type LevelDefinition, type SessionState,
 } from '../session';
 import { evaluateStatus, type GameStatus } from '../status';
@@ -17,10 +17,13 @@ export interface Progress { readonly tasks: readonly number[]; readonly regions:
  * the drop did, and `opened` is set only when it opened a single region that needed just that one task: regions opened
  * together are announced without moving the view. The region needing several tasks (level 9's palace) has its own
  * opening, played by the board (see viewCue in camera.ts).
+ * `revealed` (container levels): the covered container the action uncovered. `unpack`: a container opened, its batch at
+ * `cells`.
  */
 export type LastAction =
-  | { readonly kind: 'move' | 'swap'; readonly opened?: number; readonly progress?: Progress }
+  | { readonly kind: 'move' | 'swap'; readonly opened?: number; readonly progress?: Progress; readonly revealed?: number }
   | { readonly kind: 'undo' | 'retry' | 'collect' | 'craft' | 'open' }
+  | { readonly kind: 'unpack'; readonly container: number; readonly cells: readonly Pos[] }
   | { readonly kind: 'place'; readonly at: Pos; readonly item: Item }
   | { readonly kind: 'unlock'; readonly region: number }
   | {
@@ -32,6 +35,7 @@ export type LastAction =
       readonly outputs: readonly Pos[];
       readonly opened?: number;
       readonly progress?: Progress;
+      readonly revealed?: number;
     };
 
 /** The region the last action opened: by Unlock (or a gate), or, in room levels, by a drop. */
@@ -134,6 +138,23 @@ export function previewCells(state: UiState, from: Pos, to: Pos): Pos[] {
   return canDropAt(state, from, to) ? previewDrop(state.session, from, to) : [];
 }
 
+const itemCells = (state: UiState): Pos[] =>
+  state.session.board.flatMap((r, row) => r.flatMap((c, col) => (c ? [{ row, col }] : [])));
+
+/**
+ * Tutorial guidance (the attic): the cells where the item at `from` would merge if dropped now (see previewCells). Not
+ * every matching item is one: dropped onto an item whose group, without the item moved, has fewer than two, it won't.
+ */
+export function mergeTargets(state: UiState, from: Pos): Pos[] {
+  if (!canPickUp(state, from)) return [];
+  return itemCells(state).filter((to) => previewCells(state, from, to).length > 0);
+}
+
+/** Tutorial guidance (the attic): the items that would merge somewhere if picked up now. */
+export function mergeSources(state: UiState): Pos[] {
+  return itemCells(state).filter((from) => mergeTargets(state, from).length > 0);
+}
+
 /** The player's last playable room interaction, independent of camera movement and gate openings. */
 function areaAt(state: UiState, pos: Pos): UiState['musicArea'] {
   const regions = state.session.level.regions;
@@ -166,6 +187,10 @@ function doDrop(state: UiState, from: Pos, to: Pos): UiState {
   state = { ...state, musicArea: areaAt(state, to) };
   // Merge to treasure: one ingredient dropped onto the other crafted the chest (instead of swapping them).
   if (next.chest && !session.chest) return withSession(state, next, { kind: 'craft' });
+  // Container levels: the move that makes a covered container's item uncovers it.
+  const revealed = session.level.containers?.findIndex((_, i) =>
+    !session.unpacked.includes(i) && !containerShown(session, i) && containerShown(next, i)) ?? -1;
+  if (revealed !== -1) return withSession(state, next, { ...lastAction, revealed });
   if (next.done.length > session.done.length) {
     const { regions } = session.level;
     const opened = regions!.flatMap((r, i) => (isOpen(next, i) && !isOpen(session, i) ? [i] : []));
@@ -194,6 +219,14 @@ export function reduceUi(state: UiState, action: UiAction): UiState {
       if (session.chest && samePos(session.chest, pos)) {
         const opened = openChest(session);
         return opened === session ? state : withSession(state, opened, { kind: 'open' });
+      }
+      // Container levels: tapping an uncovered container opens it, whatever is selected; a covered one does nothing but
+      // end the selection. Without room it stays closed (the banner says so).
+      const container = closedContainerAt(session, pos);
+      if (container !== -1) {
+        const cells = releaseCells(session, container);
+        if (!cells) return state.selected === null ? state : { ...state, selected: null };
+        return withSession(state, openContainer(session, container), { kind: 'unpack', container, cells });
       }
       // Completed plate items still choose their room's music, without moving them or creating a gameplay event.
       if (session.board[pos.row][pos.col] && isCellOpen(session, pos) && isFixed(session, pos)) {

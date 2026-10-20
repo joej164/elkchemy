@@ -6,6 +6,15 @@ export interface ReleaseNote { readonly title: string; readonly date: string; re
 
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    title: 'A box of memories',
+    date: 'October 20, 2026',
+    notes: [
+      'Try The Attic from Home: help Alisha and her granddaughter sort photos and uncover an old keepsake box.',
+      'Open boxes for more keepsakes, then merge three old books into a special memory book.',
+      'Illustrated story panels introduce Aunt Fiona and the beginning of Alisha’s adventures.',
+    ],
+  },
+  {
     title: 'Sound recovery and more merge patterns',
     date: 'October 20, 2026',
     notes: [

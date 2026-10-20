@@ -5,13 +5,15 @@ import type { Item, Pos } from '../board';
 import {
   isFixed, isOpen, regionAt, roomOf, routeFrom, routeOf, sealedRegion, type GateSymbol, type PlateUnlock, type Region, type TaskUnlock,
 } from '../regions';
-import { isCellOpen } from '../session';
-import { ChestArt, ItemArt, itemLabel, PrizeArt } from './ItemArt';
+import { closedContainerAt, containerShown, isCellOpen, type Container } from '../session';
+import { ChestArt, DustSheetArt, ItemArt, itemLabel, KeepsakeBoxArt, PrizeArt, ShoeboxArt } from './ItemArt';
+import { AtticLampArt, AtticWindowArt, ShelfArt, StackedBoxesArt } from './AtticArt';
 import { direct, palaceShots, viewCue, type Camera, type Frames, type Phase, type Shot, type View } from './camera';
-import { prizeText, unlockNeed } from './messages';
+import { batchGroups, batchText, prizeText, unlockNeed } from './messages';
 import { centerScroll, centreSpan, exceedsThreshold, moveFocus, panScroll, revealSpan, type Point } from './navigation';
 import {
-  canDropAt, canPickUp, canUnlock, goalCells, openedRegion, previewCells, treasureShown, type UiAction, type UiState,
+  canDropAt, canPickUp, canUnlock, goalCells, mergeSources, mergeTargets, openedRegion, previewCells, treasureShown, type UiAction,
+  type UiState,
 } from './controller';
 
 // A click arriving this soon after a drag is the browser's follow-up click, not a tap.
@@ -144,11 +146,40 @@ function PalaceWall() {
 
 const SIDES = [['t', -1, 0], ['r', 0, 1], ['b', 1, 0], ['l', 0, -1]] as const;
 
-/** `onOverflowChange` reports whether the board overflows its viewport (so it needs panning), whenever that changes. */
-export function Board({ state, dispatch, onOverflowChange, onPalaceOpening, onPresentationCancel }: {
+/** Container levels: a closed container as drawn: stored belongings (a shoebox) or the keepsake box. Decorative. */
+export function ContainerArt({ art }: { art: Container['art'] }) {
+  return art === 'shoebox' ? <ShoeboxArt /> : <KeepsakeBoxArt />;
+}
+
+/**
+ * The attic's room around its floor: rafters with a window, a lamp and stored boxes along the back wall, and shelves at
+ * the sides. It fills only the board's frame (its padding), never a cell, and takes no input. Decorative.
+ */
+function AtticDecor() {
+  return (
+    <div className="attic-decor" aria-hidden="true">
+      <div className="attic-wall">
+        <span className="attic-boxes is-left"><StackedBoxesArt /></span>
+        <span className="attic-window"><AtticWindowArt /></span>
+        <span className="attic-lamp"><AtticLampArt /></span>
+        <span className="attic-boxes is-right"><StackedBoxesArt /></span>
+      </div>
+      <div className="attic-shelf is-left"><ShelfArt /></div>
+      <div className="attic-shelf is-right"><ShelfArt /></div>
+    </div>
+  );
+}
+
+/**
+ * `onOverflowChange` reports whether the board overflows its viewport (so it needs panning), whenever that changes.
+ * `scene` 'attic': the same grid drawn as a room, its tiles hidden on a wooden floor (outlined faintly while an item is
+ * picked up), with the room framing it.
+ */
+export function Board({ state, dispatch, onOverflowChange, onPalaceOpening, onPresentationCancel, scene }: {
   state: UiState; dispatch: Dispatch<UiAction>; onOverflowChange?: (overflowing: boolean) => void;
   onPalaceOpening?: (seq: number) => void;
   onPresentationCancel?: () => void;
+  scene?: 'attic';
 }) {
   const palaceOpeningRef = useRef(onPalaceOpening);
   palaceOpeningRef.current = onPalaceOpening;
@@ -387,6 +418,16 @@ export function Board({ state, dispatch, onOverflowChange, onPalaceOpening, onPr
     return [];
   }, [state, drag, mouseHover, kbFocus, board]);
 
+  // The attic (a tutorial): while an item is picked up (selected or dragged), the cells where it would merge light up; if
+  // it merges nowhere from where it stands, the items that would merge light up instead. Other boards show only the
+  // hovered drop's merge preview.
+  const picked = drag?.origin ?? (state.selected && board[state.selected.row]?.[state.selected.col] ? state.selected : null);
+  const guide = useMemo(() => {
+    if (scene !== 'attic' || !picked) return { targets: [], sources: [] };
+    const targets = mergeTargets(state, picked);
+    return { targets, sources: targets.length > 0 ? [] : mergeSources(state) };
+  }, [scene, picked?.row, picked?.col, state]);
+
   const onPointerDown = (e: PointerEvent<HTMLDivElement>) => {
     settle();
     suppressClickUntil.current = 0;
@@ -530,6 +571,9 @@ export function Board({ state, dispatch, onOverflowChange, onPalaceOpening, onPr
   const { goal } = state.session.level;
   const prize = prizeText(goal);
   const merge = state.lastAction?.kind === 'merge' ? state.lastAction : null;
+  // Container levels: the container the last action uncovered, and the cells an opening filled.
+  const revealed = state.lastAction && 'revealed' in state.lastAction ? state.lastAction.revealed : undefined;
+  const unpacked = state.lastAction?.kind === 'unpack' ? state.lastAction.cells : [];
   const seq = state.actionSeq;
   const has = (list: readonly Pos[], p: Pos) => list.some((q) => same(q, p));
   const origin = drag?.origin ?? null;
@@ -539,7 +583,7 @@ export function Board({ state, dispatch, onOverflowChange, onPalaceOpening, onPr
     <div className="board-area">
       <div
         ref={viewportRef}
-        className="board-viewport"
+        className={`board-viewport${scene ? ` is-${scene}` : ''}`}
         data-board-viewport
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
@@ -551,7 +595,8 @@ export function Board({ state, dispatch, onOverflowChange, onPalaceOpening, onPr
       >
       <div
         ref={boardRef}
-        className={`board${over ? ' is-over' : ''}${drag ? ' is-dragging' : ''}`}
+        className={`board${over ? ' is-over' : ''}${drag ? ' is-dragging' : ''}${scene ? ` is-${scene}` : ''}${
+          scene && (drag || state.selected) ? ' is-placing' : ''}`}
         role="group"
         aria-label={`Board, ${cols} columns by ${rows} rows`}
         data-board
@@ -616,7 +661,13 @@ export function Board({ state, dispatch, onOverflowChange, onPalaceOpening, onPr
             const treasure = goal.kind === 'treasure' && same(goal.at, pos) && treasureShown(state);
             // Merge to treasure: the crafted chest stands on a cell that holds no item.
             const chest = same(state.session.chest, pos);
-            if (item || treasure || chest) cls.push('has-item');
+            // Container levels: a closed container stands on a cell that holds no item, covered by a dust sheet until its
+            // item is made; uncovered, it shows what it holds.
+            const box = closedContainerAt(state.session, pos);
+            const container = box === -1 ? undefined : state.session.level.containers![box];
+            const covered = !!container && !containerShown(state.session, box);
+            if (item || treasure || chest || container) cls.push('has-item');
+            if (container) cls.push(covered ? 'is-covered' : 'has-container');
             if (locked) cls.push('is-locked');
             if (plate) {
               cls.push('is-plate', `is-${plate.kind}`);
@@ -630,6 +681,10 @@ export function Board({ state, dispatch, onOverflowChange, onPalaceOpening, onPr
               cls.push(canDropAt(state, drag.origin, pos) ? 'is-drop-target' : 'is-drop-blocked');
             }
             if (same(origin, pos)) cls.push('is-drag-origin');
+            const target = has(guide.targets, pos);
+            const source = has(guide.sources, pos);
+            if (target) cls.push('is-merge-target');
+            if (source) cls.push('is-merge-source');
             const isGoal = has(goals, pos);
             if (isGoal) cls.push('is-goal-item');
             const isOutput = !!merge && has(merge.outputs, pos);
@@ -637,6 +692,8 @@ export function Board({ state, dispatch, onOverflowChange, onPalaceOpening, onPr
             const label = treasure
               ? `${prize.name}, ${state.session.collected ? prize.opened : `closed, tap to ${prize.verb}`}`
               : chest ? `${state.session.level.recipe!.name}, closed, tap to open`
+              : container ? (covered ? 'something under a dust sheet'
+                : `${container.name}, closed, holds ${batchText(container.contents)}, tap to open`)
               : item ? itemLabel(item) : 'empty';
             const mark = plate ? `, ${plate.kind === 'stone' ? 'stone' : 'pressure plate'} for ${itemLabel(plate.item)}${fixed ? ', fixed' : ''}` : '';
             // Cells are named after their room, so a joined part reads as the room it belongs to.
@@ -650,9 +707,9 @@ export function Board({ state, dispatch, onOverflowChange, onPalaceOpening, onPr
                 data-cell
                 data-row={r}
                 data-col={c}
-                aria-label={`Row ${r + 1}, column ${c + 1}${place}: ${label}`}
+                aria-label={`Row ${r + 1}, column ${c + 1}${place}: ${label}${target ? ', merges here' : source ? ', can merge' : ''}`}
                 aria-pressed={same(state.selected, pos)}
-                aria-disabled={over || locked || fixed ? true : undefined}
+                aria-disabled={over || locked || fixed || covered ? true : undefined}
                 tabIndex={same(tabStop, pos) ? 0 : -1}
                 onPointerEnter={(e) => { if (e.pointerType === 'mouse') setMouseHover(pos); }}
                 onPointerLeave={(e) => { if (e.pointerType === 'mouse') setMouseHover((h) => (same(h, pos) ? null : h)); }}
@@ -671,6 +728,26 @@ export function Board({ state, dispatch, onOverflowChange, onPalaceOpening, onPr
                 )}
                 {item && <span className="cell-art"><ItemArt item={item} /></span>}
                 {chest && <span className="cell-art"><ChestArt /></span>}
+                {container && (covered ? <span className="cell-art"><DustSheetArt /></span> : (
+                  <>
+                    <span className="cell-art"><ContainerArt art={container.art} /></span>
+                    <span className="container-badge" aria-hidden="true">
+                      {batchGroups(container.contents).map(({ item: c, n }) => (
+                        <span key={`${c.family}${c.tier}`} className="container-badge-part">
+                          {n}<span className="container-badge-art"><ItemArt item={c} /></span>
+                        </span>
+                      ))}
+                    </span>
+                  </>
+                ))}
+                {container && !covered && revealed === box && (
+                  <span key={`unveil-${seq}`} data-fx="unveil" aria-hidden="true"><DustSheetArt /></span>
+                )}
+                {has(unpacked, pos) && (
+                  <span key={`unpack-${seq}`} data-fx="output" aria-hidden="true">
+                    {SPARKS.map((i) => <i key={i} className="fx-spark" />)}
+                  </span>
+                )}
                 {treasure && goal.kind === 'treasure' && (
                   <span className="cell-art"><PrizeArt prize={goal.prize} open={state.session.collected} /></span>
                 )}
@@ -742,6 +819,7 @@ export function Board({ state, dispatch, onOverflowChange, onPalaceOpening, onPr
             </div>
           );
         })}
+        {scene === 'attic' && <AtticDecor />}
       </div>
       </div>
       {overflowing && (

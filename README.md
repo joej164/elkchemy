@@ -1,6 +1,6 @@
 # Elkchemy
 
-Elkchemy is a woodland merge puzzle. The app opens on a home screen, a painted woodland scene with the elk, and four choices: Play (generated puzzles), Levels (nine handcrafted levels, any of which can be started), Music / Scores (clarinet and ukulele arrangements of the game music), and Release notes (a short player-facing history of what changed; the internal record is [docs/release-notes.md](docs/release-notes.md)). Every other screen has a Home button.
+Elkchemy is a woodland merge puzzle. The app opens on a home screen, a painted woodland scene with the elk, and five choices: Play (generated puzzles), Levels (nine handcrafted levels, any of which can be started), Story prototype: The Attic (an opening-story tutorial, below), Music / Scores (clarinet and ukulele arrangements of the game music), and Release notes (a short player-facing history of what changed; the internal record is [docs/release-notes.md](docs/release-notes.md)). Every other screen has a Home button.
 
 ## Generated puzzles
 
@@ -58,6 +58,18 @@ Nine levels (`src/levels.ts`). Levels on the home screen lists them all in a scr
    - **Rules:** every marked tile is a checkpoint (items fixed, Undo cleared). Items never leave their own room; the level can't be stranded.
 
 Winning offers Next level (after the last level: play again from level 1). Progress is kept in memory only: the Levels page and the home screen note show where the sequence is up to, and reloading starts at level 1.
+
+## Story prototype: The Attic (release 20261020-231857)
+
+A bounded opening-story tutorial, outside the Levels sequence and not yet the campaign. Home → Story prototype: The Attic.
+
+1. **Opening comic** (4 panels, tap the panels or press Next; earlier panels stay): on a rainy afternoon, older Alisha's granddaughter helps her tidy the attic; something waits under an old sheet.
+2. **Cleanup** on a 4×4 attic floor (`src/attic.ts`): tidy loose photos into an album. It starts with 3 loose photos (two side by side) and 1 photo bundle; a shoebox of stored belongings holds 3 more loose photos, shown on its tag. Three loose photos tie into a bundle; three bundles make the photo album.
+3. **Reveal:** the move that makes the album lifts the dust sheet off an old wooden box holding 3 old books (Undo of that move covers it again).
+4. **Memory book:** tap the box; its three books merge into the memory book, the stated goal. Opening the box does not win; the merge does.
+5. **Closing comic** (4 panels): a photo slips out of the memory book, of the elk, Aunt Fiona; Alisha begins her story, and with Music on the last panel brings in Woodland Journey. Then Back to Home or Play The Attic again.
+
+Containers (`Container` in `src/session.ts`): each stands on its own cell and holds a fixed batch of one or more items. Tap one to open it: the whole batch comes out on its cell and the nearest empty cells (distance, then reading order), never onto another box; without room nothing comes out. Opening removes it and clears Undo; Retry restores the floor and every box. A covered box opens only once its item is on the board. Container levels never report a loss: tests search every reachable inventory of the attic and play hundreds of random games past both boxes. The banner gives one step at a time (`src/ui/atticGuide.ts`); the header lists the boxes and what each holds. Not every matching drop merges (the corner of an L of three, dropped onto an arm, doesn't), so picking an item up (tap or drag) rings the items it would merge onto in dashed gold; if it merges nowhere from there, the banner says so and the items that would merge get a solid gold ring. The board is the same grid drawn as an attic (a plank floor framed by rafters, a window, a lamp, stored boxes and shelves); idle, it shows no grid, and empty spaces are subtly outlined only while an item is picked up. The comic uses the owner-approved illustrations (`artwork/story/attic/`); item, box and room art are code-native placeholders pending owner review; see [docs/release-notes.md](docs/release-notes.md).
 
 ## Rules and controls
 

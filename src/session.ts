@@ -23,6 +23,20 @@ export type LevelGoal =
 
 export type Prize = 'backpack' | 'clarinet' | 'ukulele';
 
+/**
+ * A placed container (the attic story prototype): it stands on its own cell, which holds no item, and holds a fixed
+ * batch of one or more items, shown before opening. With `hiddenUntil`, it stays covered (a dust sheet) until that item
+ * (its family at its tier or higher) is on the board. Tapping an uncovered one opens it (see openContainer). `art` is
+ * how it is drawn: stored belongings (a shoebox) or the special keepsake box.
+ */
+export interface Container {
+  readonly at: Pos;
+  readonly name: string;
+  readonly art: 'shoebox' | 'keepsake-box';
+  readonly contents: readonly Item[];
+  readonly hiddenUntil?: Item;
+}
+
 export interface LevelDefinition {
   readonly seed: number;
   readonly board: Board;
@@ -49,6 +63,12 @@ export interface LevelDefinition {
    * goal (`leaveOne` with that item: it alone left, and no closed chest).
    */
   readonly recipe?: Recipe;
+  /**
+   * Container levels (the attic): placed containers, each opened once by a tap (a checkpoint). They need no supply,
+   * regions or recipe; status never reports a loss (see evaluateStatus), so such a level must be built so it can't be
+   * stranded (tests/attic.test.ts checks the attic).
+   */
+  readonly containers?: readonly Container[];
 }
 
 export interface SessionSnapshot {
@@ -66,6 +86,8 @@ export interface SessionSnapshot {
   readonly chest: Pos | null;
   /** Recipe levels: the chest has been opened (it is gone, its contents on the board). */
   readonly opened: boolean;
+  /** Container levels: the containers opened so far, in the order opened (always empty otherwise). */
+  readonly unpacked: readonly number[];
 }
 
 export interface SessionState extends SessionSnapshot {
@@ -83,16 +105,32 @@ function inBounds(board: Board, p: Pos): boolean {
 function snapshot(s: SessionState): SessionSnapshot {
   return {
     board: s.board, supplyIndex: s.supplyIndex, rngState: s.rngState, moves: s.moves, unlocked: s.unlocked, collected: s.collected,
-    done: s.done, chest: s.chest, opened: s.opened,
+    done: s.done, chest: s.chest, opened: s.opened, unpacked: s.unpacked,
   };
 }
 
-/** Throws for unsupported region levels (see validateRegions). */
+/** Container levels: each container on its own empty cell, holding at least one item, with nothing else unsupported. */
+function validateContainers(level: LevelDefinition): void {
+  const { containers, board } = level;
+  if (!containers) return;
+  const cells = new Set<string>();
+  for (const c of containers) {
+    const key = `${c.at.row},${c.at.col}`;
+    if (!inBounds(board, c.at) || board[c.at.row][c.at.col] !== null || cells.has(key) || c.contents.length === 0) {
+      throw new Error('Unsupported container level');
+    }
+    cells.add(key);
+  }
+  if (level.supply.length > 0 || level.regions || level.recipe) throw new Error('Unsupported container level');
+}
+
+/** Throws for unsupported region levels (see validateRegions) and container levels (see validateContainers). */
 export function startSession(level: LevelDefinition): SessionState {
   validateRegions(level);
+  validateContainers(level);
   return {
     level, board: level.board, supplyIndex: 0, rngState: level.seed, moves: 0, unlocked: 0, collected: false, done: [],
-    chest: null, opened: false, undo: null,
+    chest: null, opened: false, unpacked: [], undo: null,
   };
 }
 
@@ -104,6 +142,7 @@ export function canDrop(state: SessionState, from: Pos, to: Pos): boolean {
   const { board, level } = state;
   if (!inBounds(board, from) || !inBounds(board, to) || board[from.row][from.col] === null) return false;
   if (state.chest && state.chest.row === to.row && state.chest.col === to.col) return false;
+  if (closedContainerAt(state, to) !== -1) return false;
   const { regions, goal } = level;
   if (!regions) return true;
   if (goal.kind === 'treasure' && goal.at.row === to.row && goal.at.col === to.col) return false;
@@ -211,16 +250,63 @@ export function craftAt(state: SessionState, from: Pos, to: Pos): SessionState |
  * then reading order). Null if there are too few empty cells: the chest then stays closed.
  */
 export function contentCells(state: SessionState): Pos[] | null {
-  const { chest, board, level } = state;
+  const { chest, level } = state;
   if (!chest || !level.recipe) return null;
+  return releaseFrom(state.board, chest, level.recipe.contents.count, []);
+}
+
+/**
+ * Where `count` items released from the container at `at` go: `at` itself, then the nearest empty cells (by distance,
+ * then reading order), never a `reserved` cell. Null if there are too few.
+ */
+function releaseFrom(board: Board, at: Pos, count: number, reserved: readonly Pos[]): Pos[] | null {
   const empty: Pos[] = [];
   board.forEach((r, row) => r.forEach((c, col) => {
-    if (c === null && !(row === chest.row && col === chest.col)) empty.push({ row, col });
+    const p = { row, col };
+    if (c === null && !(row === at.row && col === at.col) && !reserved.some((q) => q.row === row && q.col === col)) empty.push(p);
   }));
-  const d = (p: Pos) => Math.abs(p.row - chest.row) + Math.abs(p.col - chest.col);
+  const d = (p: Pos) => Math.abs(p.row - at.row) + Math.abs(p.col - at.col);
   empty.sort((a, b) => d(a) - d(b) || a.row - b.row || a.col - b.col);
-  const need = level.recipe.contents.count - 1;
-  return empty.length >= need ? [chest, ...empty.slice(0, need)] : null;
+  return empty.length >= count - 1 ? [at, ...empty.slice(0, count - 1)] : null;
+}
+
+/** Container levels: the index of the closed container (covered or not) standing at `p`, or -1. */
+export function closedContainerAt(state: SessionState, p: Pos): number {
+  const { containers } = state.level;
+  if (!containers) return -1;
+  return containers.findIndex((c, i) => c.at.row === p.row && c.at.col === p.col && !state.unpacked.includes(i));
+}
+
+/** Container levels: whether container `i` is uncovered: it has no `hiddenUntil`, or that item is on the board. */
+export function containerShown(state: SessionState, i: number): boolean {
+  const need = state.level.containers?.[i]?.hiddenUntil;
+  if (!need) return true;
+  return state.board.some((r) => r.some((c) => !!c && c.family === need.family && c.tier >= need.tier));
+}
+
+/**
+ * Container levels: the cells container `i`'s contents go to, in order (see releaseFrom; other closed containers' cells
+ * are never used), or null if there is too little room: it then stays closed. Null too unless it is closed and shown.
+ */
+export function releaseCells(state: SessionState, i: number): Pos[] | null {
+  const containers = state.level.containers;
+  const c = containers?.[i];
+  if (!c || state.unpacked.includes(i) || !containerShown(state, i)) return null;
+  const reserved = containers!.flatMap((o, j) => (j !== i && !state.unpacked.includes(j) ? [o.at] : []));
+  return releaseFrom(state.board, c.at, c.contents.length, reserved);
+}
+
+/**
+ * Container levels: opens container `i`, once, releasing its whole batch (see releaseCells) and removing it; without
+ * room nothing changes. A checkpoint: Undo is cleared.
+ */
+export function openContainer(state: SessionState, i: number): SessionState {
+  const cells = releaseCells(state, i);
+  if (!cells) return state;
+  const { contents } = state.level.containers![i];
+  const board: Cell[][] = state.board.map((r) => [...r]);
+  cells.forEach((p, k) => { board[p.row][p.col] = { ...contents[k] }; });
+  return { ...state, board, unpacked: [...state.unpacked, i], moves: state.moves + 1, undo: null };
 }
 
 /** Recipe levels: opens the chest, once, putting its contents in place (see contentCells). A checkpoint: Undo is cleared. */
@@ -288,8 +374,8 @@ export function placeSupplyRandom(state: SessionState): SessionState {
 
 export function undo(state: SessionState): SessionState {
   if (state.undo === null) return state;
-  const { board, supplyIndex, rngState, moves, unlocked, collected, done, chest, opened } = state.undo;
-  return { level: state.level, board, supplyIndex, rngState, moves, unlocked, collected, done, chest, opened, undo: null };
+  const { board, supplyIndex, rngState, moves, unlocked, collected, done, chest, opened, unpacked } = state.undo;
+  return { level: state.level, board, supplyIndex, rngState, moves, unlocked, collected, done, chest, opened, unpacked, undo: null };
 }
 
 export function retry(state: SessionState): SessionState {

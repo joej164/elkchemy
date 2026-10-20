@@ -732,6 +732,8 @@ body {
 .home h1 { font-size: 2.8rem; text-shadow: 0 2px 4px rgb(0 0 0 / 0.85), 0 0 18px rgb(0 0 0 / 0.6); }
 .home-nav { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 100%; }
 .home-nav .btn-quiet { grid-column: 1 / -1; background: rgb(10 24 16 / 0.8); }
+.home-nav .btn-quiet.is-half { grid-column: auto; padding: 4px 8px; }
+.btn-two-line { font-size: 0.9rem; line-height: 1.15; }
 .home-note { margin: 0; color: var(--earth); text-shadow: 0 1px 3px rgb(0 0 0 / 0.9); }
 
 .page .menu-card h1 { font-size: 1.5rem; color: var(--bark-dark); }
@@ -772,7 +774,7 @@ body {
 }
 /* Region levels name areas in both panels; on phones they read better full width than side by side. */
 @media (max-width: 600px) {
-  .info.has-regions .panel { grid-column: 1 / -1; }
+  .info.has-regions .panel, .info.has-containers .panel { grid-column: 1 / -1; }
 }
 
 /* Game screens: the cheering woodland (SceneArt) behind the unchanged board layout. It always fills the
@@ -805,4 +807,104 @@ body {
 }
 @media (max-width: 600px) {
   .info .title-controls { margin-left: auto; }
+}
+/* The Attic (story prototype): a warm room behind its pages, and its board drawn as the attic itself. The grid,
+   positions, input and focus are unchanged; tiles are hidden on a wooden floor, framed by the back wall's rafters,
+   window, lamp and stored boxes and by shelves at the sides. The frame is the board's padding, so it never covers a cell;
+   the tile size subtracts it (and stays at least 64px). Empty spaces are faintly outlined, more clearly while an item is
+   picked up; items rest on soft floor shadows. */
+.app.is-attic { position: relative; z-index: 0; }
+.app.is-attic::before {
+  content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+  background:
+    radial-gradient(ellipse at 50% 0%, rgb(255 214 150 / 0.18), transparent 60%),
+    repeating-linear-gradient(90deg, #3b2718 0 46px, #32200f 46px 48px);
+}
+.board-viewport.is-attic {
+  display: flex;
+  background: linear-gradient(180deg, #4a3322, #2e1e13);
+  border-color: #2a1a10;
+}
+.board.is-attic {
+  --frame-top: calc(var(--board-size) * 0.1);
+  --frame-x: calc(var(--board-size) * 0.06);
+  --frame-bottom: calc(var(--board-size) * 0.04);
+  --fit-w: calc((var(--board-size) - 6px - 2 * var(--frame-x) - (var(--cols) - 1) * var(--gap) - 0.5px) / var(--cols));
+  --fit-h: calc((var(--board-size) - 6px - var(--frame-top) - var(--frame-bottom) - (var(--rows) - 1) * var(--gap) - 0.5px) / var(--rows));
+  margin: auto; /* centred while it fits; auto margins never hide an overflowing board's edge */
+  isolation: isolate; /* keeps the decor (z-index -1) above the floor and below the cells */
+  padding: var(--frame-top) var(--frame-x) var(--frame-bottom);
+  background:
+    radial-gradient(ellipse at 50% 0%, rgb(255 226 170 / 0.28), transparent 65%),
+    repeating-linear-gradient(90deg, rgb(0 0 0 / 0.05) 0 1px, transparent 1px 41px),
+    repeating-linear-gradient(180deg, #9a7049 0 calc(var(--tile) * 0.5 - 2px), #5b3c24 calc(var(--tile) * 0.5 - 2px) calc(var(--tile) * 0.5));
+}
+.board.is-attic .cell { background: transparent; border-color: transparent; box-shadow: none; }
+/* Idle, the floor shows no grid: empty spaces keep their (transparent) border, so nothing moves when it appears. */
+.board.is-attic .cell:not(.has-item) { background: none; box-shadow: none; border: 2px dashed transparent; }
+.board.is-attic.is-placing .cell:not(.has-item) { border-color: rgb(255 236 200 / 0.5); background: rgb(255 236 200 / 0.07); }
+.board.is-attic .cell.has-item::before {
+  content: ""; position: absolute; left: 14%; right: 14%; bottom: 5%; height: 14%; border-radius: 50%; pointer-events: none;
+  background: radial-gradient(closest-side, rgb(30 16 6 / 0.5), transparent);
+}
+.board.is-attic .cell.is-covered { cursor: default; }
+/* The picked-up item: lifted on a cream ring. Gold is kept for the merge guidance below. */
+.board.is-attic .cell.is-selected {
+  border-color: transparent; background: rgb(255 236 200 / 0.18);
+  box-shadow: 0 0 0 3px rgb(255 244 220 / 0.95), 0 8px 16px rgb(20 10 4 / 0.45);
+}
+.board.is-attic .cell.is-merge-preview {
+  border-color: transparent; background: radial-gradient(circle, rgb(255 233 160 / 0.6), transparent 72%);
+  box-shadow: 0 0 12px 3px rgb(242 193 78 / 0.7);
+}
+.board.is-attic.is-placing .cell.is-drop-target { border: 2px dashed rgb(255 236 200 / 0.85); background-color: rgb(255 236 200 / 0.16); }
+.board.is-attic .cell.is-drop-target.is-merge-preview { background: radial-gradient(circle, rgb(255 233 160 / 0.7), transparent 75%); }
+.board.is-attic.is-placing .cell.is-drop-blocked { border: 2px dashed #e07a6a; }
+.board.is-attic .cell.is-drag-origin { opacity: 0.45; }
+/* Tutorial guidance while an item is picked up: where it would merge (a dashed gold ring), or, if it merges nowhere from
+   there, the items that would (a solid gold ring). Static, so nothing changes under reduced motion. */
+.board.is-attic .cell.is-merge-target::after, .board.is-attic .cell.is-merge-source::after {
+  content: ""; position: absolute; inset: 2px; border-radius: 12px; pointer-events: none;
+}
+.board.is-attic .cell.is-merge-target::after { border: 3px dashed var(--gold); box-shadow: 0 0 10px 2px rgb(242 193 78 / 0.55); }
+.board.is-attic .cell.is-merge-source::after { border: 3px solid rgb(242 193 78 / 0.9); box-shadow: inset 0 0 12px rgb(242 193 78 / 0.45); }
+/* A container's fixed contents, shown before opening: a small tag in its corner. */
+.container-badge {
+  position: absolute; top: 3px; right: 3px; z-index: 1; display: flex; gap: 2px;
+  padding: 1px 3px 1px 5px; border-radius: 999px; border: 2px solid var(--bark-dark);
+  background: var(--parchment); color: var(--ink); font-size: clamp(0.75rem, calc(var(--tile) * 0.15), 1.05rem); font-weight: 700;
+}
+.container-badge-part { display: inline-flex; align-items: center; gap: 1px; }
+.container-badge-art { width: max(18px, calc(var(--tile) * 0.22)); height: max(18px, calc(var(--tile) * 0.22)); }
+.container-badge-art svg { display: block; width: 100%; height: 100%; }
+/* Uncovering: the dust sheet lifts away. */
+[data-fx="unveil"] { padding: 4px; animation: fx-unveil 800ms ease-in forwards; }
+[data-fx="unveil"] svg { display: block; width: 100%; height: 100%; }
+@keyframes fx-unveil {
+  0% { opacity: 1; transform: translate(0, 0); }
+  100% { opacity: 0; transform: translate(35%, -45%) rotate(14deg) scale(0.85); }
+}
+.attic-decor { position: absolute; inset: 0; z-index: -1; pointer-events: none; }
+.attic-decor svg { display: block; width: 100%; height: 100%; }
+.attic-wall {
+  position: absolute; top: 0; left: 0; right: 0; height: var(--frame-top);
+  border-bottom: 3px solid #2a1a10;
+  background:
+    linear-gradient(180deg, #2a1a10 0 14%, #7a5435 14% 30%, #4a3220 30% 34%, transparent 34%),
+    repeating-linear-gradient(90deg, #574029 0 26px, #45301f 26px 28px);
+}
+.attic-wall > span { position: absolute; bottom: 0; height: 88%; }
+.attic-window { left: 50%; bottom: 6%; height: 76%; aspect-ratio: 1; transform: translateX(-50%); }
+.attic-lamp { top: 0; left: 72%; height: 100%; aspect-ratio: 0.6; }
+.attic-boxes { aspect-ratio: 1; }
+.attic-boxes.is-left { left: 2%; }
+.attic-boxes.is-right { right: 2%; }
+.attic-shelf { position: absolute; top: var(--frame-top); bottom: var(--frame-bottom); width: var(--frame-x); background: #3b2718; }
+.attic-shelf.is-left { left: 0; }
+.attic-shelf.is-right { right: 0; }
+.next-area.is-containers .check-symbol { width: 30px; height: 30px; }
+.next-area.is-containers .checklist li { grid-template-columns: 30px auto minmax(0, 1fr); min-height: 32px; }
+.next-area.is-containers .check-item { width: 26px; height: 26px; }
+@media (prefers-reduced-motion: reduce) {
+  [data-fx="unveil"] { display: none; }
 }

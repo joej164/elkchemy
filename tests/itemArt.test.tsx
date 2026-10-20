@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
+import type { ReactElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { ItemArt, itemLabel, PrizeArt } from '../src/ui/ItemArt';
+import { ItemArt, itemLabel, PrizeArt, ShoeboxArt, KeepsakeBoxArt, DustSheetArt } from '../src/ui/ItemArt';
+import { AtticWindowArt, AtticLampArt, StackedBoxesArt, ShelfArt } from '../src/ui/AtticArt';
 import type { Family, Item, Tier } from '../src/board';
 
 const families: Family[] = ['grove', 'song', 'crystal', 'elk'];
@@ -71,5 +73,59 @@ describe('PrizeArt', () => {
       expect(m).toContain('aria-hidden="true"');
       for (const bad of ['<image', '<text', 'http', 'href=', 'url(']) expect(m).not.toContain(bad);
     }
+  });
+});
+
+describe('attic items', () => {
+  const atticFamilies: Family[] = ['photo', 'book'];
+  const atticAll: Item[] = atticFamilies.flatMap((family) => tiers.map((tier) => ({ family, tier })));
+  const bad = ['<image', '<text', 'http', 'href=', 'url('];
+
+  it('names every photo and book tier, with the last name as fallback', () => {
+    const names = (family: Family) => tiers.map((tier) => itemLabel({ family, tier }));
+    expect(names('photo')).toEqual([
+      'Loose photos, tier 1 of 5', 'Photo bundle, tier 2 of 5', 'Photo album, tier 3 of 5', 'Photo album, tier 4 of 5', 'Photo album, tier 5 of 5',
+    ]);
+    expect(names('book')).toEqual([
+      'Old book, tier 1 of 5', 'Memory book, tier 2 of 5', 'Memory book, tier 3 of 5', 'Memory book, tier 4 of 5', 'Memory book, tier 5 of 5',
+    ]);
+  });
+
+  it.each(atticAll)('renders a safe svg with tier+1 pips for $family tier $tier', (item) => {
+    const m = html(item);
+    expect(m.match(/<svg/g)).toHaveLength(1);
+    expect(m).toContain('viewBox="0 0 100 100"');
+    expect(m).toContain('aria-hidden="true"');
+    for (const b of bad) expect(m).not.toContain(b);
+    expect(m.match(/data-pip/g)).toHaveLength(item.tier + 1);
+  });
+
+  it('draws the named tiers distinctly', () => {
+    expect(new Set([0, 1, 2].map((tier) => html({ family: 'photo', tier: tier as Tier }))).size).toBe(3);
+    expect(new Set([0, 1].map((tier) => html({ family: 'book', tier: tier as Tier }))).size).toBe(2);
+  });
+});
+
+describe('container and attic prop art', () => {
+  const cases: [string, ReactElement, string | null][] = [
+    ['ShoeboxArt', <ShoeboxArt />, 'data-container="shoebox"'],
+    ['KeepsakeBoxArt', <KeepsakeBoxArt />, 'data-container="keepsake-box"'],
+    ['DustSheetArt', <DustSheetArt />, 'data-container="dust-sheet"'],
+    ['AtticWindowArt', <AtticWindowArt />, null],
+    ['AtticLampArt', <AtticLampArt />, null],
+    ['StackedBoxesArt', <StackedBoxesArt />, null],
+    ['ShelfArt', <ShelfArt />, null],
+  ];
+  it.each(cases)('%s renders one safe decorative svg', (_name, el, attr) => {
+    const m = renderToStaticMarkup(el);
+    expect(m.match(/<svg/g)).toHaveLength(1);
+    expect(m).toContain('aria-hidden="true"');
+    expect(m).toContain('focusable="false"');
+    if (attr) expect(m).toContain(attr);
+    for (const b of ['<image', '<text', 'http', 'href=', 'url(']) expect(m).not.toContain(b);
+  });
+
+  it('passes className through on attic props', () => {
+    expect(renderToStaticMarkup(<ShelfArt className="x" />)).toContain('class="x"');
   });
 });

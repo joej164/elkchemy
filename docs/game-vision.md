@@ -106,6 +106,24 @@ The elk may automatically walk through a cleared route, then wait safely at the 
 
 Working identity: **Elkchemy** during the opening; **Elkchemy: Echoes of Home** is the selected subtitle for a later reveal. Exact reveal timing follows the final story and release boundaries.
 
+**Opening frame (owner-agreed, October 20, 2026; prototyped as The Attic, unreleased).** Older Alisha is with her family and friends, cleaning an attic/storage room and going through keepsakes. Cleaning reveals an old special box, which always contains three books; merging them creates the memory book. Gathered around it, the family finds a photograph of the elk, which prompts Alisha to begin telling her story. Later adventures take place in those memories. Not yet decided or written: the elk's disappearance, the wider campaign, and a detailed family cast (supporting people stay visually nonspecific; no likenesses of real relatives). **Comic cast (owner, October 20, 2026):** Alisha tidies with her granddaughter and background helpers, all unnamed. The elk is Fiona, whom the granddaughter calls Aunt Fiona. Fiona is not in the attic: she appears only in the photograph and the woodland memory, and her absence is not explained. The prototype's flow, inventories and checks are in [release-notes.md](release-notes.md).
+
+**Core rules (owner-approved, October 20, 2026).** Implemented means in the game before The Attic; the prototype's additions are marked.
+
+| Rule | Status |
+| --- | --- |
+| Matching family and tier merge 3 → 1 or 5 → 2 at the next tier; maximum tier 5. | Implemented (`src/board.ts`). |
+| Crafting uses the exact recipe ingredients and consumes only those. | Implemented (Merge to treasure). |
+| A container holds predetermined contents, shown before opening. | Implemented for crafted chests (recipe sign); The Attic adds placed containers with a contents tag and checklist. |
+| A supply drop is a batch of one or more items defined by the level. | Added by The Attic (a container's `contents`). Levels 1–5's Add supply button still places one item at a time. |
+| Named crafted chests keep their fixed recipe rewards. | Implemented (`src/recipes.ts`). |
+| Opening releases the whole batch into available cells; without room, nothing. | Implemented for chests; The Attic's containers share the same placement (its cell, then the nearest empty cells), never onto another closed container. |
+| Opening removes the container and clears Undo. | Implemented for chests and The Attic's containers. |
+| Retry restores the original puzzle and containers. | Implemented. |
+| The level states its goal explicitly. | Implemented (goal panel); The Attic's goal is the memory book. |
+
+The Attic's own choices: its supply containers are placed, not crafted; no recipes; no five-merge is ever needed; the special box is a placed story container (not a Woodland chest with other rewards), covered until the cleanup is done; opening it does not win, the final book merge does.
+
 Initial campaign direction is linear: introduce the elk and possibly her friends, an incident separates or displaces her, and she works her way home through a magical forest. A kidnapping, time warp, or space warp were possible explanations, not decisions. Optional side quests may fit but are not required.
 
 Returning home is the first satisfying stopping point, and finding her friends afterwards is the committed next arc (owner decision 3); how that unfolds is still exploratory. The woodland can become a base and hub. The friends' rescues might take place in themed regions; later still, travel to entirely different hub worlds or through space and time is an idea. None of this commits the project to a large universe.

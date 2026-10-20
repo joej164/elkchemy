@@ -1,0 +1,32 @@
+[
+  {
+    "panel": "opening-1",
+    "file": "opening-1-draft-v2.png",
+    "sha256": "491fafe4abae02768c2b70b95170d0b27e6d11e55bd4717850b2d332e7558e2c"
+  },
+  {
+    "panel": "opening-2",
+    "file": "opening-2-draft-v3.png",
+    "sha256": "2ce69ce07669235c9622fb1642fd618fe7d2d9f075cfd12bce3255a1cf55b396"
+  },
+  {
+    "panel": "opening-3",
+    "file": "opening-3-draft-v2.png",
+    "sha256": "e8efcda069b909623b86a0b63609b61fbf941f8d2204cf37329afb99990ff6f8"
+  },
+  {
+    "panel": "opening-4",
+    "file": "opening-4-draft-v2.png",
+    "sha256": "239d3ce2acc8a2ce7da6306edf4680301b8dd4d27a8e75f3bc1668d5cccfe7ff"
+  },
+  {
+    "panel": "closing-1",
+    "file": "closing-1-draft-v2.png",
+    "sha256": "3da86b058a00704e83f195313adad1dd60504ab63d0c6f2c2b47efe1bc8cc535"
+  },
+  {
+    "panel": "closing-2",
+    "file": "closing-2-draft-v2.png",
+    "sha256": "79e1ada4ce597e2a3f6212f2a177cb6b31872ac5c85df5b94e29bd7c3ac55007"
+  }
+]

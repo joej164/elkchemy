@@ -204,6 +204,9 @@ export function evaluateStatus(state: SessionState): GameStatus {
   // Room levels never report a loss: gates open by moves alone and the treasure by a tap, and a sound "lost" would
   // need a room-aware search. The one room level is built so it cannot be stranded (see RUNE_LEVEL in levels.ts).
   if (goal.kind === 'treasure') return state.collected ? 'won' : 'playing';
+  // Container levels (the attic) never report a loss either: closed containers hold items the counts below can't see.
+  // The attic is built so no reachable state is stranded (tests/attic.test.ts searches its inventories).
+  if (state.level.containers) return isGoalMet(state) ? 'won' : 'playing';
   if (state.level.regions) return evaluateRegions(state);
   // Generated puzzles: no early loss from counting, even after a fatal choice; 'lost' only once no merges are left.
   if (state.level.earlyLoss === false) {

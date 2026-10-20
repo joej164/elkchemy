@@ -10,9 +10,11 @@ import './help.css';
  * `unlocked`: the regions open so far (the last one, or with `tasks`, whether each is open), so a concealed part of a room
  * is explained only once found.
  */
-export function HelpButton({ goal, largeBoard = false, puzzle = false, regions, unlocked = 0, tasks, recipe }: {
+export function HelpButton({ goal, largeBoard = false, puzzle = false, regions, unlocked = 0, tasks, recipe, containers = false }: {
   goal: LevelGoal; largeBoard?: boolean; puzzle?: boolean; regions?: readonly Region[];
   unlocked?: number | ((i: number) => boolean); tasks?: readonly Task[]; recipe?: Recipe;
+  /** A container level (the attic story prototype): boxes to open, no supply and no next level. */
+  containers?: boolean;
 }) {
   const dialogId = useId();
   const titleId = useId();
@@ -56,7 +58,7 @@ export function HelpButton({ goal, largeBoard = false, puzzle = false, regions, 
         <div className="help-content">
           <h2 id={titleId}>How to play</h2>
           <ul>
-            <li>{recipe ? recipeHelp(recipe, goal) : helpObjective(goal, regions)}{puzzle ? '' : ' Winning unlocks the next level.'}</li>
+            <li>{recipe ? recipeHelp(recipe, goal) : helpObjective(goal, regions)}{puzzle || containers ? '' : ' Winning unlocks the next level.'}</li>
             <li>Drag an item, or tap it then tap where it should go.</li>
             <li>Drop onto a matching item to merge its connected group. Merge 3 for 1 upgraded item; merge 5 for 2.</li>
             {largeBoard && <li>{LARGE_BOARD_HINT} Center board recenters the view.</li>}
@@ -67,6 +69,11 @@ export function HelpButton({ goal, largeBoard = false, puzzle = false, regions, 
               <li>
                 Each locked area's gate shows the item that opens it. Make it in the area named, then tap the gate or press
                 Unlock; the item stays where it is. Items never leave their own area.
+              </li>
+            ) : containers ? (
+              <li>
+                Tap a box to open it: everything inside comes out at once, on and around the box. If there isn't room,
+                nothing comes out.
               </li>
             ) : puzzle ? (
               <li>Everything you need is already on the board; there is no supply.</li>
@@ -80,6 +87,8 @@ export function HelpButton({ goal, largeBoard = false, puzzle = false, regions, 
                 A marked tile that has done its job is a checkpoint: its item stays fixed, and Undo can't go back past it.
                 Retry restarts this level.
               </li>
+            ) : containers ? (
+              <li>Opening a box can't be undone. Undo takes back your other last action; Retry starts again from the beginning.</li>
             ) : rooms ? (
               <li>
                 An opened gate is a checkpoint: its items stay fixed, and Undo can't go back past it. Retry restarts this

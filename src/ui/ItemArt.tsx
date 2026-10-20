@@ -2,10 +2,15 @@ import type { ReactNode } from 'react';
 import { MAX_TIER, type Item, type Family } from '../board';
 import type { Prize } from '../session';
 
-export const FAMILY_NAMES: Record<Family, string> = { grove: 'Grove', song: 'Song', crystal: 'Crystal', elk: 'Elk' };
+export const FAMILY_NAMES: Record<Family, string> = { grove: 'Grove', song: 'Song', crystal: 'Crystal', elk: 'Elk', photo: 'Photos', book: 'Book' };
+
+/** Per-tier display names for families that have them (tiers past the list use its last name). */
+export const ITEM_NAMES: Partial<Record<Family, readonly string[]>> = { photo: ['Loose photos', 'Photo bundle', 'Photo album'], book: ['Old book', 'Memory book'] };
 
 export function itemLabel(item: Item): string {
-  return `${FAMILY_NAMES[item.family]}, tier ${item.tier + 1} of ${MAX_TIER + 1}`;
+  const names = ITEM_NAMES[item.family];
+  const name = names ? names[Math.min(item.tier, names.length - 1)] : FAMILY_NAMES[item.family];
+  return `${name}, tier ${item.tier + 1} of ${MAX_TIER + 1}`;
 }
 
 const DARK = '#233a2b';
@@ -136,7 +141,97 @@ function elk(t: number): ReactNode {
   );
 }
 
-const ART: Record<Family, (t: number) => ReactNode> = { grove, song, crystal, elk };
+/** A white-bordered snapshot (tiny hill and sun) centred on cx,cy, turned by `rot`. */
+function snapshot(cx: number, cy: number, rot: number, sky: string, hill: string): ReactNode {
+  return (
+    <g transform={`rotate(${rot} ${cx} ${cy})`}>
+      <rect x={cx - 15} y={cy - 13} width="30" height="26" rx="1.5" fill="#fffaf0" {...S} />
+      <rect x={cx - 12} y={cy - 10} width="24" height="17" fill={sky} stroke={DARK} strokeWidth={1} />
+      <path d={`M${cx - 12} ${cy + 7} Q${cx - 3} ${cy - 3} ${cx + 12} ${cy + 3} V${cy + 7} Z`} fill={hill} />
+      <circle cx={cx + 6} cy={cy - 5} r="2.5" fill="#f2c14e" />
+    </g>
+  );
+}
+
+function photo(t: number): ReactNode {
+  if (t === 0) {
+    return (
+      <>
+        {snapshot(38, 56, -14, '#9fd0e8', '#4f8a3c')}
+        {snapshot(60, 50, 10, '#f3c98b', '#8a5a34')}
+        {snapshot(48, 38, -4, '#b9d9ef', '#2f5e2a')}
+      </>
+    );
+  }
+  if (t === 1) {
+    return (
+      <>
+        <rect x="22" y="30" width="56" height="44" rx="2" transform="rotate(-6 50 52)" fill="#fffaf0" {...S} />
+        <rect x="22" y="30" width="56" height="44" rx="2" transform="rotate(4 50 52)" fill="#f3e6c8" {...S} />
+        <rect x="24" y="28" width="52" height="44" rx="2" fill="#fffaf0" {...S} />
+        <rect x="29" y="33" width="42" height="26" fill="#9fd0e8" stroke={DARK} strokeWidth={1} />
+        <path d="M29 59 Q42 42 71 54 V59 Z" fill="#4f8a3c" />
+        <circle cx="62" cy="40" r="3.5" fill="#f2c14e" />
+        <rect x="44" y="26" width="9" height="48" fill="#b8324a" {...S} />
+        <path d="M48 50 Q34 36 33 48 Q34 58 48 50 Z M48 50 Q62 36 63 48 Q62 58 48 50 Z" fill="#d9475f" {...S} />
+        <circle cx="48" cy="50" r="4" fill="#b8324a" {...S} />
+        <path d="M46 54 L40 68 M50 54 L57 67" fill="none" {...S} stroke="#b8324a" strokeWidth={3.5} />
+      </>
+    );
+  }
+  return (
+    <>
+      <rect x="22" y="18" width="58" height="62" rx="4" fill="#fffaf0" {...S} />
+      <rect x="18" y="16" width="58" height="62" rx="4" fill="#7a4a2b" {...S} />
+      <rect x="18" y="16" width="10" height="62" rx="3" fill="#5e3820" {...S} />
+      {[24, 40, 56].map((y) => <circle key={y} cx="23" cy={y} r="1.6" fill="#e8b84a" />)}
+      <rect x="35" y="28" width="30" height="24" rx="2" fill="#f2c14e" {...S} />
+      <rect x="39" y="32" width="22" height="16" rx="1" fill="#fff0c2" stroke={DARK} strokeWidth={1} />
+      <path d="M44 41 H56 M46 44.5 H54" fill="none" stroke="#a86b33" strokeWidth={1.5} strokeLinecap="round" />
+      {[[30, 20, 1, 1], [76, 20, -1, 1], [30, 74, 1, -1], [76, 74, -1, -1]].map(([x, y, dx, dy]) => (
+        <path key={`${x},${y}`} d={`M${x} ${y + dy * 6} V${y} H${x + dx * 6}`} transform={`translate(${dx * -2} ${dy * -2})`} fill="none" stroke="#f3e6c8" strokeWidth={3} strokeLinecap="round" />
+      ))}
+    </>
+  );
+}
+
+function book(t: number): ReactNode {
+  if (t === 0) {
+    return (
+      <>
+        <path d="M30 24 L74 20 L76 70 L30 76 Z" fill="#f3e6c8" {...S} />
+        <path d="M34 26 L72 23 M34 31 L72 28" fill="none" stroke="#c9b48a" strokeWidth={1} />
+        <path d="M24 22 L70 18 L72 64 L24 72 Z" fill="#4a7a8a" {...S} />
+        <path d="M24 22 L32 21 L32 71 L24 72 Z" fill="#37606e" {...S} />
+        <rect x="40" y="30" width="22" height="16" rx="2" transform="rotate(-4 51 38)" fill="#d8c79c" {...S} strokeWidth={1.5} />
+        <path d="M44 38 H58" transform="rotate(-4 51 38)" fill="none" stroke="#8a6a3a" strokeWidth={1.5} strokeLinecap="round" />
+        <path d="M60 71 L60 80 L64 77 L68 79 L67 66" fill="#b8324a" {...S} strokeWidth={1.5} />
+      </>
+    );
+  }
+  return (
+    <>
+      <circle cx="50" cy="46" r="40" fill="#fff0c2" opacity="0.7" stroke="#f2c14e" strokeWidth="2" />
+      <path d="M22 18 L80 18 L80 76 L22 76 Z" fill="#f3e6c8" {...S} />
+      <rect x="16" y="14" width="62" height="62" rx="4" fill="#7a2338" {...S} />
+      <rect x="16" y="14" width="10" height="62" rx="3" fill="#5c1a2a" {...S} />
+      <rect x="32" y="20" width="39" height="50" rx="2" fill="none" stroke="#e8b84a" strokeWidth={2} />
+      {[[16, 14, 1, 1], [78, 14, -1, 1], [16, 76, 1, -1], [78, 76, -1, -1]].map(([x, y, dx, dy]) => (
+        <path key={`${x},${y}`} d={`M${x + dx * 10} ${y} L${x} ${y} L${x} ${y + dy * 10} Z`} fill="#f2c14e" {...S} strokeWidth={1.5} />
+      ))}
+      <path d="M51 56 Q41 46 51 34 Q61 46 51 56 Z" fill="#4f8a3c" {...S} strokeWidth={1.5} />
+      <path d="M51 56 V36" fill="none" stroke={DARK} strokeWidth={1} />
+      <g fill="none" stroke="#f2c14e" strokeWidth={2.5} strokeLinecap="round">
+        <path d="M45 33 Q38 30 38 24 M41 30 L36 29" />
+        <path d="M57 33 Q64 30 64 24 M61 30 L66 29" />
+      </g>
+      <rect x="72" y="38" width="10" height="16" rx="2" fill="#f2c14e" {...S} />
+      <circle cx="77" cy="46" r="2" fill={DARK} />
+    </>
+  );
+}
+
+const ART: Record<Family, (t: number) => ReactNode> = { grove, song, crystal, elk, photo, book };
 
 /** A flying disc seen at an angle: its rim and flight plate. */
 function disc(cx: number, cy: number, tilt: number, fill: string): ReactNode {
@@ -287,6 +382,61 @@ export function ChestArt() {
       <rect x="43" y="40" width="14" height="17" rx="2" fill="#f2c14e" stroke={DARK} strokeWidth="2" />
       <circle cx="50" cy="47" r="2.4" fill={DARK} />
       <path d="M50 49 V53" stroke={DARK} strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+/** Attic: a closed cardboard shoebox of stored belongings, lid on, string-tied label. Decorative. */
+export function ShoeboxArt() {
+  return (
+    <svg viewBox="0 0 100 100" width="100%" height="100%" aria-hidden="true" focusable="false" data-container="shoebox">
+      <rect x="14" y="44" width="72" height="38" rx="3" fill="#c79a62" {...S} />
+      <rect x="10" y="34" width="80" height="16" rx="3" fill="#d9ae76" {...S} />
+      <path d="M14 56 H86" stroke="#a97c48" strokeWidth={1.5} fill="none" />
+      <path d="M38 34 V50 M62 34 V50" stroke="#b78a55" strokeWidth={1.5} fill="none" />
+      <path d="M50 50 Q44 60 40 66" fill="none" stroke="#f3e6c8" strokeWidth={2.5} strokeLinecap="round" />
+      <path d="M50 50 Q56 62 60 64" fill="none" stroke="#f3e6c8" strokeWidth={2.5} strokeLinecap="round" />
+      <rect x="28" y="62" width="26" height="14" rx="2" fill="#fffaf0" {...S} strokeWidth={1.5} />
+      <path d="M32 67 H50 M32 71 H44" fill="none" stroke="#a97c48" strokeWidth={1.5} strokeLinecap="round" />
+      <circle cx="31" cy="64.5" r="1.4" fill={DARK} />
+    </svg>
+  );
+}
+
+/** Attic: an old, precious wooden keepsake box with brass corners, clasp and a carved leaf, faintly glimmering. Decorative. */
+export function KeepsakeBoxArt() {
+  return (
+    <svg viewBox="0 0 100 100" width="100%" height="100%" aria-hidden="true" focusable="false" data-container="keepsake-box">
+      <circle cx="50" cy="52" r="42" fill="#f2c14e" opacity="0.25" />
+      <path d="M14 46 L22 28 H78 L86 46 Z" fill="#5a3320" {...S} strokeWidth={2.5} />
+      <rect x="14" y="46" width="72" height="34" rx="3" fill="#4a2a1a" {...S} strokeWidth={2.5} />
+      <path d="M50 44 Q38 38 50 30 Q62 38 50 44 Z" fill="#8a5a34" stroke="#e8b84a" strokeWidth={1.5} strokeLinejoin="round" />
+      <path d="M50 44 V31" stroke="#e8b84a" strokeWidth={1.2} fill="none" />
+      <path d="M36 40 Q30 38 29 33 M64 40 Q70 38 71 33" fill="none" stroke="#e8b84a" strokeWidth={1.5} strokeLinecap="round" />
+      {[[14, 46, 1], [86, 46, -1]].map(([x, y, d]) => (
+        <path key={x} d={`M${x} ${y - 14} L${x + d * 8} ${y - 14} L${x} ${y} L${x} ${y + 34} L${x + d * 8} ${y + 34}`} fill="none" stroke="#e8b84a" strokeWidth={4} strokeLinejoin="round" />
+      ))}
+      <path d="M14 46 H86" stroke="#e8b84a" strokeWidth={3} />
+      <rect x="43" y="42" width="14" height="16" rx="2" fill="#f2c14e" {...S} />
+      <circle cx="50" cy="49" r="2.2" fill={DARK} />
+      <path d="M50 51 V54" stroke={DARK} strokeWidth={1.8} strokeLinecap="round" />
+      <path d="M80 18 V30 M74 24 H86" stroke="#fff0c2" strokeWidth={2} strokeLinecap="round" />
+      <path d="M18 14 V22 M14 18 H22" stroke="#fff0c2" strokeWidth={1.5} strokeLinecap="round" />
+    </svg>
+  );
+}
+
+/** Attic: a pale dusty sheet draped over a box-shaped lump, hem on the floor. Decorative. */
+export function DustSheetArt() {
+  return (
+    <svg viewBox="0 0 100 100" width="100%" height="100%" aria-hidden="true" focusable="false" data-container="dust-sheet">
+      <ellipse cx="50" cy="82" rx="42" ry="5" fill="#233a2b" opacity="0.15" />
+      <path d="M22 80 Q18 50 28 38 Q34 28 50 27 Q66 28 72 38 Q82 50 78 80 Q72 84 66 80 Q60 85 54 80 Q48 85 42 80 Q36 84 30 80 Q26 84 22 80 Z" fill="#ece6d6" {...S} strokeWidth={2.5} />
+      <path d="M30 40 Q50 46 70 40" fill="none" stroke="#cfc6ae" strokeWidth={1.5} strokeLinecap="round" />
+      <path d="M36 48 Q34 64 36 78 M50 50 Q52 64 50 79 M64 48 Q67 64 64 78" fill="none" stroke="#cfc6ae" strokeWidth={1.5} strokeLinecap="round" />
+      <circle cx="38" cy="34" r="1.4" fill="#cfc6ae" />
+      <circle cx="62" cy="31" r="1" fill="#cfc6ae" />
+      <circle cx="56" cy="38" r="1.2" fill="#cfc6ae" />
     </svg>
   );
 }

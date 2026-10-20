@@ -11,6 +11,10 @@ export function actionEffect(state: UiState): EffectCue | null {
   // Merge to treasure: crafting and opening are steps, not the win (which is the final merge's own sound).
   if (action.kind === 'craft') return 'completion';
   if (action.kind === 'open') return 'discovery';
+  // Container levels (the attic): opening a container, or uncovering one, is a discovery; the merge that makes the
+  // goal (the memory book) is the story's prize, so it takes the treasure victory sound.
+  if (action.kind === 'unpack' || ('revealed' in action && action.revealed !== undefined)) return 'discovery';
+  if (action.kind === 'merge' && state.status === 'won' && state.session.level.containers) return 'case-victory';
   const progress = 'progress' in action ? action.progress : undefined;
   const opened = openedRegion(action);
   const regions = progress?.regions ?? (opened === null ? [] : [opened]);

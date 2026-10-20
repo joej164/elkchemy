@@ -82,7 +82,22 @@ export const NO_ROOM_MESSAGE = 'No room to open the chest and no merges left—U
 /** Region levels with no useful merge and no unlock left (there is no New Puzzle). */
 export const REGION_STUCK_MESSAGE = 'No useful merges left—Undo or Retry.';
 
-const PAN_HINT = 'Drag empty ground to pan.';
+export const PAN_HINT = 'Drag empty ground to pan.';
+
+/** Container levels: a batch's identical items counted together, in order of first appearance. */
+export function batchGroups(items: readonly Item[]): { item: Item; n: number }[] {
+  const groups: { item: Item; n: number }[] = [];
+  for (const item of items) {
+    const g = groups.find((x) => x.item.family === item.family && x.item.tier === item.tier);
+    if (g) g.n++; else groups.push({ item, n: 1 });
+  }
+  return groups;
+}
+
+/** Container levels: a batch of items, e.g. "3 × Loose photos, tier 1 of 5". */
+export function batchText(items: readonly Item[]): string {
+  return listOf(batchGroups(items).map(({ item, n }) => `${n} × ${itemLabel(item)}`));
+}
 export const LARGE_BOARD_HINT = `${PAN_HINT} For far moves, tap an item, pan, then tap where it goes.`;
 
 /** "A, B and C" (or "A and B", or "A"; `or` for "A, B or C"). */
