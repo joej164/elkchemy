@@ -6,7 +6,9 @@ Earlier published builds are not backfilled here. The previous build, `20261018-
 
 ## 20261020-004342 — Generated puzzles: tier 5, bigger boards and spare pieces (October 19, 2026)
 
-Release build `20261020-004342`, implemented by Claude (phase 1 of the generated-puzzle expansion); independently reviewed by Codex. Owner authorized commit → push → deploy. Physical iPad/Safari and the owner's difficulty feedback are not yet available.
+Published release build `20261020-004342`, implemented by Claude (phase 1 of the generated-puzzle expansion); independently reviewed by Codex. Owner authorized commit → push → deploy. Physical iPad/Safari and the owner's difficulty feedback are not yet available.
+
+Live deployment verification: Firebase Hosting reported release complete. Chromium confirmed build `20261020-004342`, JavaScript asset `index-BwjV3gQg.js`, the new history entry and tier-5 startup in both generated modes with v2 IDs. No console errors or warnings. Release commit `4dc92ac`.
 
 ### Findings
 

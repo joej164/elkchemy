@@ -23,6 +23,8 @@ These resolve older conflicting entries below.
 
 ## Current baseline
 
+- Published build `20261020-004342`: five-tier scale, tier-5 generated goals in both modes, boards up to 10×10 and spare pieces in Merge to goals. Owner authorized commit → push → deploy; live build, history and both tier-5 startups verified. Physical iPad/Safari and difficulty playtesting remain.
+
 - Release build `20261019-210331`: approved level-9 woodland/palace music and independent default-off effects across levels and generated puzzles. Owner authorized commit → push → deploy; live version, history, real-pointer merge cue and music playback verified. Physical iPad/Safari and listening checks remain.
 
 - Level 9 release build `20261019-200030`: The Crystal Palace and scrolling Levels window, reviewed by Codex; owner authorized commit → push → deploy. Approved audio source assets retained; audio integration is now included in release build `20261019-210331` (see Audio).
