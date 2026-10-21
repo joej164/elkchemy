@@ -2,7 +2,7 @@ import {
   availableTasks, isOpen, nextLocked, sealedRegion, unlockReady, type GateSymbol, type Plate, type Region, type Task, type TaskUnlock,
 } from '../regions';
 import type { Item } from '../board';
-import type { Recipe } from '../recipes';
+import type { ItemRecipe, Recipe } from '../recipes';
 import { contentCells, craftReady, treasureRevealed, type LevelGoal, type Prize, type SessionState } from '../session';
 import { FAMILY_NAMES, itemLabel } from './ItemArt';
 import type { UiState } from './controller';
@@ -338,6 +338,13 @@ export function recipeHelp(recipe: Recipe, goal: LevelGoal): string {
 }
 
 const contents = (recipe: Recipe) => `three ${itemLabel(recipe.contents.item)}`;
+
+/** An item recipe (the attic): how to craft its result, for Help. */
+export function craftHelp(craft: ItemRecipe): string {
+  const [a, b] = craft.ingredients.map(itemLabel);
+  return `Drop ${a} onto ${b}, or the other way round (or tap one, then the other), to make ${itemLabel(craft.result)}: ` +
+    'only those two are used, and Undo takes it back.';
+}
 
 /** `pannable`: the board overflows its viewport; defaults to the size-based guess. */
 export function statusMessage(state: UiState, pannable = isLargeBoard(state.session.board)): string {

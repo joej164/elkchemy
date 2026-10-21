@@ -38,9 +38,20 @@ export function finalItem(recipe: Recipe): Item {
   return { family, tier: (tier + 1) as Item['tier'] };
 }
 
+/**
+ * Container levels (the attic): crafting that makes an ordinary item. Its two ingredients, one dropped onto the other
+ * (either way round), become `result` where the drop lands (see craftAt in session.ts). No container is involved.
+ */
+export interface ItemRecipe { readonly ingredients: readonly [Item, Item]; readonly result: Item }
+
+/** Whether `a` dropped onto `b` (either way round) is the pair `x`, `y`, exact families and tiers. */
+export function isPair([x, y]: readonly [Item, Item], a: Item, b: Item): boolean {
+  const is = (c: Item, t: Item) => c.family === t.family && c.tier === t.tier;
+  return (is(a, x) && is(b, y)) || (is(a, y) && is(b, x));
+}
+
 /** Whether `a` dropped onto `b` (either way round) is the recipe's ingredient pair, exact families and tiers. */
 export function isIngredientPair(recipe: Recipe, a: Item, b: Item): boolean {
   const [x, y] = recipe.ingredients.map((i) => i.item);
-  const is = (c: Item, t: Item) => c.family === t.family && c.tier === t.tier;
-  return (is(a, x) && is(b, y)) || (is(a, y) && is(b, x));
+  return isPair([x, y], a, b);
 }

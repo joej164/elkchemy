@@ -1,8 +1,8 @@
 import { useId, useRef } from 'react';
 import type { Region, Task } from '../regions';
-import type { Recipe } from '../recipes';
+import type { ItemRecipe, Recipe } from '../recipes';
 import type { LevelGoal } from '../session';
-import { helpObjective, isConcealed, LARGE_BOARD_HINT, recipeHelp, roomsHelp } from './messages';
+import { craftHelp, helpObjective, isConcealed, LARGE_BOARD_HINT, recipeHelp, roomsHelp } from './messages';
 import './help.css';
 
 /**
@@ -10,11 +10,13 @@ import './help.css';
  * `unlocked`: the regions open so far (the last one, or with `tasks`, whether each is open), so a concealed part of a room
  * is explained only once found.
  */
-export function HelpButton({ goal, largeBoard = false, puzzle = false, regions, unlocked = 0, tasks, recipe, containers = false }: {
+export function HelpButton({ goal, largeBoard = false, puzzle = false, regions, unlocked = 0, tasks, recipe, containers = false, craft }: {
   goal: LevelGoal; largeBoard?: boolean; puzzle?: boolean; regions?: readonly Region[];
   unlocked?: number | ((i: number) => boolean); tasks?: readonly Task[]; recipe?: Recipe;
   /** A container level (the attic story prototype): boxes to open, no supply and no next level. */
   containers?: boolean;
+  /** An item recipe (the attic): how its two ingredients combine. */
+  craft?: ItemRecipe;
 }) {
   const dialogId = useId();
   const titleId = useId();
@@ -63,6 +65,7 @@ export function HelpButton({ goal, largeBoard = false, puzzle = false, regions, 
             <li>Drop onto a matching item to merge its connected group. Merge 3 for 1 upgraded item; merge 5 for 2.</li>
             {largeBoard && <li>{LARGE_BOARD_HINT} Center board recenters the view.</li>}
             <li>Dropping onto a different item swaps them; nothing merges on its own.</li>
+            {craft && <li>{craftHelp(craft)}</li>}
             {rooms ? (
               <li>{roomsHelp(regions ?? [], unlocked, tasks)}</li>
             ) : regions ? (

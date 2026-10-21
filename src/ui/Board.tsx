@@ -5,7 +5,7 @@ import type { Item, Pos } from '../board';
 import {
   isFixed, isOpen, regionAt, roomOf, routeFrom, routeOf, sealedRegion, type GateSymbol, type PlateUnlock, type Region, type TaskUnlock,
 } from '../regions';
-import { closedContainerAt, containerShown, goalOpenableAt, isCellOpen, type Container } from '../session';
+import { closedContainerAt, containerShown, craftedItem, goalOpenableAt, isCellOpen, type Container } from '../session';
 import { ChestArt, DustSheetArt, ItemArt, itemLabel, KeepsakeBoxArt, PrizeArt, ShoeboxArt } from './ItemArt';
 import { AtticLampArt, AtticWindowArt, ShelfArt, StackedBoxesArt } from './AtticArt';
 import { direct, palaceShots, viewCue, type Camera, type Frames, type Phase, type Shot, type View } from './camera';
@@ -571,9 +571,11 @@ export function Board({ state, dispatch, onOverflowChange, onPalaceOpening, onPr
   const { goal } = state.session.level;
   const prize = prizeText(goal);
   const merge = state.lastAction?.kind === 'merge' ? state.lastAction : null;
-  // Container levels: the container the last action uncovered, and the cells an opening filled.
+  // Container levels: the container the last action uncovered, and the cells an opening filled (or an item recipe's
+  // craft: its result's cell), which sparkle.
   const revealed = state.lastAction && 'revealed' in state.lastAction ? state.lastAction.revealed : undefined;
-  const unpacked = state.lastAction?.kind === 'unpack' ? state.lastAction.cells : [];
+  const unpacked = state.lastAction?.kind === 'unpack' ? state.lastAction.cells
+    : state.lastAction?.kind === 'craft' && state.lastAction.at ? [state.lastAction.at] : [];
   const seq = state.actionSeq;
   const has = (list: readonly Pos[], p: Pos) => list.some((q) => same(q, p));
   const origin = drag?.origin ?? null;
@@ -685,6 +687,7 @@ export function Board({ state, dispatch, onOverflowChange, onPalaceOpening, onPr
             }
             if (same(origin, pos)) cls.push('is-drag-origin');
             const target = has(guide.targets, pos);
+            const combines = target && !!picked && !!craftedItem(state.session, picked, pos);
             const source = has(guide.sources, pos);
             if (target) cls.push('is-merge-target');
             if (source) cls.push('is-merge-source');
@@ -710,7 +713,7 @@ export function Board({ state, dispatch, onOverflowChange, onPalaceOpening, onPr
                 data-cell
                 data-row={r}
                 data-col={c}
-                aria-label={`Row ${r + 1}, column ${c + 1}${place}: ${label}${target ? ', merges here' : source ? ', can merge' : ''}`}
+                aria-label={`Row ${r + 1}, column ${c + 1}${place}: ${label}${combines ? ', combines here' : target ? ', merges here' : source ? ', can merge' : ''}`}
                 aria-pressed={same(state.selected, pos)}
                 aria-disabled={over || locked || fixed || covered ? true : undefined}
                 tabIndex={same(tabStop, pos) ? 0 : -1}

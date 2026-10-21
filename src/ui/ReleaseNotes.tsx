@@ -6,6 +6,15 @@ export interface ReleaseNote { readonly title: string; readonly date: string; re
 
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    title: 'Make a Picture Book',
+    date: 'October 20, 2026',
+    notes: [
+      'In The Attic, merge photos into a collection and books into a blank book, then combine them to make the Picture Book.',
+      'The box under the dust sheet holds a book stack to help finish your book.',
+      'Tap the Picture Book to open it and see little photographs on its turning pages before the story continues.',
+    ],
+  },
+  {
     title: 'Step into Alisha’s story',
     date: 'October 20, 2026',
     notes: [

@@ -616,7 +616,7 @@ body {
   margin-left: auto; flex: none; padding: 2px 10px; border-radius: 999px;
   background: var(--forest-1); color: var(--gold); font-size: 0.95rem;
 }
-/* The Attic: above the numbered levels, marked with its Big Memory Book and a Story tag. */
+/* The Attic: above the numbered levels, marked with its Picture Book and a Story tag. */
 .level-choice.is-story { margin-bottom: 10px; }
 .level-choice.is-story .level-number { padding: 2px; }
 .level-choice.is-story .level-next { background: var(--bark); color: var(--parchment); }
@@ -904,7 +904,7 @@ body {
 .attic-shelf { position: absolute; top: var(--frame-top); bottom: var(--frame-bottom); width: var(--frame-x); background: #3b2718; }
 .attic-shelf.is-left { left: 0; }
 .attic-shelf.is-right { right: 0; }
-/* The made Big Memory Book, waiting to be tapped open: a warm glow, gently pulsing (steady under reduced motion). */
+/* The made Picture Book, waiting to be tapped open: a warm glow, gently pulsing (steady under reduced motion). */
 .board.is-attic .cell.is-openable::after {
   content: ""; position: absolute; inset: 2px; border-radius: 12px; pointer-events: none;
   border: 3px solid var(--gold); box-shadow: 0 0 14px 4px rgb(242 193 78 / 0.7), inset 0 0 14px rgb(255 240 194 / 0.55);
@@ -913,8 +913,9 @@ body {
 @keyframes openable-glow { from { opacity: 0.55; } to { opacity: 1; } }
 /* Opening it (BookOpening, the attic's last action): over the board, the cover lifts and three pages turn, then all
    fades into the ending, within BOOK_OPENING_MS (2200ms), which moves on whether or not these run. Each layer sits at
-   its own depth (--z) in the closed book, and turned over, in reverse, the last page on top. The final fade is a layer
-   faded in above the book (::after): opacity on the book itself would flatten its 3D. */
+   its own depth (--z) in the closed book, and turned over, in reverse, the last page on top. Each page has two faces,
+   photographs on both, the back turned to read correctly once over. The final fade is a layer faded in above the book
+   (::after): opacity on the book itself would flatten its 3D. */
 .book-opening {
   --book: calc(var(--board-size) * 0.38);
   grid-area: board; align-self: start; justify-self: center; position: relative; z-index: 4;
@@ -944,17 +945,20 @@ body {
 }
 @keyframes book-centre { to { transform: translateX(50%); } }
 .book-opening-pages, .book-opening-leaf, .book-opening-cover { position: absolute; inset: 0; transform-origin: left center; }
-.book-opening-pages, .book-opening-leaf {
+.book-opening-pages, .book-opening-page {
   border: 2px solid var(--forest-1); border-radius: 2px 6px 6px 2px;
-  background:
-    repeating-linear-gradient(180deg, transparent 0 12px, rgb(138 106 58 / 0.3) 12px 14px) 22% 24% / 58% 56% no-repeat,
-    linear-gradient(90deg, #e3d4ae, #fbf5e6 18%);
+  background: linear-gradient(90deg, #e3d4ae, #fbf5e6 18%);
 }
+.book-opening-pages svg, .book-opening-page svg { display: block; }
 .book-opening-pages { box-shadow: 3px 4px 0 #c9b48a, 0 10px 24px rgb(0 0 0 / 0.45); }
 .book-opening-leaf {
   --z: calc((3 - var(--leaf)) * 1px);
-  transform: translateZ(var(--z));
+  transform: translateZ(var(--z)); transform-style: preserve-3d;
   animation: book-turn 520ms ease-in-out calc(700ms + var(--leaf) * 220ms) forwards;
+}
+.book-opening-page { position: absolute; inset: 0; backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+.book-opening-page.is-back {
+  transform: rotateY(180deg); border-radius: 6px 2px 2px 6px; background: linear-gradient(270deg, #e3d4ae, #fbf5e6 18%);
 }
 .book-opening-cover { --z: 4px; transform: translateZ(var(--z)); transform-style: preserve-3d; animation: book-turn 750ms ease-in-out forwards; }
 @keyframes book-turn {

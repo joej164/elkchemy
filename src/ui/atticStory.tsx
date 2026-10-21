@@ -67,16 +67,16 @@ export const OPENING_PANELS: readonly ComicPanel[] = [
 export const CLOSING_PANELS: readonly ComicPanel[] = [
   {
     id: 'closing-1',
-    description: 'Alisha and her granddaughter gather beside the Big Memory Book on the old trunk.',
+    description: 'Alisha and her granddaughter gather beside the Picture Book on the old trunk.',
     art: <Art src={closing1} />,
     lines: [
-      { text: 'Two more books were tucked inside the old box. Together with the book they’d found, they became the Big Memory Book.' },
+      { text: 'The photos they’d collected and the book they’d put together became the Picture Book.' },
       { text: 'Her granddaughter settles beside her.' },
     ],
   },
   {
     id: 'closing-2',
-    description: 'An old photograph slips face down from the open Big Memory Book.',
+    description: 'An old photograph slips face down from the open Picture Book.',
     art: <Art src={closing2} />,
     lines: [{ speaker: 'Granddaughter', text: 'Look—a photo slipped out!' }],
   },

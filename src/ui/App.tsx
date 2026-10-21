@@ -2,7 +2,7 @@ import { useEffect, useReducer, useRef, useState, type ReactNode } from 'react';
 import { LEVELS, nextLevelIndex, type Level } from '../levels';
 import { MAX_TIER, type Item } from '../board';
 import { generatePuzzle, TREASURE_TIERS, treasureConfig, type GeneratedPuzzle, type PuzzleConfig } from '../generator';
-import { RECIPES, recipeById, type Recipe } from '../recipes';
+import { RECIPES, recipeById, type ItemRecipe, type Recipe } from '../recipes';
 import { containerShown, type Container, type LevelDefinition, type LevelGoal, type SessionState } from '../session';
 import { ATTIC_LEVEL } from '../attic';
 import { hasItem } from '../status';
@@ -70,7 +70,11 @@ export function describeAction(
     case 'unlock': return `Unlocked ${regions?.[a.region]?.name ?? 'an area'}.`;
     case 'collect': return prizeText(goal).done;
     case 'openGoal': return goal.kind === 'item' ? `Opened the ${itemName(goal.item)}.` : '';
-    case 'craft': return `Crafted the ${recipe?.name ?? 'chest'}. Tap it to open it.`;
+    case 'craft': {
+      if (!a.made) return `Crafted the ${recipe?.name ?? 'chest'}. Tap it to open it.`;
+      const opens = goal.kind === 'item' && goal.open && a.made.family === goal.item.family && a.made.tier >= goal.item.tier;
+      return `Made ${itemLabel(a.made)}.${opens ? ' Tap it to open it.' : ''}`;
+    }
     case 'open': return recipe ? `Opened the ${recipe.name}: three ${itemLabel(recipe.contents.item)}.` : 'Opened the chest.';
     case 'unpack': {
       const c = containers?.[a.container];
@@ -384,6 +388,36 @@ export function RecipeSign({ recipe, state }: { recipe: Recipe; state: UiState }
   );
 }
 
+/**
+ * An item recipe (the attic): a compact reminder in the goal panel, in the recipe sign's style: the two ingredients (each
+ * ticked once on the board), what they make (ticked once made), and the goal.
+ */
+export function CraftSign({ craft, state }: { craft: ItemRecipe; state: UiState }) {
+  const { board, level } = state.session;
+  const made = hasItem(board, craft.result);
+  const part = (item: Item, done: boolean, word: string) => (
+    <span className={`recipe-part${done ? ' is-done' : ''}`} role="img" aria-label={`${itemLabel(item)}${done ? `, ${word}` : ''}`}>
+      <span className="art"><ItemArt item={item} /></span>
+      {done && <span className="target-check" aria-hidden="true">✓</span>}
+    </span>
+  );
+  return (
+    <section className="panel goal recipe" aria-label="Recipe" data-craft>
+      <div className="recipe-row">
+        {craft.ingredients.map((item, i) => (
+          <span key={`${item.family}${item.tier}`} className="recipe-step">
+            {i > 0 && <span className="recipe-op" aria-hidden="true">+</span>}
+            {part(item, made || board.some((r) => r.some((c) => !!c && c.family === item.family && c.tier === item.tier)), 'ready')}
+          </span>
+        ))}
+        <span className="recipe-op" aria-hidden="true">→</span>
+        {part(craft.result, made, 'made')}
+      </div>
+      <p className="recipe-goal">{objectiveText(level.goal)}</p>
+    </section>
+  );
+}
+
 export function Game({
   definition, label, musicControl, onHome, winLabel, onWin, puzzleId, onNewPuzzle, onMusicAreaChange, playEffect, stopEffects, scene, guide,
 }: GameProps) {
@@ -411,7 +445,7 @@ export function Game({
     playEffect?.('completion');
   };
   const puzzle = puzzleId !== undefined;
-  const { goal, regions, tasks, recipe, containers } = state.session.level;
+  const { goal, regions, tasks, recipe, containers, craft } = state.session.level;
   const nextArea = regions ? nextLocked(state.session) : null;
   const nextUnlock = nextArea !== null ? regions![nextArea].unlock : undefined;
   const concealedPlates = nextArea !== null && isConcealed(regions![nextArea]) && nextUnlock && 'plates' in nextUnlock
@@ -461,11 +495,11 @@ export function Game({
           <div className="title-controls">
             {musicControl}
             <HelpButton goal={goal} largeBoard={pannable} puzzle={puzzle} regions={regions} tasks={tasks} recipe={recipe} containers={!!containers}
-              unlocked={tasks ? (i: number) => isOpen(state.session, i) : state.session.unlocked} />
+              craft={craft} unlocked={tasks ? (i: number) => isOpen(state.session, i) : state.session.unlocked} />
           </div>
         </div>
         <p className="level-label">{label}</p>
-        {recipe ? <RecipeSign recipe={recipe} state={state} /> : (
+        {recipe ? <RecipeSign recipe={recipe} state={state} /> : craft ? <CraftSign craft={craft} state={state} /> : (
         <div className={`panel goal${puzzle ? ' is-wide' : ''}`}>
           {goal.kind === 'items' ? (
             <div className="targets">

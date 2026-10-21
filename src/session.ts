@@ -1,12 +1,12 @@
 import { drop, previewMerge, type Board, type Cell, type Item, type Pos } from './board';
-import { isIngredientPair, type Recipe } from './recipes';
+import { isIngredientPair, isPair, type ItemRecipe, type Recipe } from './recipes';
 import {
   availableTasks, isFixed, isOpen, nextLocked, platesHold, platesMet, regionAt, roomOf, unlockReady, validateRegions, type Region, type Task,
 } from './regions';
 
 /**
  * `item`: make `item` (its family at its tier or higher) anywhere on the board; with `region` (region levels),
- *   inside that region once it is open. With `open` (container levels: the attic's Big Memory Book), making it is not
+ *   inside that region once it is open. With `open` (container levels: the attic's Picture Book), making it is not
  *   yet the win: it must then be opened by a tap (see openGoal).
  * `items`: have every target in `items` (each its family at its tier or higher) on the board at
  *   once. A target counts as complete while such an item is present; targets need distinct families.
@@ -70,6 +70,11 @@ export interface LevelDefinition {
    * stranded (tests/attic.test.ts checks the attic).
    */
   readonly containers?: readonly Container[];
+  /**
+   * Container levels (the attic): crafting an ordinary item. Either ingredient dropped onto the other makes `result`
+   * there, as one undoable move (see craftAt); unlike a recipe's chest, the result is a board item like any other.
+   */
+  readonly craft?: ItemRecipe;
 }
 
 export interface SessionSnapshot {
@@ -249,20 +254,34 @@ export function craftReady(state: SessionState): boolean {
     items.filter((c) => c && c.family === item.family && c.tier === item.tier).length >= count);
 }
 
+/** Levels with an item recipe (`craft`): the item an allowed drop of `from` onto `to` would craft, or null. */
+export function craftedItem(state: SessionState, from: Pos, to: Pos): Item | null {
+  const { craft } = state.level;
+  if (!craft || !canDrop(state, from, to) || (from.row === to.row && from.col === to.col)) return null;
+  const a = state.board[from.row][from.col];
+  const b = state.board[to.row][to.col];
+  return a && b && isPair(craft.ingredients, a, b) ? craft.result : null;
+}
+
 /**
  * Recipe levels: the drop of one ingredient onto the other (either way round) crafts the chest: those two items are
- * consumed, every other piece stays, and the chest stands at the destination. One undoable move. Null for any other
- * drop, which keeps its ordinary meaning (a swap, for two different items).
+ * consumed, every other piece stays, and the chest stands at the destination. With an item recipe (`craft`), the same
+ * drop puts its result, an ordinary item, at the destination instead. One undoable move. Null for any other drop, which
+ * keeps its ordinary meaning (a swap, for two different items).
  */
 export function craftAt(state: SessionState, from: Pos, to: Pos): SessionState | null {
-  if (!canStillCraft(state)) return null;
-  const a = state.board[from.row]?.[from.col];
-  const b = state.board[to.row]?.[to.col];
-  if (!a || !b || !isIngredientPair(state.level.recipe!, a, b)) return null;
+  const made = craftedItem(state, from, to);
+  if (!made) {
+    if (!canStillCraft(state)) return null;
+    const a = state.board[from.row]?.[from.col];
+    const b = state.board[to.row]?.[to.col];
+    if (!a || !b || !isIngredientPair(state.level.recipe!, a, b)) return null;
+  }
   const board: Cell[][] = state.board.map((r) => [...r]);
   board[from.row][from.col] = null;
-  board[to.row][to.col] = null;
-  return { ...state, board, chest: { row: to.row, col: to.col }, moves: state.moves + 1, undo: snapshot(state) };
+  board[to.row][to.col] = made ? { ...made } : null;
+  const chest = made ? state.chest : { row: to.row, col: to.col };
+  return { ...state, board, chest, moves: state.moves + 1, undo: snapshot(state) };
 }
 
 /**
@@ -297,10 +316,13 @@ export function closedContainerAt(state: SessionState, p: Pos): number {
   return containers.findIndex((c, i) => c.at.row === p.row && c.at.col === p.col && !state.unpacked.includes(i));
 }
 
-/** Container levels: whether container `i` is uncovered: it has no `hiddenUntil`, or that item is on the board. */
+/**
+ * Container levels: whether container `i` is uncovered: it has no `hiddenUntil`, it has been opened, or that item is on
+ * the board. Once opened it stays so, even after its item is used up (the attic crafts with it).
+ */
 export function containerShown(state: SessionState, i: number): boolean {
   const need = state.level.containers?.[i]?.hiddenUntil;
-  if (!need) return true;
+  if (!need || state.unpacked.includes(i)) return true;
   return state.board.some((r) => r.some((c) => !!c && c.family === need.family && c.tier >= need.tier));
 }
 

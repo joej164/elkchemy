@@ -111,7 +111,7 @@ describe('Comic', () => {
   it('keeps every caption as HTML text, the picture as a described image', () => {
     const html = render(CLOSING_PANELS, LEVELS);
     expect(html).toContain(`role="img" aria-label="${CLOSING_PANELS[0].description}"`);
-    expect(html).toMatch(/<figcaption[^>]*><p class="comic-narration">Two more books were tucked inside the old box\./);
+    expect(html).toMatch(/<figcaption[^>]*><p class="comic-narration">The photos they’d collected and the book they’d put together/);
   });
 });
 
@@ -125,7 +125,7 @@ describe('story content', () => {
       expect(p.lines.length).toBeGreaterThan(0);
     }
   });
-  it('uses the approved dialogue (artwork/story/attic/storyboard.html), with the closing narration fitting the books', () => {
+  it('uses the approved dialogue (artwork/story/attic/storyboard.html), with the closing narration fitting the Picture Book', () => {
     const lines = (p: (typeof all)[number]) => p.lines.map((l) => (l.speaker ? `${l.speaker}: ${l.text}` : l.text));
     expect(Object.fromEntries(all.map((p) => [p.id, lines(p)]))).toEqual({
       'opening-1': ['On a rainy afternoon, Alisha’s granddaughter helps her tidy the attic.'],
@@ -134,15 +134,17 @@ describe('story content', () => {
       'opening-3': ['Granddaughter: What’s under that old sheet?',
         'Alisha: I’d almost forgotten that box. Let’s clear a little space.'],
       'opening-4': ['Alisha: Loose photos first. Three make a tidy bundle.'],
-      'closing-1': ['Two more books were tucked inside the old box. Together with the book they’d found, they became the Big Memory Book.',
+      'closing-1': ['The photos they’d collected and the book they’d put together became the Picture Book.',
         'Her granddaughter settles beside her.'],
       'closing-2': ['Granddaughter: Look—a photo slipped out!'],
       'closing-3': ['Granddaughter: Grandma, is that Aunt Fiona?', 'Alisha: Yes. That photograph was taken a long time ago.'],
       'closing-4': ['Granddaughter: Will you tell me about it?', 'Alisha: Come sit beside me. I’ll start at the beginning.',
         'Alisha’s story begins.'],
     });
-    // Nothing left of the old inventory (three books in the box) or the old name.
-    expect(all.flatMap((p) => [p.description, ...p.lines.map((l) => l.text)]).join(' ')).not.toMatch(/three books|memory book/);
+    // Nothing left of earlier inventories (books in the box) or names.
+    expect(all.flatMap((p) => [p.description, ...p.lines.map((l) => l.text)]).join(' '))
+      .not.toMatch(/three books|two more books|memory book|Memory Book|album/i);
+    expect(CLOSING_PANELS.map((p) => p.description).filter((d) => d.includes('Picture Book'))).toHaveLength(2);
   });
   it('keeps Fiona out of the attic and the helpers unnamed', () => {
     const attic = all.filter((p) => !['closing-3', 'closing-4'].includes(p.id));

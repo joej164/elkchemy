@@ -5,7 +5,9 @@ import type { Prize } from '../session';
 export const FAMILY_NAMES: Record<Family, string> = { grove: 'Grove', song: 'Song', crystal: 'Crystal', elk: 'Elk', photo: 'Photos', book: 'Book' };
 
 /** Per-tier display names for families that have them (tiers past the list use its last name). */
-export const ITEM_NAMES: Partial<Record<Family, readonly string[]>> = { photo: ['Loose photos', 'Photo bundle', 'Photo album'], book: ['Old book', 'Old book', 'Old book', 'Big Memory Book'] };
+export const ITEM_NAMES: Partial<Record<Family, readonly string[]>> = {
+  photo: ['Loose photos', 'Photo bundle', 'Photo collection'], book: ['Old book', 'Book stack', 'Blank book', 'Picture Book'],
+};
 
 /** An item's name, without its tier. */
 export function itemName(item: Item): string {
@@ -199,8 +201,46 @@ function photo(t: number): ReactNode {
   );
 }
 
-// Books (the attic): the old book up to tier 3 (the attic's are tier 3 of 5), then the Big Memory Book.
+/** One book seen from its spine, `w` wide at x, y: the cover, its page edge at the right end and a gold title band. */
+function spine(x: number, y: number, w: number, fill: string): ReactNode {
+  return (
+    <g key={y}>
+      <rect x={x} y={y} width={w} height="15" rx="2" fill="#f3e6c8" {...S} />
+      <rect x={x} y={y} width={w - 8} height="15" rx="2" fill={fill} {...S} />
+      <path d={`M${x + 6} ${y + 7.5} H${x + w - 18}`} stroke="#e8b84a" strokeWidth={2} strokeLinecap="round" />
+    </g>
+  );
+}
+
+// Books (the attic): old book, book stack (three tied with twine and a bow), blank book (an empty photo window on its
+// cover), then the Picture Book.
 function book(t: number): ReactNode {
+  if (t === 1) {
+    return (
+      <>
+        {spine(16, 60, 66, '#4a7a8a')}
+        {spine(22, 45, 58, '#b8324a')}
+        {spine(18, 30, 62, '#4f8a3c')}
+        <path d="M48 28 V75" stroke="#8a5a34" strokeWidth={3} />
+        <path d="M48 28 Q36 16 38 27 Q42 32 48 28 Q60 16 58 27 Q54 32 48 28 Z" fill="#d9475f" {...S} strokeWidth={1.5} />
+      </>
+    );
+  }
+  if (t === 2) {
+    return (
+      <>
+        <path d="M24 20 L80 20 L80 78 L24 78 Z" fill="#f3e6c8" {...S} />
+        <path d="M76.5 23 V75 M79 23 V75" stroke="#c9b48a" strokeWidth={1} />
+        <rect x="16" y="14" width="58" height="60" rx="4" fill="#3d6b4f" {...S} />
+        <rect x="16" y="14" width="10" height="60" rx="3" fill="#2f5e2a" {...S} />
+        <rect x="34" y="25" width="30" height="24" rx="1.5" fill="#fffaf0" {...S} strokeWidth={1.5} />
+        {[[34, 25, 1, 1], [64, 25, -1, 1], [34, 49, 1, -1], [64, 49, -1, -1]].map(([x, y, dx, dy]) => (
+          <path key={`${x},${y}`} d={`M${x} ${y} h${dx * 6} L${x} ${y + dy * 6} Z`} fill="#e8b84a" />
+        ))}
+        <path d="M38 59 H60" stroke="#e8b84a" strokeWidth={2.5} strokeLinecap="round" />
+      </>
+    );
+  }
   if (t < 3) {
     return (
       <>
@@ -218,13 +258,13 @@ function book(t: number): ReactNode {
     <>
       <circle cx="50" cy="46" r="40" fill="#fff0c2" opacity="0.7" stroke="#f2c14e" strokeWidth="2" />
       <path d="M22 18 L80 18 L80 76 L22 76 Z" fill="#f3e6c8" {...S} />
-      {memoryBookCover()}
+      {pictureBookCover()}
     </>
   );
 }
 
-/** The Big Memory Book's front cover (spine, gold frame and corners, leaf, antlers and clasp), on 16–78 × 14–76. */
-function memoryBookCover(): ReactNode {
+/** The Picture Book's front cover (spine, gold frame and corners, leaf, antlers and clasp), on 16–78 × 14–76. */
+function pictureBookCover(): ReactNode {
   return (
     <>
       <rect x="16" y="14" width="62" height="62" rx="4" fill="#7a2338" {...S} />
@@ -245,11 +285,84 @@ function memoryBookCover(): ReactNode {
   );
 }
 
-/** The Big Memory Book's front cover alone, filling its box (the clasp and strokes overflow it). Decorative. */
-export function MemoryBookCoverArt() {
+/** The Picture Book's front cover alone, filling its box (the clasp and strokes overflow it). Decorative. */
+export function PictureBookCoverArt() {
   return (
     <svg viewBox="16 14 62 62" width="100%" height="100%" overflow="visible" aria-hidden="true" focusable="false">
-      {memoryBookCover()}
+      {pictureBookCover()}
+    </svg>
+  );
+}
+
+type Snap = 'woodland' | 'fiona' | 'keepsake';
+
+/** A print's picture, on 100 × 80: a sunny woodland, Fiona (the elk as drawn on the board) or keepsakes (a disc, music). */
+function scene(kind: Snap): ReactNode {
+  if (kind === 'woodland') {
+    return (
+      <>
+        <rect width="100" height="80" fill="#bfe0f0" />
+        <circle cx="76" cy="20" r="9" fill="#f2c14e" />
+        <path d="M0 58 Q30 40 60 54 Q80 44 100 52 V80 H0 Z" fill="#4f8a3c" />
+        {[[18, 60], [32, 54], [84, 56]].map(([x, y]) => (
+          <path key={x} d={`M${x} ${y - 28} L${x + 10} ${y} H${x - 10} Z`} fill="#2f5e2a" {...S} strokeWidth={1.5} />
+        ))}
+      </>
+    );
+  }
+  if (kind === 'fiona') {
+    return (
+      <>
+        <rect width="100" height="80" fill="#f3d9a4" />
+        <path d="M0 66 Q50 56 100 66 V80 H0 Z" fill="#8bb46a" />
+        <g transform="translate(14 0) scale(0.72)">{elk(2)}</g>
+      </>
+    );
+  }
+  return (
+    <>
+      <rect width="100" height="80" fill="#d8ccef" />
+      <g transform="translate(-6 -8) scale(1.6)">{disc(30, 38, -18, '#f28c28')}</g>
+      {note(64, 56, 0)}
+      {note(82, 38, 1)}
+    </>
+  );
+}
+
+/** A white-bordered print with gold photo corners: its picture `w` wide (5:4) centred on x, y, turned by `rot`. */
+function print(kind: Snap, x: number, y: number, w: number, rot: number, key: number): ReactNode {
+  const h = w * 0.8;
+  const [l, t, r, b] = [x - w / 2 - 3, y - h / 2 - 3, x + w / 2 + 3, y + h / 2 + 3];
+  return (
+    <g key={key} transform={`rotate(${rot} ${x} ${y})`}>
+      <rect x={l} y={t} width={r - l} height={b - t} rx="1" fill="#fffaf0" {...S} strokeWidth={1.2} />
+      <svg x={x - w / 2} y={y - h / 2} width={w} height={h} viewBox="0 0 100 80" preserveAspectRatio="xMidYMid slice">{scene(kind)}</svg>
+      {[[l, t, 1, 1], [r, t, -1, 1], [l, b, 1, -1], [r, b, -1, -1]].map(([cx, cy, dx, dy]) => (
+        <path key={`${cx},${cy}`} d={`M${cx} ${cy} h${dx * 7} L${cx} ${cy + dy * 7} Z`} fill="#c9952b" />
+      ))}
+    </g>
+  );
+}
+
+// The Picture Book's pages, as its opening turns them (even pages face up, odd ones on their backs; 6 lies under them
+// all): each a print or two, and a few lines of writing under one. Pages seen together never repeat a subject.
+const PAGES: readonly (readonly [Snap, number, number, number, number])[][] = [
+  [['woodland', 50, 40, 56, -4]],
+  [['fiona', 50, 40, 56, 3]],
+  [['keepsake', 36, 32, 40, -6], ['woodland', 64, 66, 36, 5]],
+  [['woodland', 50, 40, 56, 2]],
+  [['keepsake', 50, 40, 56, -3]],
+  [['fiona', 50, 40, 56, 4]],
+  [['keepsake', 36, 34, 40, -5], ['woodland', 66, 66, 34, 6]],
+];
+
+/** A page of the Picture Book (`page`, from 0): small cartoon photographs in photo corners. Decorative. */
+export function BookPageArt({ page }: { page: number }) {
+  const prints = PAGES[page % PAGES.length];
+  return (
+    <svg viewBox="0 0 100 100" width="100%" height="100%" aria-hidden="true" focusable="false" data-page={page}>
+      {prints.map(([kind, x, y, w, rot], i) => print(kind, x, y, w, rot, i))}
+      {prints.length === 1 && <path d="M24 82 H70 M24 89 H56" fill="none" stroke="#c9b48a" strokeWidth={2} strokeLinecap="round" />}
     </svg>
   );
 }

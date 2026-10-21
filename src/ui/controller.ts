@@ -1,8 +1,8 @@
 import type { Item, Pos, Tier } from '../board';
 import { inRegion, isFixed, isOpen, nextLocked, regionAt, roomOf, unlockReady } from '../regions';
 import {
-  applyDrop, canDrop, chooseSupplyCell, closedContainerAt, collect, containerShown, goalOpenableAt, isCellOpen, openChest, openContainer,
-  openGoal, placeSupplyRandom, previewDrop, releaseCells, retry, startSession, treasureRevealed, undo, unlock,
+  applyDrop, canDrop, chooseSupplyCell, closedContainerAt, collect, containerShown, craftedItem, goalOpenableAt, isCellOpen, openChest,
+  openContainer, openGoal, placeSupplyRandom, previewDrop, releaseCells, retry, startSession, treasureRevealed, undo, unlock,
   type LevelDefinition, type SessionState,
 } from '../session';
 import { evaluateStatus, type GameStatus } from '../status';
@@ -18,11 +18,13 @@ export interface Progress { readonly tasks: readonly number[]; readonly regions:
  * together are announced without moving the view. The region needing several tasks (level 9's palace) has its own
  * opening, played by the board (see viewCue in camera.ts).
  * `revealed` (container levels): the covered container the action uncovered. `unpack`: a container opened, its batch at
- * `cells`. `openGoal`: the made goal item opened (the attic's Big Memory Book), which wins.
+ * `cells`. `openGoal`: the made goal item opened (the attic's Picture Book), which wins.
+ * `craft`: a recipe's chest crafted, or, with an item recipe (the attic), `made` crafted at `at`.
  */
 export type LastAction =
   | { readonly kind: 'move' | 'swap'; readonly opened?: number; readonly progress?: Progress; readonly revealed?: number }
-  | { readonly kind: 'undo' | 'retry' | 'collect' | 'craft' | 'open' | 'openGoal' }
+  | { readonly kind: 'undo' | 'retry' | 'collect' | 'open' | 'openGoal' }
+  | { readonly kind: 'craft'; readonly made?: Item; readonly at?: Pos }
   | { readonly kind: 'unpack'; readonly container: number; readonly cells: readonly Pos[] }
   | { readonly kind: 'place'; readonly at: Pos; readonly item: Item }
   | { readonly kind: 'unlock'; readonly region: number }
@@ -142,12 +144,13 @@ const itemCells = (state: UiState): Pos[] =>
   state.session.board.flatMap((r, row) => r.flatMap((c, col) => (c ? [{ row, col }] : [])));
 
 /**
- * Tutorial guidance (the attic): the cells where the item at `from` would merge if dropped now (see previewCells). Not
- * every matching item is one: dropped onto an item whose group, without the item moved, has fewer than two, it won't.
+ * Tutorial guidance (the attic): the cells where the item at `from` would merge if dropped now (see previewCells), or,
+ * with an item recipe, craft. Not every matching item is one: dropped onto an item whose group, without the item moved,
+ * has fewer than two, it won't merge.
  */
 export function mergeTargets(state: UiState, from: Pos): Pos[] {
   if (!canPickUp(state, from)) return [];
-  return itemCells(state).filter((to) => previewCells(state, from, to).length > 0);
+  return itemCells(state).filter((to) => previewCells(state, from, to).length > 0 || craftedItem(state.session, from, to));
 }
 
 /** Tutorial guidance (the attic): the items that would merge somewhere if picked up now. */
@@ -167,6 +170,9 @@ function doDrop(state: UiState, from: Pos, to: Pos): UiState {
   const { session } = state;
   if (!canDropAt(state, from, to)) return state;
   const src = session.board[from.row][from.col]!;
+  // An item recipe (the attic): one ingredient dropped onto the other crafts its result there (instead of swapping).
+  const made = craftedItem(session, from, to);
+  if (made) return withSession({ ...state, musicArea: areaAt(state, to) }, applyDrop(session, from, to), { kind: 'craft', made, at: to });
 
   let lastAction: LastAction;
   if (session.board[to.row][to.col] === null) {
