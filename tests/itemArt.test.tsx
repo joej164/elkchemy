@@ -84,10 +84,10 @@ describe('attic items', () => {
   it('names every photo and book tier, with the last name as fallback', () => {
     const names = (family: Family) => tiers.map((tier) => itemLabel({ family, tier }));
     expect(names('photo')).toEqual([
-      'Loose photos, tier 1 of 5', 'Photo bundle, tier 2 of 5', 'Photo collection, tier 3 of 5', 'Photo collection, tier 4 of 5',
-      'Photo collection, tier 5 of 5',
+      'Loose photos, tier 1 of 5', 'Photo bundle, tier 2 of 5', 'Scrapbook pages, tier 3 of 5', 'Scrapbook pages, tier 4 of 5',
+      'Scrapbook pages, tier 5 of 5',
     ]);
-    // The attic's books: old book → book stack → blank book; the Picture Book (tier 4) is crafted with the photo collection.
+    // The attic's books: old book → book stack → blank book; the Picture Book (tier 4) is crafted with the scrapbook pages.
     expect(names('book')).toEqual([
       'Old book, tier 1 of 5', 'Book stack, tier 2 of 5', 'Blank book, tier 3 of 5', 'Picture Book, tier 4 of 5', 'Picture Book, tier 5 of 5',
     ]);
@@ -105,6 +105,16 @@ describe('attic items', () => {
   it('draws the named tiers distinctly', () => {
     expect(new Set([0, 1, 2].map((tier) => html({ family: 'photo', tier: tier as Tier }))).size).toBe(3);
     expect(new Set([0, 1, 2, 3].map((tier) => html({ family: 'book', tier: tier as Tier }))).size).toBe(4);
+  });
+
+  it('draws the scrapbook pages as two loose sheets of mounted photos, unlike any book', () => {
+    const pages = html({ family: 'photo', tier: 2 });
+    expect(pages.match(/<rect[^>]*width="40" height="56"/g)).toHaveLength(2); // two portrait sheets
+    expect(pages.match(/<path d="M[^"]*" fill="#6b4a2f">/g)).toHaveLength(8); // four photo corners on each
+    expect(pages).not.toMatch(/#7a4a2b|#5e3820/); // nothing left of the old album's cover and spine
+    const art = (item: Item) => html(item).replace(/<circle[^>]*data-pip[^>]*><\/circle>/g, '');
+    expect(art({ family: 'photo', tier: 2 })).not.toEqual(art({ family: 'book', tier: 2 }));
+    expect(art({ family: 'photo', tier: 2 })).not.toMatch(/#3d6b4f|#7a2338/); // the blank book's and Picture Book's covers
   });
 
   it('draws each book tier distinctly, the Picture Book with the cover its opening shows on its own', () => {

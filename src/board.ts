@@ -1,4 +1,4 @@
-// The attic story prototype adds keepsakes: photos (loose → bundle → collection) and books (old book → book stack →
+// The attic story prototype adds keepsakes: photos (loose → bundle → scrapbook pages) and books (old book → book stack →
 // blank book), which combine into the Picture Book. Generated puzzles and handcrafted levels use only the four woodland
 // families.
 export type Family = 'grove' | 'song' | 'crystal' | 'elk' | 'photo' | 'book';

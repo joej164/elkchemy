@@ -124,15 +124,15 @@ describe('placed containers: the rules', () => {
   });
 });
 
-// The canonical play: the photo chain (bundle, shoebox, bundle, collection: the box is uncovered), the box, the book
+// The canonical play: the photo chain (bundle, shoebox, bundle, scrapbook pages: the box is uncovered), the box, the book
 // chain (old books into a stack, three stacks into the blank book), then the craft. See ATTIC_LEVEL.
 const BUNDLE = [drop(p(2, 0), p(0, 1)), tap(p(3, 3)), drop(p(3, 2), p(2, 3))];
-const COLLECTION = [...BUNDLE, drop(p(0, 1), p(2, 2))];
-const BOXED = [...COLLECTION, tap(p(0, 3))];
+const SCRAPBOOK = [...BUNDLE, drop(p(0, 1), p(2, 2))];
+const BOXED = [...SCRAPBOOK, tap(p(0, 3))];
 const BLANK = [...BOXED, drop(p(4, 3), p(4, 1)), drop(p(0, 3), p(4, 2))];
 const PICTURE_BOOK = [...BLANK, drop(p(2, 2), p(4, 2))];
 const count = (s: UiState) => s.session.board.flat().filter(Boolean).length;
-// The attic with both ingredients and spare pieces on its floor (the shoebox closed, the box uncovered by the collection).
+// The attic with both ingredients and spare pieces on its floor (the shoebox closed, the box uncovered by the pages).
 const SPARES: LevelDefinition = { ...ATTIC_LEVEL, board: make(['p2 b2 p0 .', 'b0 p1 . .', '. . . .', '. . . .', '. . . .']) };
 
 describe('The Attic: the level', () => {
@@ -166,7 +166,7 @@ describe('The Attic: the level', () => {
     // not, as that arm's group, without the dragged corner, is one photo.
     step(BUNDLE[2]); // bundle at (2,3), beside the first one at (2,2)
     expect(rowsOf(s.session.board)).toEqual(['. p1 . .', '. . . .', '. . p1 p1', '. . . .', 'b0 b0 b1 b0']);
-    expect(step(COLLECTION[3]).lastAction).toMatchObject({ kind: 'merge', result: it0('p2'), revealed: KEEPSAKE_BOX });
+    expect(step(SCRAPBOOK[3]).lastAction).toMatchObject({ kind: 'merge', result: it0('p2'), revealed: KEEPSAKE_BOX });
     expect([s.status, containerShown(s.session, KEEPSAKE_BOX)]).toEqual(['playing', true]);
     // The box: exactly one book stack, on its own cell. Opening it is a checkpoint, not the win.
     expect(step(BOXED[4]).lastAction).toEqual({ kind: 'unpack', container: KEEPSAKE_BOX, cells: [p(0, 3)] });
@@ -174,7 +174,7 @@ describe('The Attic: the level', () => {
     expect(step(BLANK[5]).lastAction).toMatchObject({ kind: 'merge', consumed: 3, result: it0('b1') }); // old books: stack at (4,1)
     expect(step(BLANK[6]).lastAction).toMatchObject({ kind: 'merge', consumed: 3, result: it0('b2') }); // three stacks
     expect(rowsOf(s.session.board)).toEqual(['. . . .', '. . . .', '. . p2 .', '. . . .', '. . b2 .']);
-    // The craft: the collection onto the blank book makes the Picture Book there. It is not the win: it waits to be opened.
+    // The craft: the pages onto the blank book make the Picture Book there. It is not the win: it waits to be opened.
     expect(step(PICTURE_BOOK[7]).lastAction).toEqual({ kind: 'craft', made: it0('b3'), at: p(4, 2) });
     expect([rowsOf(s.session.board)[2], rowsOf(s.session.board)[4], s.status, goalOpenableAt(s.session, p(4, 2)), s.session.undo === null])
       .toEqual(['. . . .', '. . b3 .', 'playing', true, false]);
@@ -185,11 +185,11 @@ describe('The Attic: the level', () => {
         'then tap where it goes.',
       'There are more loose photos in the shoebox. Tap it to open it.',
       'Three loose photos tie into a bundle: 3 → 1. Pick one up, then drop it where the photos light up.',
-      'Three bundles make a photo collection: 3 → 1. Pick one up, then drop it where the bundles light up.',
+      'Three bundles make scrapbook pages: 3 → 1. Pick one up, then drop it where the bundles light up.',
       'The photos are collected, and under the dust sheet is an old wooden box. Tap it to open it.',
       'Now the books. Three old books make a book stack: 3 → 1. Pick one up, then drop it where the books light up.',
       'Three book stacks make a blank book: 3 → 1. Pick one up, then drop it where the stacks light up.',
-      'Now combine them: drop the photo collection onto the blank book, or the book onto the photos, to make the Picture Book.',
+      'Now combine them: drop the scrapbook pages onto the blank book, or the book onto the pages, to make the Picture Book.',
       'You made the Picture Book! Tap it to open it.',
       'The story continues…',
     ]);
@@ -200,9 +200,9 @@ describe('The Attic: the level', () => {
     expect(reduceUi(shoebox, drop(p(3, 3), p(3, 2))).session).toBe(shoebox.session);
     const apart = reduceUi(shoebox, drop(p(2, 3), p(3, 3)));
     expect(rowsOf(apart.session.board)).toEqual(['p1 . . .', '. . . .', '. . p1 .', '. . . p1', 'b0 b0 b1 b0']);
-    expect(atticGuide(apart)).toBe('Move two photo bundles side by side, then drop the third onto them to make a photo collection.');
+    expect(atticGuide(apart)).toBe('Move two photo bundles side by side, then drop the third onto them to make scrapbook pages.');
     const beside = reduceUi(apart, drop(p(3, 3), p(2, 3)));
-    expect(atticGuide(beside)).toBe('Three bundles make a photo collection: 3 → 1. Pick one up, then drop it where the bundles light up.');
+    expect(atticGuide(beside)).toBe('Three bundles make scrapbook pages: 3 → 1. Pick one up, then drop it where the bundles light up.');
     const boxed = play(initUi(ATTIC_LEVEL), ...BOXED);
     expect(atticGuide(play(boxed, drop(p(4, 1), p(1, 1)), drop(p(4, 3), p(1, 3)))))
       .toBe('Now the books. Move two old books side by side, then drop the third onto them: 3 → 1.');
@@ -320,7 +320,7 @@ describe('The Attic: the level', () => {
 });
 
 describe('The Attic: other orders and moved pieces', () => {
-  it('works with the old books merged first and the starting stack moved, before any photo; the box stays covered till the collection', () => {
+  it('works with the old books merged first and the starting stack moved, before any photo; the box stays covered till the pages', () => {
     let s = play(initUi(ATTIC_LEVEL), drop(p(4, 3), p(4, 1)), drop(p(4, 2), p(1, 1)));
     expect(rowsOf(s.session.board)).toEqual(['p0 p0 . .', '. b1 . .', 'p0 . p1 .', '. . . .', '. b1 . .']);
     expect([containerShown(s.session, KEEPSAKE_BOX), reduceUi(s, tap(p(0, 3)))]).toEqual([false, s]);
@@ -347,7 +347,7 @@ describe('The Attic: other orders and moved pieces', () => {
 });
 
 describe('The Attic: crafting the Picture Book', () => {
-  const ready = play(initUi(ATTIC_LEVEL), ...BLANK); // the collection at (2,2), the blank book at (4,2)
+  const ready = play(initUi(ATTIC_LEVEL), ...BLANK); // the pages at (2,2), the blank book at (4,2)
   const at = (s: UiState, q: Pos) => s.session.board[q.row][q.col];
 
   it('crafts either way round, at the destination, consuming only those two', () => {
@@ -367,8 +367,8 @@ describe('The Attic: crafting the Picture Book', () => {
     expect(play(ready, tap(p(4, 2)), tap(p(2, 2))).lastAction).toEqual({ kind: 'craft', made: it0('b3'), at: p(2, 2) });
   });
 
-  it('needs exactly the photo collection and the blank book; anything else keeps its ordinary meaning', () => {
-    const boxed = play(initUi(ATTIC_LEVEL), ...BOXED); // the collection at (2,2), a book stack at (0,3)
+  it('needs exactly the scrapbook pages and the blank book; anything else keeps its ordinary meaning', () => {
+    const boxed = play(initUi(ATTIC_LEVEL), ...BOXED); // the pages at (2,2), a book stack at (0,3)
     expect(craftedItem(boxed.session, p(2, 2), p(0, 3))).toBeNull();
     expect(reduceUi(boxed, drop(p(2, 2), p(0, 3))).lastAction).toEqual({ kind: 'swap' });
     const bundles = play(initUi(ATTIC_LEVEL), ...BUNDLE);
@@ -384,11 +384,11 @@ describe('The Attic: crafting the Picture Book', () => {
     expect(craftedItem(startSession({ ...ATTIC_LEVEL, craft: undefined }), p(2, 0), p(4, 2))).toBeNull();
   });
 
-  it('is undoable, back to both pieces; the box stays uncovered once the collection is used', () => {
+  it('is undoable, back to both pieces; the box stays uncovered once the pages are used', () => {
     const made = reduceUi(ready, drop(p(2, 2), p(4, 2)));
     const undone = reduceUi(made, { type: 'undo' });
     expect([undone.session.board, undone.lastAction]).toEqual([ready.session.board, { kind: 'undo' }]);
-    // No photo collection is left, but the opened box is still the box: on the board, in the checklist and its label.
+    // No scrapbook pages are left, but the opened box is still the box: on the board, in the checklist and its label.
     expect([containerShown(made.session, KEEPSAKE_BOX), closedContainerAt(made.session, p(0, 3))]).toEqual([true, -1]);
     const panel = renderToStaticMarkup(<ContainerPanel session={made.session} />);
     expect(panel).toContain('Old wooden box');
@@ -401,10 +401,10 @@ describe('The Attic: crafting the Picture Book', () => {
     const start = sign(initUi(ATTIC_LEVEL));
     expect(start).toContain('class="panel goal recipe" aria-label="Recipe" data-craft');
     expect(start.match(/aria-label="[^"]*, tier [0-9] of 5[^"]*"/g)).toEqual([
-      'aria-label="Photo collection, tier 3 of 5"', 'aria-label="Blank book, tier 3 of 5"', 'aria-label="Picture Book, tier 4 of 5"',
+      'aria-label="Scrapbook pages, tier 3 of 5"', 'aria-label="Blank book, tier 3 of 5"', 'aria-label="Picture Book, tier 4 of 5"',
     ]);
     expect(start).toContain('Goal: make Picture Book, tier 4 of 5, then open it');
-    expect(sign(play(initUi(ATTIC_LEVEL), ...COLLECTION))).toContain('aria-label="Photo collection, tier 3 of 5, ready"');
+    expect(sign(play(initUi(ATTIC_LEVEL), ...SCRAPBOOK))).toContain('aria-label="Scrapbook pages, tier 3 of 5, ready"');
     expect(sign(ready).match(/, ready"/g)).toHaveLength(2);
     expect(sign(reduceUi(ready, drop(p(2, 2), p(4, 2))))).toContain('aria-label="Picture Book, tier 4 of 5, made"');
   });
@@ -497,7 +497,7 @@ describe('The Attic: guidance toward a merge or craft that works', () => {
   // pair, (4,0) and (4,1), and (4,3) beyond the stack.
   const shoebox = play(initUi(ATTIC_LEVEL), ...BUNDLE.slice(0, 2));
   const boxed = play(initUi(ATTIC_LEVEL), ...BOXED);
-  const ready = play(initUi(ATTIC_LEVEL), ...BLANK); // the collection at (2,2), the blank book at (4,2)
+  const ready = play(initUi(ATTIC_LEVEL), ...BLANK); // the pages at (2,2), the blank book at (4,2)
   const html = (s: UiState) => renderToStaticMarkup(<BoardView state={s} dispatch={() => {}} scene="attic" />);
   const marked = (s: UiState, cls: string) => [...html(s).matchAll(new RegExp(`class="[^"]*\\b${cls}\\b[^"]*"[^>]*data-row="(\\d)" data-col="(\\d)"`, 'g'))]
     .map((m) => `${m[1]},${m[2]}`).sort();
@@ -532,7 +532,10 @@ describe('The Attic: guidance toward a merge or craft that works', () => {
     const stacks = play(boxed, BLANK[5]); // stacks at (0,3), (4,1) and (4,2)
     expect(atticGuide(reduceUi(stacks, tap(p(0, 3))))).toBe('Drop it on a highlighted book stack: 3 → 1.');
     expect(atticGuide(reduceUi(ready, tap(p(2, 2))))).toBe('Drop it on the highlighted blank book to make the Picture Book.');
-    expect(atticGuide(reduceUi(ready, tap(p(4, 2))))).toBe('Drop it on the highlighted photo collection to make the Picture Book.');
+    expect(atticGuide(reduceUi(ready, tap(p(4, 2))))).toBe('Drop it on the highlighted scrapbook pages to make the Picture Book.');
+    // Before the blank book, the pages go nowhere; the plural reads "these".
+    expect(atticGuide(reduceUi(play(initUi(ATTIC_LEVEL), ...SCRAPBOOK), tap(p(2, 2)))))
+      .toBe("From there these scrapbook pages won't merge. Tap it again to put it down, then pick up a highlighted one.");
     // Five together: the count is the merge the drop would make.
     const five = play(initUi(ATTIC_LEVEL), tap(p(3, 3)), drop(p(2, 0), p(1, 0)), drop(p(3, 3), p(1, 1)), drop(p(2, 3), p(1, 2)), tap(p(0, 0)));
     expect(atticGuide(five)).toBe('Drop it on a highlighted loose photo to merge five: 5 → 2.');
@@ -610,13 +613,13 @@ function solveStep(s: UiState): UiState | null {
 
 describe('The Attic: presentation, text and sound', () => {
   const opened = play(initUi(ATTIC_LEVEL), ...BUNDLE.slice(0, 2));
-  const uncovered = play(initUi(ATTIC_LEVEL), ...COLLECTION);
+  const uncovered = play(initUi(ATTIC_LEVEL), ...SCRAPBOOK);
   const c = ATTIC_LEVEL.containers;
   const said = (s: UiState) => describeAction(s.lastAction, 'Level', ATTIC_LEVEL.goal, undefined, undefined, undefined, c);
 
   it('announces openings, the uncovering, the craft and the opening, naming what is inside or made', () => {
     expect(said(opened)).toBe('Opened the shoebox: 3 × Loose photos, tier 1 of 5.');
-    expect(said(uncovered)).toBe('Merged 3 into 1 item: Photo collection, tier 3 of 5. Under the dust sheet: an old wooden box, holding ' +
+    expect(said(uncovered)).toBe('Merged 3 into 1 item: Scrapbook pages, tier 3 of 5. Under the dust sheet: an old wooden box, holding ' +
       '1 × Book stack, tier 2 of 5. Tap it to open it.');
     expect(said(play(initUi(ATTIC_LEVEL), ...BOXED))).toBe('Opened the old wooden box: 1 × Book stack, tier 2 of 5.');
     expect(said(play(initUi(ATTIC_LEVEL), ...BLANK))).toBe('Merged 3 into 1 item: Blank book, tier 3 of 5.');
@@ -656,7 +659,7 @@ describe('The Attic: presentation, text and sound', () => {
   it('lists the boxes: what uncovers the covered one, what each holds, ticks once opened', () => {
     const start = renderToStaticMarkup(<ContainerPanel session={initUi(ATTIC_LEVEL).session} />);
     expect(start).toContain(': holds 3 × Loose photos, tier 1 of 5');
-    expect(start).toContain(': make Photo collection, tier 3 of 5 to finish tidying');
+    expect(start).toContain(': make Scrapbook pages, tier 3 of 5 to finish tidying');
     const later = renderToStaticMarkup(<ContainerPanel session={uncovered.session} />);
     expect(later).toContain(': opened');
     expect(later).toContain('Old wooden box');
@@ -672,7 +675,7 @@ describe('The Attic: presentation, text and sound', () => {
     expect(renderToStaticMarkup(<App />)).not.toContain('data-action="attic"');
     const help = renderToStaticMarkup(<HelpButton goal={ATTIC_LEVEL.goal} containers craft={ATTIC_LEVEL.craft} />);
     expect(help).toContain('Goal: make Picture Book, tier 4 of 5, then tap it to open it.');
-    expect(help).toContain('Drop Photo collection, tier 3 of 5 onto Blank book, tier 3 of 5, or the other way round (or tap one, then the ' +
+    expect(help).toContain('Drop Scrapbook pages, tier 3 of 5 onto Blank book, tier 3 of 5, or the other way round (or tap one, then the ' +
       'other), to make Picture Book, tier 4 of 5: only those two are used, and Undo takes it back.');
     expect(help).not.toContain('Winning unlocks the next level');
     expect(help).toContain('everything inside comes out at once');

@@ -18,6 +18,8 @@ Browser verification for this revision: all eight images loaded; opening → puz
 
 **Revised again, October 21, 2026 (unreleased, not committed).** The puzzle now ends with the Picture Book: a photo collection and a blank book, assembled from two chains, combined, then tapped open. `storyboard.html`'s closing-1 narration reads "The photos they’d collected and the book they’d put together became the Picture Book.", descriptions name the Picture Book, and the puzzle summary describes both chains. No illustration was regenerated or changed: closing-1 and closing-2 show a single book, which fits. The opening animation's page photographs are code-native SVG in the game (`src/ui/ItemArt.tsx`), not new art files.
 
+**Correction, October 21, 2026 (unreleased).** The tier-3 photo item is now Scrapbook pages (was Photo collection), drawn as loose sheets so it no longer looks like a book; `storyboard.html`'s puzzle summary uses the new name. Comic text and art are unchanged.
+
 ## Earlier review history
 # The Attic comic artwork
 

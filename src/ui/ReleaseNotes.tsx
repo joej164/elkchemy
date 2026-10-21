@@ -6,6 +6,14 @@ export interface ReleaseNote { readonly title: string; readonly date: string; re
 
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    title: 'Scrapbook pages',
+    date: 'October 20, 2026',
+    notes: [
+      'The Attic’s photo chain now ends in loose Scrapbook pages, so they are easy to distinguish from the Blank book.',
+      'Combine the pages with the Blank book to make your Picture Book. The puzzle rules are unchanged.',
+    ],
+  },
+  {
     title: 'Make a Picture Book',
     date: 'October 20, 2026',
     notes: [

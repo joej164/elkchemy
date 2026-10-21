@@ -6,7 +6,7 @@ export const FAMILY_NAMES: Record<Family, string> = { grove: 'Grove', song: 'Son
 
 /** Per-tier display names for families that have them (tiers past the list use its last name). */
 export const ITEM_NAMES: Partial<Record<Family, readonly string[]>> = {
-  photo: ['Loose photos', 'Photo bundle', 'Photo collection'], book: ['Old book', 'Book stack', 'Blank book', 'Picture Book'],
+  photo: ['Loose photos', 'Photo bundle', 'Scrapbook pages'], book: ['Old book', 'Book stack', 'Blank book', 'Picture Book'],
 };
 
 /** An item's name, without its tier. */
@@ -185,17 +185,33 @@ function photo(t: number): ReactNode {
       </>
     );
   }
+  // Scrapbook pages: two loose cream sheets fanned apart (no cover or spine), each with a photo mounted in photo corners.
   return (
     <>
-      <rect x="22" y="18" width="58" height="62" rx="4" fill="#fffaf0" {...S} />
-      <rect x="18" y="16" width="58" height="62" rx="4" fill="#7a4a2b" {...S} />
-      <rect x="18" y="16" width="10" height="62" rx="3" fill="#5e3820" {...S} />
-      {[24, 40, 56].map((y) => <circle key={y} cx="23" cy={y} r="1.6" fill="#e8b84a" />)}
-      <rect x="35" y="28" width="30" height="24" rx="2" fill="#f2c14e" {...S} />
-      <rect x="39" y="32" width="22" height="16" rx="1" fill="#fff0c2" stroke={DARK} strokeWidth={1} />
-      <path d="M44 41 H56 M46 44.5 H54" fill="none" stroke="#a86b33" strokeWidth={1.5} strokeLinecap="round" />
-      {[[30, 20, 1, 1], [76, 20, -1, 1], [30, 74, 1, -1], [76, 74, -1, -1]].map(([x, y, dx, dy]) => (
-        <path key={`${x},${y}`} d={`M${x} ${y + dy * 6} V${y} H${x + dx * 6}`} transform={`translate(${dx * -2} ${dy * -2})`} fill="none" stroke="#f3e6c8" strokeWidth={3} strokeLinecap="round" />
+      <g transform="rotate(-10 34 44)">
+        <rect x="14" y="16" width="40" height="56" rx="1.5" fill="#f3e6c8" {...S} />
+        {mounted(19, 22, 30, 22, '#f3c98b', '#8a5a34')}
+        <path d="M20 54 H46 M20 61 H38" fill="none" stroke="#b8a079" strokeWidth={2.5} strokeLinecap="round" />
+      </g>
+      <g transform="rotate(9 64 44)">
+        <rect x="44" y="16" width="40" height="56" rx="1.5" fill="#fffaf0" {...S} />
+        {mounted(49, 22, 30, 22, '#9fd0e8', '#4f8a3c')}
+        <path d="M55 57 C52 53 47 56 50 60 L55 65 L60 60 C63 56 58 53 55 57 Z" fill="#d9475f" {...S} strokeWidth={1.2} />
+        <path d="M65 56 H79 M65 63 H75" fill="none" stroke="#b8a079" strokeWidth={2.5} strokeLinecap="round" />
+      </g>
+    </>
+  );
+}
+
+/** A photo mounted on a scrapbook page, w × h at x, y (a tiny hill and sun), held by four dark photo corners. */
+function mounted(x: number, y: number, w: number, h: number, sky: string, hill: string): ReactNode {
+  return (
+    <>
+      <rect x={x} y={y} width={w} height={h} fill={sky} stroke={DARK} strokeWidth={1} />
+      <path d={`M${x} ${y + h} Q${x + w * 0.35} ${y + h * 0.35} ${x + w} ${y + h * 0.7} V${y + h} Z`} fill={hill} />
+      <circle cx={x + w * 0.75} cy={y + h * 0.3} r="3" fill="#f2c14e" />
+      {[[x, y, 1, 1], [x + w, y, -1, 1], [x, y + h, 1, -1], [x + w, y + h, -1, -1]].map(([cx, cy, dx, dy]) => (
+        <path key={`${cx},${cy}`} d={`M${cx - dx} ${cy - dy} h${dx * 8} L${cx - dx} ${cy + dy * 7} Z`} fill="#6b4a2f" />
       ))}
     </>
   );
