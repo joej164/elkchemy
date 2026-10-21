@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { ReactElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { ItemArt, itemLabel, PrizeArt, ShoeboxArt, KeepsakeBoxArt, DustSheetArt } from '../src/ui/ItemArt';
+import { ItemArt, itemLabel, MemoryBookCoverArt, PrizeArt, ShoeboxArt, KeepsakeBoxArt, DustSheetArt } from '../src/ui/ItemArt';
 import { AtticWindowArt, AtticLampArt, StackedBoxesArt, ShelfArt } from '../src/ui/AtticArt';
 import type { Family, Item, Tier } from '../src/board';
 
@@ -86,8 +86,9 @@ describe('attic items', () => {
     expect(names('photo')).toEqual([
       'Loose photos, tier 1 of 5', 'Photo bundle, tier 2 of 5', 'Photo album, tier 3 of 5', 'Photo album, tier 4 of 5', 'Photo album, tier 5 of 5',
     ]);
+    // The attic's old books are tier 3 of 5 and merge into the Big Memory Book; lower book tiers are never used.
     expect(names('book')).toEqual([
-      'Old book, tier 1 of 5', 'Memory book, tier 2 of 5', 'Memory book, tier 3 of 5', 'Memory book, tier 4 of 5', 'Memory book, tier 5 of 5',
+      'Old book, tier 1 of 5', 'Old book, tier 2 of 5', 'Old book, tier 3 of 5', 'Big Memory Book, tier 4 of 5', 'Big Memory Book, tier 5 of 5',
     ]);
   });
 
@@ -102,7 +103,16 @@ describe('attic items', () => {
 
   it('draws the named tiers distinctly', () => {
     expect(new Set([0, 1, 2].map((tier) => html({ family: 'photo', tier: tier as Tier }))).size).toBe(3);
-    expect(new Set([0, 1].map((tier) => html({ family: 'book', tier: tier as Tier }))).size).toBe(2);
+    expect(new Set([2, 3].map((tier) => html({ family: 'book', tier: tier as Tier }))).size).toBe(2);
+  });
+
+  it('draws the old book up to tier 3 and the Big Memory Book above, whose cover the opening shows on its own', () => {
+    const old = (tier: Tier) => html({ family: 'book', tier }).replace(/<circle[^>]*data-pip[^>]*><\/circle>/g, '');
+    expect([old(1), old(2)]).toEqual([old(0), old(0)]);
+    expect(old(2)).toContain('#4a7a8a');
+    const cover = renderToStaticMarkup(<MemoryBookCoverArt />);
+    expect(cover).toContain('viewBox="16 14 62 62"');
+    expect(html({ family: 'book', tier: 3 })).toContain(cover.slice(cover.indexOf('>') + 1, cover.lastIndexOf('</svg>')));
   });
 });
 

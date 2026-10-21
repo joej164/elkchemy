@@ -1,8 +1,8 @@
 import type { Item, Pos, Tier } from '../board';
 import { inRegion, isFixed, isOpen, nextLocked, regionAt, roomOf, unlockReady } from '../regions';
 import {
-  applyDrop, canDrop, chooseSupplyCell, closedContainerAt, collect, containerShown, isCellOpen, openChest, openContainer, placeSupplyRandom,
-  previewDrop, releaseCells, retry, startSession, treasureRevealed, undo, unlock,
+  applyDrop, canDrop, chooseSupplyCell, closedContainerAt, collect, containerShown, goalOpenableAt, isCellOpen, openChest, openContainer,
+  openGoal, placeSupplyRandom, previewDrop, releaseCells, retry, startSession, treasureRevealed, undo, unlock,
   type LevelDefinition, type SessionState,
 } from '../session';
 import { evaluateStatus, type GameStatus } from '../status';
@@ -18,11 +18,11 @@ export interface Progress { readonly tasks: readonly number[]; readonly regions:
  * together are announced without moving the view. The region needing several tasks (level 9's palace) has its own
  * opening, played by the board (see viewCue in camera.ts).
  * `revealed` (container levels): the covered container the action uncovered. `unpack`: a container opened, its batch at
- * `cells`.
+ * `cells`. `openGoal`: the made goal item opened (the attic's Big Memory Book), which wins.
  */
 export type LastAction =
   | { readonly kind: 'move' | 'swap'; readonly opened?: number; readonly progress?: Progress; readonly revealed?: number }
-  | { readonly kind: 'undo' | 'retry' | 'collect' | 'craft' | 'open' }
+  | { readonly kind: 'undo' | 'retry' | 'collect' | 'craft' | 'open' | 'openGoal' }
   | { readonly kind: 'unpack'; readonly container: number; readonly cells: readonly Pos[] }
   | { readonly kind: 'place'; readonly at: Pos; readonly item: Item }
   | { readonly kind: 'unlock'; readonly region: number }
@@ -215,6 +215,8 @@ export function reduceUi(state: UiState, action: UiAction): UiState {
         const found = collect(session);
         if (found !== session) return withSession({ ...state, musicArea: areaAt(state, pos) }, found, { kind: 'collect' });
       }
+      // An `open` item goal (the attic): tapping the made goal item opens it, whatever is selected. That wins.
+      if (goalOpenableAt(session, pos)) return withSession(state, openGoal(session, pos), { kind: 'openGoal' });
       // Merge to treasure: tapping the closed chest opens it, whatever is selected.
       if (session.chest && samePos(session.chest, pos)) {
         const opened = openChest(session);

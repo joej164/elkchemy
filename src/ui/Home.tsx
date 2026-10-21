@@ -4,10 +4,8 @@ import portraitArt from '../assets/art/woodland-home-portrait-v1.webp';
 import { SceneArt } from './SceneArt';
 
 /** Home screen: the woodland scene with the elk, and the ways in. */
-export function Home({ onPlay, onLevels, onAttic, onScores, onReleaseNotes, levelsNote, musicControl }: {
+export function Home({ onPlay, onLevels, onScores, onReleaseNotes, levelsNote, musicControl }: {
   onPlay: () => void;
-  /** The Attic, the opening-story prototype (outside the Levels sequence). */
-  onAttic: () => void;
   onLevels: () => void;
   onScores: () => void;
   onReleaseNotes: () => void;
@@ -31,11 +29,7 @@ export function Home({ onPlay, onLevels, onAttic, onScores, onReleaseNotes, leve
         <nav className="home-nav" aria-label="Main">
           <button type="button" className="btn" data-action="play" onClick={onPlay}>Play</button>
           <button type="button" className="btn" data-action="play-levels" onClick={onLevels}>Levels</button>
-          {/* Side by side, so the prototype's entry adds no height to Home. */}
-          <button type="button" className="btn btn-quiet is-half" data-action="attic" onClick={onAttic}>
-            <span className="btn-two-line">Story prototype:<br />The Attic</span>
-          </button>
-          <button type="button" className="btn btn-quiet is-half" data-action="scores" onClick={onScores}>Music / Scores</button>
+          <button type="button" className="btn btn-quiet" data-action="scores" onClick={onScores}>Music / Scores</button>
         </nav>
         {levelsNote && <p className="home-note">{levelsNote}</p>}
       </div>

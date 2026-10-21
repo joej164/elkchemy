@@ -616,6 +616,10 @@ body {
   margin-left: auto; flex: none; padding: 2px 10px; border-radius: 999px;
   background: var(--forest-1); color: var(--gold); font-size: 0.95rem;
 }
+/* The Attic: above the numbered levels, marked with its Big Memory Book and a Story tag. */
+.level-choice.is-story { margin-bottom: 10px; }
+.level-choice.is-story .level-number { padding: 2px; }
+.level-choice.is-story .level-next { background: var(--bark); color: var(--parchment); }
 .menu-card { display: grid; gap: 12px; padding: 14px 16px; }
 .menu-card h2 { margin: 0; font-size: 1.4rem; color: var(--bark-dark); }
 .menu-error { color: var(--berry); font-weight: 700; }
@@ -732,8 +736,6 @@ body {
 .home h1 { font-size: 2.8rem; text-shadow: 0 2px 4px rgb(0 0 0 / 0.85), 0 0 18px rgb(0 0 0 / 0.6); }
 .home-nav { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 100%; }
 .home-nav .btn-quiet { grid-column: 1 / -1; background: rgb(10 24 16 / 0.8); }
-.home-nav .btn-quiet.is-half { grid-column: auto; padding: 4px 8px; }
-.btn-two-line { font-size: 0.9rem; line-height: 1.15; }
 .home-note { margin: 0; color: var(--earth); text-shadow: 0 1px 3px rgb(0 0 0 / 0.9); }
 
 .page .menu-card h1 { font-size: 1.5rem; color: var(--bark-dark); }
@@ -902,6 +904,74 @@ body {
 .attic-shelf { position: absolute; top: var(--frame-top); bottom: var(--frame-bottom); width: var(--frame-x); background: #3b2718; }
 .attic-shelf.is-left { left: 0; }
 .attic-shelf.is-right { right: 0; }
+/* The made Big Memory Book, waiting to be tapped open: a warm glow, gently pulsing (steady under reduced motion). */
+.board.is-attic .cell.is-openable::after {
+  content: ""; position: absolute; inset: 2px; border-radius: 12px; pointer-events: none;
+  border: 3px solid var(--gold); box-shadow: 0 0 14px 4px rgb(242 193 78 / 0.7), inset 0 0 14px rgb(255 240 194 / 0.55);
+  animation: openable-glow 1.4s ease-in-out infinite alternate;
+}
+@keyframes openable-glow { from { opacity: 0.55; } to { opacity: 1; } }
+/* Opening it (BookOpening, the attic's last action): over the board, the cover lifts and three pages turn, then all
+   fades into the ending, within BOOK_OPENING_MS (2200ms), which moves on whether or not these run. Each layer sits at
+   its own depth (--z) in the closed book, and turned over, in reverse, the last page on top. The final fade is a layer
+   faded in above the book (::after): opacity on the book itself would flatten its 3D. */
+.book-opening {
+  --book: calc(var(--board-size) * 0.38);
+  grid-area: board; align-self: start; justify-self: center; position: relative; z-index: 4;
+  width: var(--board-size); height: var(--board-size); border-radius: 16px; overflow: hidden;
+  display: grid; place-items: center; perspective: 1200px;
+  animation: book-dim 2200ms ease-in forwards;
+}
+@keyframes book-dim {
+  0% { background: rgb(26 16 9 / 0); }
+  20%, 75% { background: rgb(26 16 9 / 0.8); }
+  100% { background: rgb(26 16 9); }
+}
+.book-opening::before {
+  content: ""; position: absolute; inset: 0; opacity: 0;
+  background: radial-gradient(circle, rgb(242 193 78 / 0.5), transparent 55%);
+  animation: book-glow 2200ms ease forwards;
+}
+@keyframes book-glow { 30%, 70% { opacity: 1; } 100% { opacity: 0; } }
+.book-opening::after {
+  content: ""; position: absolute; inset: 0; opacity: 0; background: rgb(26 16 9);
+  animation: book-out 450ms ease-in 1700ms forwards;
+}
+@keyframes book-out { to { opacity: 1; } }
+.book-opening-book {
+  position: relative; width: var(--book); aspect-ratio: 1; transform-style: preserve-3d;
+  animation: book-centre 750ms ease-in-out forwards;
+}
+@keyframes book-centre { to { transform: translateX(50%); } }
+.book-opening-pages, .book-opening-leaf, .book-opening-cover { position: absolute; inset: 0; transform-origin: left center; }
+.book-opening-pages, .book-opening-leaf {
+  border: 2px solid var(--forest-1); border-radius: 2px 6px 6px 2px;
+  background:
+    repeating-linear-gradient(180deg, transparent 0 12px, rgb(138 106 58 / 0.3) 12px 14px) 22% 24% / 58% 56% no-repeat,
+    linear-gradient(90deg, #e3d4ae, #fbf5e6 18%);
+}
+.book-opening-pages { box-shadow: 3px 4px 0 #c9b48a, 0 10px 24px rgb(0 0 0 / 0.45); }
+.book-opening-leaf {
+  --z: calc((3 - var(--leaf)) * 1px);
+  transform: translateZ(var(--z));
+  animation: book-turn 520ms ease-in-out calc(700ms + var(--leaf) * 220ms) forwards;
+}
+.book-opening-cover { --z: 4px; transform: translateZ(var(--z)); transform-style: preserve-3d; animation: book-turn 750ms ease-in-out forwards; }
+@keyframes book-turn {
+  from { transform: rotateY(0deg) translateZ(var(--z)); }
+  to { transform: rotateY(-180deg) translateZ(var(--z)); }
+}
+.book-opening-front, .book-opening-back { position: absolute; inset: 0; backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+.book-opening-front svg { display: block; }
+.book-opening-back {
+  transform: rotateY(180deg); border: 2px solid var(--forest-1); border-radius: 6px 2px 2px 6px;
+  background: #5c1a2a; box-shadow: inset 0 0 0 6px #7a2338;
+}
+@media (prefers-reduced-motion: reduce) {
+  .board.is-attic .cell.is-openable::after { animation: none; }
+  .book-opening::before, .book-opening-book, .book-opening-leaf, .book-opening-cover { animation: none; }
+  .book-opening::after { animation-duration: 600ms; animation-delay: 1500ms; }
+}
 .next-area.is-containers .check-symbol { width: 30px; height: 30px; }
 .next-area.is-containers .checklist li { grid-template-columns: 30px auto minmax(0, 1fr); min-height: 32px; }
 .next-area.is-containers .check-item { width: 26px; height: 26px; }

@@ -7,14 +7,17 @@ import type { EffectCue } from '../effects';
 export function actionEffect(state: UiState): EffectCue | null {
   const action = state.lastAction;
   if (!action || action.kind === 'undo' || action.kind === 'retry') return null;
-  if (action.kind === 'collect') return 'case-victory';
+  // Room levels' treasure and the attic's Big Memory Book: opening the prize is the win.
+  if (action.kind === 'collect' || action.kind === 'openGoal') return 'case-victory';
   // Merge to treasure: crafting and opening are steps, not the win (which is the final merge's own sound).
   if (action.kind === 'craft') return 'completion';
   if (action.kind === 'open') return 'discovery';
   // Container levels (the attic): opening a container, or uncovering one, is a discovery; the merge that makes the
-  // goal (the memory book) is the story's prize, so it takes the treasure victory sound.
+  // goal (the Big Memory Book, still to be opened) completes a step, as crafting does.
   if (action.kind === 'unpack' || ('revealed' in action && action.revealed !== undefined)) return 'discovery';
-  if (action.kind === 'merge' && state.status === 'won' && state.session.level.containers) return 'case-victory';
+  const { goal } = state.session.level;
+  if (action.kind === 'merge' && state.session.level.containers && goal.kind === 'item' &&
+    action.result.family === goal.item.family && action.result.tier >= goal.item.tier) return 'completion';
   const progress = 'progress' in action ? action.progress : undefined;
   const opened = openedRegion(action);
   const regions = progress?.regions ?? (opened === null ? [] : [opened]);

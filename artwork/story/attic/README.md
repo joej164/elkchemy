@@ -14,6 +14,8 @@ Browser verification for this revision: all eight images loaded; opening → puz
 
 **Integrated, October 20, 2026 (owner-approved; not committed or deployed).** The six approved illustrations (`manifest-v2.json`) and the storyboard captions, verbatim, now drive the game's Attic comics (`src/ui/atticStory.tsx`); closing-3 and closing-4 reuse `public/icons/icon-512.png` and the woodland home art. Delivery copies are `src/assets/art/attic-*.webp`, 960 × 720 (method and sizes in `src/assets/art/README.md`). The review pages, contact sheets and every source and earlier draft here are unchanged and not shipped. Integration checks: `docs/release-notes.md`, Unreleased.
 
+**Revised, October 20, 2026 (unreleased, not committed).** `storyboard.html` follows the game's revision: the closing-1 narration now reads "Two more books were tucked inside the old box. Together with the book they’d found, they became the Big Memory Book." (one old book on the floor, two in the box), descriptions name the Big Memory Book, and Try app flow shows one picture and one line at a time. No illustration was regenerated or changed; none shows the box's contents. Details: `docs/release-notes.md`, Unreleased.
+
 ## Earlier review history
 # The Attic comic artwork
 

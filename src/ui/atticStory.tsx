@@ -67,16 +67,16 @@ export const OPENING_PANELS: readonly ComicPanel[] = [
 export const CLOSING_PANELS: readonly ComicPanel[] = [
   {
     id: 'closing-1',
-    description: 'Alisha and her granddaughter gather beside the memory book on the old trunk.',
+    description: 'Alisha and her granddaughter gather beside the Big Memory Book on the old trunk.',
     art: <Art src={closing1} />,
     lines: [
-      { text: 'Inside the old box were three books. Together, they became the memory book.' },
+      { text: 'Two more books were tucked inside the old box. Together with the book they’d found, they became the Big Memory Book.' },
       { text: 'Her granddaughter settles beside her.' },
     ],
   },
   {
     id: 'closing-2',
-    description: 'An old photograph slips face down from the open memory book.',
+    description: 'An old photograph slips face down from the open Big Memory Book.',
     art: <Art src={closing2} />,
     lines: [{ speaker: 'Granddaughter', text: 'Look—a photo slipped out!' }],
   },
@@ -100,3 +100,9 @@ export const CLOSING_PANELS: readonly ComicPanel[] = [
     ],
   },
 ];
+
+/** The closing comic's last picture, the woodland memory. */
+export const MEMORY_PANEL = CLOSING_PANELS.length - 1;
+
+/** Whether Woodland Journey plays once closing panel `panel` is shown: from the memory's first reveal to the end. */
+export const memoryMusicOn = (on: boolean, panel: number): boolean => on || panel === MEMORY_PANEL;

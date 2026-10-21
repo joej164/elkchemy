@@ -5,12 +5,16 @@ import type { Prize } from '../session';
 export const FAMILY_NAMES: Record<Family, string> = { grove: 'Grove', song: 'Song', crystal: 'Crystal', elk: 'Elk', photo: 'Photos', book: 'Book' };
 
 /** Per-tier display names for families that have them (tiers past the list use its last name). */
-export const ITEM_NAMES: Partial<Record<Family, readonly string[]>> = { photo: ['Loose photos', 'Photo bundle', 'Photo album'], book: ['Old book', 'Memory book'] };
+export const ITEM_NAMES: Partial<Record<Family, readonly string[]>> = { photo: ['Loose photos', 'Photo bundle', 'Photo album'], book: ['Old book', 'Old book', 'Old book', 'Big Memory Book'] };
+
+/** An item's name, without its tier. */
+export function itemName(item: Item): string {
+  const names = ITEM_NAMES[item.family];
+  return names ? names[Math.min(item.tier, names.length - 1)] : FAMILY_NAMES[item.family];
+}
 
 export function itemLabel(item: Item): string {
-  const names = ITEM_NAMES[item.family];
-  const name = names ? names[Math.min(item.tier, names.length - 1)] : FAMILY_NAMES[item.family];
-  return `${name}, tier ${item.tier + 1} of ${MAX_TIER + 1}`;
+  return `${itemName(item)}, tier ${item.tier + 1} of ${MAX_TIER + 1}`;
 }
 
 const DARK = '#233a2b';
@@ -195,8 +199,9 @@ function photo(t: number): ReactNode {
   );
 }
 
+// Books (the attic): the old book up to tier 3 (the attic's are tier 3 of 5), then the Big Memory Book.
 function book(t: number): ReactNode {
-  if (t === 0) {
+  if (t < 3) {
     return (
       <>
         <path d="M30 24 L74 20 L76 70 L30 76 Z" fill="#f3e6c8" {...S} />
@@ -213,6 +218,15 @@ function book(t: number): ReactNode {
     <>
       <circle cx="50" cy="46" r="40" fill="#fff0c2" opacity="0.7" stroke="#f2c14e" strokeWidth="2" />
       <path d="M22 18 L80 18 L80 76 L22 76 Z" fill="#f3e6c8" {...S} />
+      {memoryBookCover()}
+    </>
+  );
+}
+
+/** The Big Memory Book's front cover (spine, gold frame and corners, leaf, antlers and clasp), on 16–78 × 14–76. */
+function memoryBookCover(): ReactNode {
+  return (
+    <>
       <rect x="16" y="14" width="62" height="62" rx="4" fill="#7a2338" {...S} />
       <rect x="16" y="14" width="10" height="62" rx="3" fill="#5c1a2a" {...S} />
       <rect x="32" y="20" width="39" height="50" rx="2" fill="none" stroke="#e8b84a" strokeWidth={2} />
@@ -228,6 +242,15 @@ function book(t: number): ReactNode {
       <rect x="72" y="38" width="10" height="16" rx="2" fill="#f2c14e" {...S} />
       <circle cx="77" cy="46" r="2" fill={DARK} />
     </>
+  );
+}
+
+/** The Big Memory Book's front cover alone, filling its box (the clasp and strokes overflow it). Decorative. */
+export function MemoryBookCoverArt() {
+  return (
+    <svg viewBox="16 14 62 62" width="100%" height="100%" overflow="visible" aria-hidden="true" focusable="false">
+      {memoryBookCover()}
+    </svg>
   );
 }
 

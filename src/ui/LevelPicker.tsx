@@ -1,14 +1,18 @@
 import { useLayoutEffect, useRef, type ReactNode } from 'react';
 import type { Level } from '../levels';
+import { ATTIC_LEVEL } from '../attic';
+import { ItemArt } from './ItemArt';
 
 /**
  * Levels page: every handcrafted level, any of which can be played; `current` is the one the sequence is up to. The list
- * scrolls in its own window below the title and Home, and opens with the current level in view.
+ * scrolls in its own window below the title and Home, and opens with the current level in view. Above level 1, outside
+ * the numbered list and its progress, sits The Attic, the story prototype.
  */
-export function LevelPicker({ levels, current, onPick, onHome, musicControl }: {
+export function LevelPicker({ levels, current, onPick, onAttic, onHome, musicControl }: {
   levels: readonly Level[];
   current: number;
   onPick: (index: number) => void;
+  onAttic: () => void;
   onHome: () => void;
   musicControl: ReactNode;
 }) {
@@ -30,6 +34,13 @@ export function LevelPicker({ levels, current, onPick, onHome, musicControl }: {
       </header>
       <button type="button" className="back-button" data-action="home" onClick={onHome}>‹ Home</button>
       <div ref={listRef} className="level-scroll" data-level-scroll>
+        <button type="button" className="btn level-choice is-story" data-action="attic" onClick={onAttic}>
+          <span className="level-number" aria-hidden="true">
+            {ATTIC_LEVEL.goal.kind === 'item' && <ItemArt item={ATTIC_LEVEL.goal.item} />}
+          </span>
+          <span><span className="sr-only">Story prototype: </span>The Attic</span>
+          <span className="level-next" aria-hidden="true">Story</span>
+        </button>
         <ol className="level-list">
           {levels.map((level, i) => (
             <li key={level.name}>

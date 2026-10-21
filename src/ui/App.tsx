@@ -9,7 +9,8 @@ import { hasItem } from '../status';
 import { availableTasks, isOpen, nextLocked, sealedRegion, type Region, type Task, type TaskUnlock } from '../regions';
 import { Board, ContainerArt, LockIcon, RuneGate, SymbolIcon } from './Board';
 import { Comic } from './Comic';
-import { CLOSING_PANELS, OPENING_PANELS } from './atticStory';
+import { CLOSING_PANELS, memoryMusicOn, OPENING_PANELS } from './atticStory';
+import { afterOpening, BookOpening } from './BookOpening';
 import { atticGuide } from './atticGuide';
 import { HelpButton } from './HelpButton';
 import { Home } from './Home';
@@ -21,7 +22,7 @@ import { Scores } from './Scores';
 import { SceneArt } from './SceneArt';
 import gameLandscapeArt from '../assets/art/woodland-cheering-landscape-v1.webp';
 import gamePortraitArt from '../assets/art/woodland-cheering-portrait-v1.webp';
-import { ChestArt, DustSheetArt, ItemArt, itemLabel, PrizeArt } from './ItemArt';
+import { ChestArt, DustSheetArt, ItemArt, itemLabel, itemName, PrizeArt } from './ItemArt';
 import { UpdateControl } from './UpdateControl';
 import {
   batchText, branchPlates, isConcealed, isLargeBoard, itemCount, objectiveText, PAN_HINT, plateItems, prizeText, progressText, statusMessage,
@@ -68,6 +69,7 @@ export function describeAction(
     case 'place': return `Placed ${itemLabel(a.item)} in row ${a.at.row + 1}, column ${a.at.col + 1}.`;
     case 'unlock': return `Unlocked ${regions?.[a.region]?.name ?? 'an area'}.`;
     case 'collect': return prizeText(goal).done;
+    case 'openGoal': return goal.kind === 'item' ? `Opened the ${itemName(goal.item)}.` : '';
     case 'craft': return `Crafted the ${recipe?.name ?? 'chest'}. Tap it to open it.`;
     case 'open': return recipe ? `Opened the ${recipe.name}: three ${itemLabel(recipe.contents.item)}.` : 'Opened the chest.';
     case 'unpack': {
@@ -89,7 +91,7 @@ type Screen =
   | { readonly kind: 'pick' }
   | { readonly kind: 'levels' }
   | { readonly kind: 'puzzle'; readonly puzzle: GeneratedPuzzle }
-  // The Attic (story prototype): its opening comic, the puzzle, then its closing comic.
+  // The Attic (story prototype, from Levels): its opening comic, the puzzle, then its closing comic.
   | { readonly kind: 'attic'; readonly phase: 'opening' | 'play' | 'closing' };
 
 const isSongGoal = (d: LevelDefinition) => d.goal.kind === 'item' && d.goal.item.family === 'song';
@@ -116,7 +118,7 @@ export function App({ levels = LEVELS }: { levels?: readonly Level[] }) {
   const active = screen.kind === 'levels' ? levels[index].definition : screen.kind === 'puzzle' ? screen.puzzle.definition
     : screen.kind === 'attic' && screen.phase === 'play' ? ATTIC_LEVEL : null;
   const [musicArea, setMusicArea] = useState<'woodland' | 'palace'>('woodland');
-  // The closing comic's last panel, the woodland memory, brings in Woodland Journey.
+  // The closing comic's last picture, the woodland memory, brings in Woodland Journey once revealed, for the rest of it.
   const [memoryMusic, setMemoryMusic] = useState(false);
   const palaceLevel = active?.regions?.some((r) => r.building === 'palace');
   const music = useMusic(memoryMusic ? JOURNEY_MUSIC : palaceLevel ? musicArea === 'palace' ? PALACE_MUSIC : JOURNEY_MUSIC
@@ -165,11 +167,10 @@ export function App({ levels = LEVELS }: { levels?: readonly Level[] }) {
   const scene = screen.kind === 'home' || screen.kind === 'play';
 
   return (
-    <main className={`app${inGame ? ' is-game' : ' is-page'}${scene ? ' is-scene' : ''}${screen.kind === 'scores' || comic ? ' is-wide' : ''}${
+    <main className={`app${inGame ? ' is-game' : ' is-page'}${scene ? ' is-scene' : ''}${screen.kind === 'scores' ? ' is-wide' : ''}${comic ? ' is-comic' : ''}${
       screen.kind === 'pick' ? ' is-levels' : ''}${active?.tasks ? ' has-checklist' : ''}${screen.kind === 'attic' ? ' is-attic' : ''}`}>
       {screen.kind === 'home' && (
         <Home musicControl={musicControl} onPlay={() => show({ kind: 'play' })}
-          onAttic={() => show({ kind: 'attic', phase: 'opening' })}
           onLevels={() => show({ kind: 'pick' })} onScores={() => show({ kind: 'scores' })}
           onReleaseNotes={() => show({ kind: 'notes' })}
           levelsNote={index > 0 ? `Levels continue at level ${index + 1} of ${levels.length}, ${levels[index].name}.` : undefined} />
@@ -184,7 +185,8 @@ export function App({ levels = LEVELS }: { levels?: readonly Level[] }) {
       {screen.kind === 'scores' && <Scores musicControl={musicControl} onHome={toHome} />}
       {screen.kind === 'pick' && (
         <LevelPicker levels={levels} current={index} musicControl={musicControl} onHome={toHome}
-          onPick={(i) => { setIndex(i); show({ kind: 'levels' }); window.scrollTo(0, 0); }} />
+          onPick={(i) => { setIndex(i); show({ kind: 'levels' }); window.scrollTo(0, 0); }}
+          onAttic={() => { show({ kind: 'attic', phase: 'opening' }); window.scrollTo(0, 0); }} />
       )}
       {screen.kind === 'levels' && (
         <Game key={run} onMusicAreaChange={setMusicArea} playEffect={effects.play} stopEffects={effects.stop} definition={levels[index].definition} musicControl={musicControl} onHome={toHome}
@@ -197,19 +199,21 @@ export function App({ levels = LEVELS }: { levels?: readonly Level[] }) {
           label={puzzleLabel(screen.puzzle.config)} puzzleId={screen.puzzle.id}
           onNewPuzzle={() => startPuzzle(screen.puzzle.config, screen.puzzle.seed)} />
       )}
-      {screen.kind === 'attic' && screen.phase !== 'play' && (
-        <Comic key={run} title="The Attic" label={screen.phase === 'opening' ? 'Opening' : 'Closing'}
-          panels={screen.phase === 'opening' ? OPENING_PANELS : CLOSING_PANELS}
-          finishLabel={screen.phase === 'opening' ? 'Start tidying' : 'Back to Home'}
-          onFinish={screen.phase === 'opening' ? () => show({ kind: 'attic', phase: 'play' }) : toHome}
-          secondary={screen.phase === 'closing' ? { label: 'Play The Attic again', onClick: () => show({ kind: 'attic', phase: 'opening' }) } : undefined}
-          onShown={screen.phase === 'closing' ? (n) => setMemoryMusic(n === CLOSING_PANELS.length) : undefined}
+      {screen.kind === 'attic' && screen.phase === 'opening' && (
+        <Comic key={run} title="The Attic" label="Opening" panels={OPENING_PANELS}
+          finish={{ prompt: 'Tap to start tidying.', name: 'Start tidying' }}
+          onFinish={() => show({ kind: 'attic', phase: 'play' })} onHome={toHome} musicControl={musicControl} />
+      )}
+      {screen.kind === 'attic' && screen.phase === 'closing' && (
+        <Comic key={run} title="The Attic" label="Ending" panels={CLOSING_PANELS}
+          finish={{ prompt: 'Tap to return to Levels.', name: 'Back to Levels' }}
+          onFinish={() => show({ kind: 'pick' })} onPanel={(i) => setMemoryMusic((on) => memoryMusicOn(on, i))}
           onHome={toHome} musicControl={musicControl} />
       )}
       {screen.kind === 'attic' && screen.phase === 'play' && (
         <Game key={run} onMusicAreaChange={setMusicArea} playEffect={effects.play} stopEffects={effects.stop} definition={ATTIC_LEVEL}
           musicControl={musicControl} onHome={toHome} label="Story prototype · The Attic" scene="attic" guide={atticGuide}
-          winLabel="Continue the story" onWin={() => show({ kind: 'attic', phase: 'closing' })} />
+          onWin={() => show({ kind: 'attic', phase: 'closing' })} />
       )}
       <footer className="app-footer">
         <UpdateControl />
@@ -321,7 +325,10 @@ interface GameProps {
   label: string;
   musicControl: ReactNode;
   onHome: () => void;
-  /** Handcrafted levels: the button offered after winning. */
+  /**
+   * Handcrafted levels: the button offered after winning. With an `open` item goal (the attic) there is none: opening
+   * the goal item wins, and `onWin` follows by itself once its opening has played (see BookOpening).
+   */
   winLabel?: string;
   onWin?: () => void;
   /** Generated puzzles: the reproduction ID, and New puzzle (offered throughout). */
@@ -383,6 +390,10 @@ export function Game({
   const [state, dispatch] = useReducer(reduceUi, definition, initUi);
   const handled = useRef(0);
   const palacePlayed = useRef(0);
+  const winRef = useRef(onWin);
+  winRef.current = onWin;
+  // Cancelled by the next action (Retry) and by leaving (Home), so it never moves on afterwards.
+  useEffect(() => afterOpening(state, () => winRef.current?.()), [state.actionSeq]);
   useEffect(() => { onMusicAreaChange?.(state.musicArea); }, [state.musicArea, onMusicAreaChange]);
   useEffect(() => () => stopEffects?.(), [stopEffects]);
   useEffect(() => {
@@ -410,6 +421,7 @@ export function Game({
   // Room levels: gates open by themselves, so there is no Unlock button; the goal is the treasure.
   const rooms = goal.kind === 'treasure';
   const single = goal.kind === 'items' || goal.kind === 'treasure' ? undefined : goal.item;
+  const opensGoal = goal.kind === 'item' && !!goal.open;
   const next = nextSupplyItem(state);
   const left = supplyRemaining(state);
   const canSupply = canPlaceSupply(state);
@@ -517,6 +529,7 @@ export function Game({
 
       <Board state={state} dispatch={dispatch} onOverflowChange={setPannable} onPalaceOpening={palaceOpening} onPresentationCancel={stopEffects}
         scene={scene} />
+      {state.lastAction?.kind === 'openGoal' && <BookOpening />}
 
       <div className={`banner is-${state.status}`} data-status={state.status}>
         {state.status === 'won' && <span className="banner-icon" aria-hidden="true">★</span>}
@@ -533,7 +546,7 @@ export function Game({
           <button type="button" className="btn btn-next" data-action="new-puzzle" onClick={() => leave(onNewPuzzle)}>
             New puzzle
           </button>
-        ) : state.status === 'won' ? (
+        ) : state.status === 'won' && !opensGoal ? (
           // Level 9 (a level with tasks): once won, Home sits beside the next-level button, so no row is added and
           // Undo, Retry and Home stay on an iPad's screen.
           tasks ? (

@@ -55,7 +55,7 @@ function goalPlace(goal: LevelGoal, regions?: readonly Region[]): string {
 
 export function objectiveText(goal: LevelGoal, regions?: readonly Region[]): string {
   if (goal.kind === 'treasure') return `Goal: find the ${prizeText(goal).name}${goalPlace(goal, regions)}`;
-  if (goal.kind === 'item') return `Goal: make ${itemLabel(goal.item)}${goalPlace(goal, regions)}`;
+  if (goal.kind === 'item') return `Goal: make ${itemLabel(goal.item)}${goalPlace(goal, regions)}${goal.open ? ', then open it' : ''}`;
   if (goal.kind === 'items') return `Goal: make ${allOf(goal.items.length)}`;
   if (goal.item) return `Goal: merge down to one ${itemLabel(goal.item)}`;
   return 'Goal: use all supply and leave exactly one item';
@@ -68,7 +68,9 @@ export function helpObjective(goal: LevelGoal, regions?: readonly Region[]): str
     const gates = regions?.filter((r) => !!r.unlock && 'passage' in r.unlock && !!r.unlock.passage).length ?? 0;
     return `Goal: open the rune ${gates === 1 ? 'gate' : 'gates'} and ${verb} the ${name}${goalPlace(goal, regions)}.`;
   }
-  if (goal.kind === 'item') return `Goal: make ${itemLabel(goal.item)}${goalPlace(goal, regions)}.`;
+  if (goal.kind === 'item') {
+    return `Goal: make ${itemLabel(goal.item)}${goalPlace(goal, regions)}${goal.open ? ', then tap it to open it' : ''}.`;
+  }
   if (goal.kind === 'items') return `Goal: have ${allOf(goal.items.length)} goal items on the board at once.`;
   if (goal.item) return `Goal: merge everything down to exactly one item: ${itemLabel(goal.item)}.`;
   return 'Goal: use all supply and finish with exactly one item on the board.';

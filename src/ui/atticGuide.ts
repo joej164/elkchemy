@@ -1,6 +1,6 @@
 import type { Family, Item, Tier } from '../board';
 import { KEEPSAKE_BOX, SHOEBOX } from '../attic';
-import { containerShown, previewDrop } from '../session';
+import { containerShown, goalOpenableAt, previewDrop } from '../session';
 import { mergeSources, mergeTargets, previewCells, type UiState } from './controller';
 
 type Kind = { family: Family; tier: Tier };
@@ -16,7 +16,7 @@ function ready(state: UiState, kind: Kind): boolean {
 
 /** One attic item, as the banner names it. */
 function noun(item: Item): string {
-  if (item.family === 'book') return item.tier === 0 ? 'book' : 'memory book';
+  if (item.family === 'book') return item.tier < 3 ? 'old book' : 'Big Memory Book';
   return ['loose photo', 'photo bundle', 'photo album'][Math.min(item.tier, 2)];
 }
 
@@ -39,19 +39,22 @@ function selectionGuide(state: UiState): string {
 }
 
 /**
- * The attic's banner: one short next step at a time, from the loose photos to the memory book. Where items are ready
- * to merge, it says to pick one up: not every matching drop merges (the corner of an L of three, dropped onto one of
- * its arms, doesn't), so picking up highlights where it does, or which items to pick up instead (selectionGuide).
+ * The attic's banner: one short next step at a time, from the loose photos to opening the Big Memory Book. Where items
+ * are ready to merge, it says to pick one up: not every matching drop merges (the corner of an L of three, dropped onto
+ * one of its arms, doesn't), so picking up highlights where it does, or which items to pick up instead (selectionGuide).
  */
 export function atticGuide(state: UiState): string {
   const { session } = state;
-  if (state.status === 'won') return 'You made the memory book! Tap Continue the story.';
+  if (state.status === 'won') return 'The story continues…';
+  if (session.board.some((r, row) => r.some((_, col) => goalOpenableAt(session, { row, col })))) {
+    return 'You made the Big Memory Book! Tap it to open it.';
+  }
   const picked = selectionGuide(state);
   if (picked) return picked;
   if (session.unpacked.includes(KEEPSAKE_BOX)) {
-    return ready(state, { family: 'book', tier: 0 })
-      ? 'Three old books! Pick one up, then drop it where the books light up, to make the memory book.'
-      : 'Move two books side by side, then drop the third onto them to make the memory book.';
+    return ready(state, { family: 'book', tier: 2 })
+      ? 'Two more old books! Pick one up, then drop it where the books light up, to make the Big Memory Book.'
+      : 'Move two old books side by side, then drop the third onto them to make the Big Memory Book.';
   }
   if (containerShown(session, KEEPSAKE_BOX)) return 'The photos are tidy, and under the dust sheet is an old wooden box. Tap it to open it.';
   if (cellsOf(state, { family: 'photo', tier: 1 }).length >= 3) {

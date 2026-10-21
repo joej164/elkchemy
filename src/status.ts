@@ -147,6 +147,7 @@ export function isGoalMet(state: SessionState): boolean {
   const { board, level, supplyIndex } = state;
   const { goal } = level;
   if (goal.kind === 'item') {
+    if (goal.open && !state.collected) return false;
     if (goal.region === undefined) return hasItem(board, goal.item);
     return isOpen(state, goal.region) && hasItemIn(board, level.regions![goal.region], goal.item);
   }

@@ -6,6 +6,15 @@ export interface ReleaseNote { readonly title: string; readonly date: string; re
 
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    title: 'Step into Alisha’s story',
+    date: 'October 20, 2026',
+    notes: [
+      'Find The Attic in Levels, above level 1.',
+      'View one picture and one line at a time. Tap the scene to continue, or use Back to reread.',
+      'Find two books in the old box to join the one on the floor. Merge them, then tap the Big Memory Book to open it and continue the story.',
+    ],
+  },
+  {
     title: 'A box of memories',
     date: 'October 20, 2026',
     notes: [

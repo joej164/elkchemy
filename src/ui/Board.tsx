@@ -5,7 +5,7 @@ import type { Item, Pos } from '../board';
 import {
   isFixed, isOpen, regionAt, roomOf, routeFrom, routeOf, sealedRegion, type GateSymbol, type PlateUnlock, type Region, type TaskUnlock,
 } from '../regions';
-import { closedContainerAt, containerShown, isCellOpen, type Container } from '../session';
+import { closedContainerAt, containerShown, goalOpenableAt, isCellOpen, type Container } from '../session';
 import { ChestArt, DustSheetArt, ItemArt, itemLabel, KeepsakeBoxArt, PrizeArt, ShoeboxArt } from './ItemArt';
 import { AtticLampArt, AtticWindowArt, ShelfArt, StackedBoxesArt } from './AtticArt';
 import { direct, palaceShots, viewCue, type Camera, type Frames, type Phase, type Shot, type View } from './camera';
@@ -666,7 +666,10 @@ export function Board({ state, dispatch, onOverflowChange, onPalaceOpening, onPr
             const box = closedContainerAt(state.session, pos);
             const container = box === -1 ? undefined : state.session.level.containers![box];
             const covered = !!container && !containerShown(state.session, box);
+            // An `open` item goal (the attic): the made goal item, waiting to be tapped open.
+            const openable = goalOpenableAt(state.session, pos);
             if (item || treasure || chest || container) cls.push('has-item');
+            if (openable) cls.push('is-openable');
             if (container) cls.push(covered ? 'is-covered' : 'has-container');
             if (locked) cls.push('is-locked');
             if (plate) {
@@ -694,7 +697,7 @@ export function Board({ state, dispatch, onOverflowChange, onPalaceOpening, onPr
               : chest ? `${state.session.level.recipe!.name}, closed, tap to open`
               : container ? (covered ? 'something under a dust sheet'
                 : `${container.name}, closed, holds ${batchText(container.contents)}, tap to open`)
-              : item ? itemLabel(item) : 'empty';
+              : item ? `${itemLabel(item)}${openable ? ', tap to open' : ''}` : 'empty';
             const mark = plate ? `, ${plate.kind === 'stone' ? 'stone' : 'pressure plate'} for ${itemLabel(plate.item)}${fixed ? ', fixed' : ''}` : '';
             // Cells are named after their room, so a joined part reads as the room it belongs to.
             const place = region ? `, ${regions![roomOf(regions!, ri)].name}${locked ? ', locked' : ''}${mark}` : '';

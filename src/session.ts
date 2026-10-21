@@ -6,7 +6,8 @@ import {
 
 /**
  * `item`: make `item` (its family at its tier or higher) anywhere on the board; with `region` (region levels),
- *   inside that region once it is open.
+ *   inside that region once it is open. With `open` (container levels: the attic's Big Memory Book), making it is not
+ *   yet the win: it must then be opened by a tap (see openGoal).
  * `items`: have every target in `items` (each its family at its tier or higher) on the board at
  *   once. A target counts as complete while such an item is present; targets need distinct families.
  * `leaveOne`: place all supply and finish with exactly one item on the board; with `item`, that
@@ -16,7 +17,7 @@ import {
  *   with tasks), it stays hidden until that task, in its room, is done. Its cell never holds an item.
  */
 export type LevelGoal =
-  | { readonly kind: 'item'; readonly item: Item; readonly region?: number }
+  | { readonly kind: 'item'; readonly item: Item; readonly region?: number; readonly open?: boolean }
   | { readonly kind: 'items'; readonly items: readonly Item[] }
   | { readonly kind: 'leaveOne'; readonly item?: Item }
   | { readonly kind: 'treasure'; readonly at: Pos; readonly prize?: Prize; readonly task?: number };
@@ -78,7 +79,10 @@ export interface SessionSnapshot {
   readonly moves: number;
   /** Regions unlocked so far: regions 0..unlocked are open (always 0 for levels without regions). */
   readonly unlocked: number;
-  /** Room levels: the treasure has been collected (always false otherwise). */
+  /**
+   * Room levels: the treasure has been collected. Levels with an `open` item goal: the goal item has been opened
+   * (see openGoal). Always false otherwise.
+   */
   readonly collected: boolean;
   /** Levels with tasks: the tasks done so far, in the order done (always empty otherwise). */
   readonly done: readonly number[];
@@ -216,6 +220,22 @@ export function treasureRevealed(state: SessionState): boolean {
 export function collect(state: SessionState): SessionState {
   if (state.level.goal.kind !== 'treasure' || state.collected || !treasureRevealed(state)) return state;
   return { ...state, collected: true, moves: state.moves + 1, undo: snapshot(state) };
+}
+
+/** Levels with an `open` item goal: whether the item at `p` is the made goal item, not yet opened. */
+export function goalOpenableAt(state: SessionState, p: Pos): boolean {
+  const { goal } = state.level;
+  const c = state.board[p.row]?.[p.col];
+  return goal.kind === 'item' && !!goal.open && !state.collected && !!c && c.family === goal.item.family && c.tier >= goal.item.tier;
+}
+
+/**
+ * Levels with an `open` item goal: opens the made goal item at `p`, once (it stays on the board). This wins, and is a
+ * checkpoint: Undo is cleared.
+ */
+export function openGoal(state: SessionState, p: Pos): SessionState {
+  if (!goalOpenableAt(state, p)) return state;
+  return { ...state, collected: true, moves: state.moves + 1, undo: null };
 }
 
 /** Recipe levels: the one chest has not been crafted yet. */
