@@ -9,18 +9,22 @@ import type { Point } from './navigation';
  * - `region`: a region the action opened is brought into view;
  * - `palace` (levels with tasks): the action opened the sealed region (the Crystal Palace), so the view goes to its gate
  *   while its symbols glow and it opens, then to the region.
+ * - `entrance` (party levels): Alisha stood on her plate, so the view keeps it and the opening palace entrance in sight.
  * An action that opens several regions together (level 9's branches) moves nothing, so there is never more than one cue.
  */
 export type Cue =
   | { readonly kind: 'start' }
   | { readonly kind: 'region'; readonly region: number }
-  | { readonly kind: 'palace'; readonly region: number; readonly gate: Pos };
+  | { readonly kind: 'palace'; readonly region: number; readonly gate: Pos }
+  | { readonly kind: 'entrance'; readonly plate: Pos; readonly door: Pos };
 
 export function viewCue(state: UiState): Cue | null {
   const a = state.lastAction;
   const { regions, tasks } = state.session.level;
   if (!a || !regions) return null;
   if (a.kind === 'retry') return { kind: 'start' };
+  const { party, goal } = state.session.level;
+  if (a.kind === 'stand' && party && goal.kind === 'treasure') return { kind: 'entrance', plate: goal.at, door: party.door };
   const sealed = tasks ? sealedRegion(regions) : -1;
   const gate = sealed !== -1 ? (regions[sealed].unlock as TaskUnlock).passage : undefined;
   if (gate && 'progress' in a && a.progress?.regions.includes(sealed)) return { kind: 'palace', region: sealed, gate };

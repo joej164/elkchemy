@@ -5,6 +5,10 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "build:dev": "vite build --mode dev",
+    "hosting:prepare": "node hosting/hosting.mjs prepare",
+    "hosting:check": "node hosting/hosting.mjs check",
+    "hosting:check-live": "node hosting/hosting.mjs check-live",
     "preview": "vite preview",
     "test": "vitest run",
     "music:scores": "node artwork/music/scores.mjs"

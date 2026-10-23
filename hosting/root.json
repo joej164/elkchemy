@@ -1,0 +1,284 @@
+{
+  "build": "20261021-024248",
+  "source": {
+    "commit": "89948a3749ee529d74cd9e710fd82fb652edb765",
+    "workingTreeClean": true
+  },
+  "published": {
+    "url": "https://elkchemy.web.app/",
+    "firebaseVersion": "projects/361997464390/sites/elkchemy/versions/9fb0192e2122df23",
+    "releaseTime": "2026-10-21T02:44:17.799Z",
+    "verified": "2026-10-23: every file downloaded from the live site; byte-identical to a rebuild of the source commit with ELKCHEMY_BUILD_ID=20261021-024248; each firebaseHash equals the live version's file hash (Hosting API); the live version holds these 36 files plus Firebase's reserved /__/firebase/init.js and init.json."
+  },
+  "config": {
+    "ignore": [
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "headers": [
+      {
+        "source": "/",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache"
+          }
+        ]
+      },
+      {
+        "source": "**/*.html",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache"
+          }
+        ]
+      },
+      {
+        "source": "/manifest.webmanifest",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache"
+          }
+        ]
+      },
+      {
+        "source": "/version.json",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache"
+          }
+        ]
+      },
+      {
+        "source": "/assets/**",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "public, max-age=31536000, immutable"
+          }
+        ]
+      }
+    ]
+  },
+  "files": [
+    {
+      "path": "assets/alisha-elk-play-landscape-v4-BzqpgLly.webp",
+      "bytes": 257036,
+      "sha256": "c9a297b3488391e4a78102944dd2031a4843642db46b79118df0ce80ba5edda1",
+      "firebaseHash": "4bc1ebb5bf46ddb8a4e8b18b91e0edfea3d8e553245abc83261f4eb4241ed569"
+    },
+    {
+      "path": "assets/alisha-elk-play-portrait-v1-BYcOfaEB.webp",
+      "bytes": 280188,
+      "sha256": "9d11bc82edf8741c33335451f700b922ad745a39f7513662467af1a10d9e3d07",
+      "firebaseHash": "b850f6bf1020da664e6355f8c44cbe0a82b5d764f31c0d59ab8ba93019472c82"
+    },
+    {
+      "path": "assets/attic-closing-1-v2-DdIzpUWu.webp",
+      "bytes": 126518,
+      "sha256": "8459d501d86c35eb1a4d3d13369a02e0fb74ef361e4589932f5614669c3b26fd",
+      "firebaseHash": "cd4d823590f3567409cd3d196771109f58399e17282e2869e1ee642ef7f5e538"
+    },
+    {
+      "path": "assets/attic-closing-2-v2-Cq_zEaFR.webp",
+      "bytes": 115678,
+      "sha256": "1a379f8f3ecffcfccb996f9ccc9ba99dc3400f4b39298784f939d4c4b435360a",
+      "firebaseHash": "28481f9dce24557c369fe28db91154da1b9d1f2aece8d60ada09fcd306e678e6"
+    },
+    {
+      "path": "assets/attic-opening-1-v2-CIzPbftd.webp",
+      "bytes": 120068,
+      "sha256": "3794959ff68fbd7c2aa3ae70e47cb1a3871c84c25c3b112b7bfe7a4bc698ef38",
+      "firebaseHash": "bba7e673ea424144654f275bdc103d757c69837bd7b95f8695495fc69dbd4a7f"
+    },
+    {
+      "path": "assets/attic-opening-2-v3-B2DwpkLW.webp",
+      "bytes": 102482,
+      "sha256": "0118ff794dddeaf62d7bcaaad3af3f02731ef28d702627525ddc7b24a176da04",
+      "firebaseHash": "56ad91fe0be411e0da1fc20478b08657e3b50dbac4a70f496d4654d7fa71da7f"
+    },
+    {
+      "path": "assets/attic-opening-3-v2-Clr_nGEz.webp",
+      "bytes": 102354,
+      "sha256": "934381d1cd327f6f2eec450ca7034772e1e266d86a23857fe9e10dbd007657d2",
+      "firebaseHash": "ba4798fdb02e1e4bd20ebc54a88bb42d780a94904306552350ffc9c3463dce11"
+    },
+    {
+      "path": "assets/attic-opening-4-v2-WeEU5QhK.webp",
+      "bytes": 117890,
+      "sha256": "8afc3f43d0e1176b87baff6abe5749366c468e0db5f53390930fbbb8647eb57d",
+      "firebaseHash": "cdb5d0fb356f56a79cb5b40a26f7065c5d45d0025c937790ccf8ce420da92bf1"
+    },
+    {
+      "path": "assets/curious-clearing-BOtDJmo7.musicxml",
+      "bytes": 84874,
+      "sha256": "ac9c2ef7de9da5f4230319cfe2c36a3f0d16d32682638c9629f5bfaccbac0b4d",
+      "firebaseHash": "5fbfcc48771f775caa6d200990b24841be1977e0af880ee9c15ff3cdcfba4a88"
+    },
+    {
+      "path": "assets/curious-clearing-clarinet-CiBInCdH.svg",
+      "bytes": 111509,
+      "sha256": "46663514bb4dafa75f1e3a85c1107e362246e2e9bf19ac7a8dafe4adc3fe9f0e",
+      "firebaseHash": "2bc38eb8d6deef3a01f086868fb6dcc34c081659da15d78e3be47c6fd6271508"
+    },
+    {
+      "path": "assets/curious-clearing-ukulele-BmsisuWa.svg",
+      "bytes": 247114,
+      "sha256": "66f199153ef77dd97a111312286e8feee1cd56e51d68f4486f3f8e7add5db849",
+      "firebaseHash": "261872bb2abf54d0865ce0f2af3fb523cd247686ce491c0b2f952ef7f52894e1"
+    },
+    {
+      "path": "assets/index-cBBTLRSB.js",
+      "bytes": 370145,
+      "sha256": "5fda8bc61f6056afa6898d19352ed3c1f521a2362cc3600e3a004a129da81f0b",
+      "firebaseHash": "62da8388f3ff80ad8dbf071b6ac658c9e3d8bb81f5c35a910f9d3fcb8c8ddafd"
+    },
+    {
+      "path": "assets/index-dEcFk9Y6.css",
+      "bytes": 41434,
+      "sha256": "8e8daacb727d7da3cc1298e34395298d356c3568024421b1df866a99eaf7b621",
+      "firebaseHash": "1651d0529fd43d3d06c76f034faea94aaca75cc12e937aebdfee7f0cc705ea09"
+    },
+    {
+      "path": "assets/woodland-cheering-landscape-v1-CR1KO1UU.webp",
+      "bytes": 314212,
+      "sha256": "63ad64fd9ccad81b3e994d1c7fec1674e06d7e58ad5451d3b8854c86443a64b5",
+      "firebaseHash": "b672db08fbf42719ebd0a7ec3bda0993475ba541a8f7cbdf22671af38c35a074"
+    },
+    {
+      "path": "assets/woodland-cheering-portrait-v1-CuBzZkpD.webp",
+      "bytes": 385688,
+      "sha256": "cabf6b55a6302c63426fca840f2e3aa45e3346c64fb5432185722129dda8d0b1",
+      "firebaseHash": "1489b570aa16fae59a00c475b165db7a4df51c2a2498a2d19436a2ce0c0ab4cd"
+    },
+    {
+      "path": "assets/woodland-home-landscape-v1-DD6I5Sas.webp",
+      "bytes": 304960,
+      "sha256": "44227f56b3427ccadcf2678619f87a4d6f910cd0c8794c18944c33c0cd2e42e7",
+      "firebaseHash": "c52c7e27c6fa6b7a39704377a41bd2f79aa2ea76be887516bdc0a72a0c707014"
+    },
+    {
+      "path": "assets/woodland-home-portrait-v1-DweJRglP.webp",
+      "bytes": 299552,
+      "sha256": "cb06acd0a945939fc9caab6efaccd16febd9948ca73e075a4ed36edf1b698ee1",
+      "firebaseHash": "eb8de68be9dc64d4c1a1746d1c855864dfba88eb68bbcecef1b4edb39d677291"
+    },
+    {
+      "path": "assets/woodland-stroll-97XO77ad.musicxml",
+      "bytes": 62005,
+      "sha256": "b7ae5fbb51bd9b0ed8952e2d67d4236d582b0ebc8d99c35305215d15fee7186d",
+      "firebaseHash": "2acb6f901943892c55d3bf0537a778e27b556a3ea970a9e1cc23ffd286277e2d"
+    },
+    {
+      "path": "assets/woodland-stroll-clarinet-DSn8tkGp.svg",
+      "bytes": 115037,
+      "sha256": "413e3099eac1fe7dea7aeadbfbf6c51cf965393feb98e1dd9fd087c28753578d",
+      "firebaseHash": "b55559e2b709a03a01b9e6b49cd6259b4be901d3e212d3290ec40d14236f6763"
+    },
+    {
+      "path": "assets/woodland-stroll-ukulele-DDfuXTd1.svg",
+      "bytes": 187306,
+      "sha256": "21bd6e777dc2da086f34b4c449481bef894f454219820281d17b0340428fb895",
+      "firebaseHash": "3bb645983bd7b3ea1b0c38dbc77bde6bea3527223e042c0cc6a6dfa91c77e79c"
+    },
+    {
+      "path": "audio/case-victory.wav",
+      "bytes": 136844,
+      "sha256": "9137e0d864f1f7a08d51a8187a90b7ef02a420ca450e743353268b091e6c7c32",
+      "firebaseHash": "5e6e6134b134da88558455c5c41f9cb751d2d8bc09056fc1671af365f048d4b8"
+    },
+    {
+      "path": "audio/completion.wav",
+      "bytes": 46124,
+      "sha256": "cebebbae73a77ee9a9c383c5a4a94fbabdfe939c96b62875734979a84233133c",
+      "firebaseHash": "d2c5eef720cdf24ef328f91f2c5531cba822e70b20566df544081565e88acc5a"
+    },
+    {
+      "path": "audio/crystal-palace.wav",
+      "bytes": 2710632,
+      "sha256": "f21c175e89aab2a70faef38a6fb03e38fe9c52eea7b896180c0923cdec1d15d6",
+      "firebaseHash": "9fde125c68eb7dba1a8ea1bbf76cc41b74c7757e306fc1b10df85394432d4721"
+    },
+    {
+      "path": "audio/curious-clearing.wav",
+      "bytes": 1001784,
+      "sha256": "c362eb1a66e06d1121aeac61c9dad6e25826fc27d0ce74a790081d01606f6139",
+      "firebaseHash": "f6e9f9e7a58446c3bd20a7e050d0199383da6663deae3d2e66b94ac6b6b977c5"
+    },
+    {
+      "path": "audio/discovery.wav",
+      "bytes": 56684,
+      "sha256": "172c26d68e6cd943d924a4895db8fb4c892b5dd2bae088d0784abe3668dcdd64",
+      "firebaseHash": "13a7d0869f29258e5605d8dccbe1c731ea5bd46251dcbc85eea3d56ed5172a6f"
+    },
+    {
+      "path": "audio/merge-five.wav",
+      "bytes": 31724,
+      "sha256": "d9c8d7011d6944b28b71ea42748af3004f8f0f1127244e6acb56290429fceaa1",
+      "firebaseHash": "3c295b82a285e3dd5b33cf3d95067782162b768b5200f5c3e39254fcd68ab54d"
+    },
+    {
+      "path": "audio/merge-three.wav",
+      "bytes": 17324,
+      "sha256": "6a2a2a1bfd31ef4d1893da14aca2424ab3058466adc0ca0060576e219dc1f068",
+      "firebaseHash": "b31c85df1f216500dfb198f5b9dd028161b20aaf0d5adbbc3fe4f54d82e7a79e"
+    },
+    {
+      "path": "audio/woodland-journey.wav",
+      "bytes": 3371752,
+      "sha256": "e74582c5f5f521d67d45b5e322cc25aaf659b0c979d457ff6642700838046c85",
+      "firebaseHash": "d97cfad393e8686a2777c8fe153c52ca48f578b69af6f8de10e1ba730fa715c8"
+    },
+    {
+      "path": "audio/woodland-stroll.wav",
+      "bytes": 1212676,
+      "sha256": "3556fba45221a7bed160ad61eb3dc4a1911d8816916d82681ecc0526473a6c33",
+      "firebaseHash": "e799e5296ea4399e36d744febbf47503dc1179d81c768d102d16ed2e4f0fba33"
+    },
+    {
+      "path": "icons/apple-touch-icon.png",
+      "bytes": 80720,
+      "sha256": "9b6ffd15dbf9bc3b0c18af88744eff2bbf4b38f88e9811068220d3bb8130be11",
+      "firebaseHash": "a0560d74d8df7e13f37c64ecf525b185bc488b6769134f848134e03a20c22ce3"
+    },
+    {
+      "path": "icons/favicon-32.png",
+      "bytes": 3057,
+      "sha256": "51f6db68395f5cd54f276b065dd69851d434708e15bb3cb7ebed9f8d859bbb34",
+      "firebaseHash": "ebe4a6ab7e41219c6d3f89ebf719fe23eb112566598acbfb129791c7d6add269"
+    },
+    {
+      "path": "icons/icon-192.png",
+      "bytes": 91200,
+      "sha256": "e6e56119a8f993018818554643494271e5d1376963f6edf57957d630dc7bb50d",
+      "firebaseHash": "d070981ac407037756b5bdd65c1d5173462d047a19389c1f3e929f7f76340983"
+    },
+    {
+      "path": "icons/icon-512.png",
+      "bytes": 611955,
+      "sha256": "531330e1eb7642d4b3e44097420f750037e5796d71a6b89420d7f4899ac3cae1",
+      "firebaseHash": "281261d60902fc75c50bbed7233ba22939b02b418174accb6649fdd50579a440"
+    },
+    {
+      "path": "index.html",
+      "bytes": 671,
+      "sha256": "fc90fd149900548a79bc8fda5b620548fd92ead03ded6262ef51c6d9a48094b2",
+      "firebaseHash": "9c6b9e18beb9bae477e6e6952a919a71e75183a463c9d004a89b1eff5e1a9d47"
+    },
+    {
+      "path": "manifest.webmanifest",
+      "bytes": 388,
+      "sha256": "a9c7f5f7e95c29fb5b6cebca0ef4cdce4c634c89e418066adf60fa208cda00c0",
+      "firebaseHash": "8c3ba0f8e66025e711104b353106ea8da6da72d69304eff03b9eacb543ccf2af"
+    },
+    {
+      "path": "version.json",
+      "bytes": 28,
+      "sha256": "cf1d1778d1e1c4d30614ef38a2a2fcfba7e005a390a3ea35f7138a7a019092c2",
+      "firebaseHash": "d6c6a9251e3df4bf0f213a213d511b57d0ff089906b0dff00a9569e2cd35ce7d"
+    }
+  ]
+}

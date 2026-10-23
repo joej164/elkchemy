@@ -1,6 +1,7 @@
 {
   "hosting": {
-    "public": "dist",
+    "public": "hosting/public",
+    "predeploy": ["node hosting/hosting.mjs check"],
     "ignore": ["**/.*", "**/node_modules/**"],
     "headers": [
       { "source": "/", "headers": [{ "key": "Cache-Control", "value": "no-cache" }] },
@@ -9,6 +10,13 @@
       { "source": "/version.json", "headers": [{ "key": "Cache-Control", "value": "no-cache" }] },
       {
         "source": "/assets/**",
+        "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }]
+      },
+      { "source": "/dev/", "headers": [{ "key": "Cache-Control", "value": "no-cache" }] },
+      { "source": "/dev/manifest.webmanifest", "headers": [{ "key": "Cache-Control", "value": "no-cache" }] },
+      { "source": "/dev/version.json", "headers": [{ "key": "Cache-Control", "value": "no-cache" }] },
+      {
+        "source": "/dev/assets/**",
         "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }]
       }
     ]

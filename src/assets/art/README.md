@@ -39,3 +39,14 @@ Owner-approved panel art (October 20, 2026), from `artwork/story/attic/` (proven
 | attic-closing-2-v2.webp | closing-2-draft-v2.png | 115678 |
 
 All six decoded at 960 × 720 in Chromium and were inspected in the game's comic layout. Closing panels 3 and 4 reuse `public/icons/icon-512.png` and `woodland-home-landscape-v1.webp` unchanged. Source SHA-256 values still match `artwork/story/attic/manifest-v2.json` after conversion; the approved Alisha reference is unchanged (`365002398195fb49b6ad2080cd995b3784f56b002c6a16a73bc0759436d84404`).
+
+## Chapter 1 palace entry panels (drafts)
+
+The palace entrance prototype's entry scene (October 23, 2026), from `artwork/story/chapter-one/` (prompts, status and checksums: `render-manifest.json`; review: `review.html`). Both are drafts awaiting owner review, not approved art. Same method as the Attic panels: each source (1448 × 1086, 4:3, untagged 8-bit RGB, treated as sRGB) was downscaled to 960 × 720 with Chromium 155.0.8059.12 `createImageBitmap` (`resizeQuality: 'high'`), drawn to an sRGB 2D canvas and encoded as WebP at quality 0.80; the VP8X container and ICC chunk were then removed with Python's standard library, leaving a single VP8 chunk (not recompressed). No crop.
+
+| File | Source | Feedback code | Bytes |
+| --- | --- | --- | ---: |
+| chapter-one-09-palace-entry-v1.webp | 09-palace-entry-draft-v1.png | C1-09 | 164094 |
+| chapter-one-10-palace-interior-v1.webp | 10-palace-interior-draft-v1.png | C1-10 | 151968 |
+
+Both decoded at 960 × 720 in Chromium and were inspected in the game's comic layout at four phone and iPad sizes. Source SHA-256 values match `render-manifest.json` before and after conversion (`8c52618a12ccced6584e9a3dc164009925401a9d2b52167b5124e5fe8491e3cb`, `c3eb7993772185d34d8907811d99dffd231c2bc3aa31e2abeacd7601580cc79d`); the sources were not modified.

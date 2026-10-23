@@ -1,6 +1,6 @@
 # Elkchemy
 
-Elkchemy is a woodland merge puzzle. The app opens on a home screen, a painted woodland scene with the elk, and four choices: Play (generated puzzles), Levels (nine handcrafted levels, any of which can be started, and above them Story prototype: The Attic, an opening-story tutorial, below), Music / Scores (clarinet and ukulele arrangements of the game music), and Release notes (a short player-facing history of what changed; the internal record is [docs/release-notes.md](docs/release-notes.md)). Every other screen has a Home button.
+Elkchemy is a woodland merge puzzle. The app opens on a home screen, a painted woodland scene with the elk, and four choices: Play (generated puzzles), Levels (nine handcrafted levels, any of which can be started, and above them Story prototype: The Attic, an opening-story tutorial, below; the development preview at /dev/ adds the palace entrance prototype), Music / Scores (clarinet and ukulele arrangements of the game music), and Release notes (a short player-facing history of what changed; the internal record is [docs/release-notes.md](docs/release-notes.md)). Every other screen has a Home button.
 
 ## Generated puzzles
 
@@ -72,6 +72,18 @@ A bounded opening-story tutorial, not yet the campaign: a separate entry at the 
 
 Containers (`Container` in `src/session.ts`): each stands on its own cell and holds a fixed batch of one or more items. Tap one to open it: the whole batch comes out on its cell and the nearest empty cells (distance, then reading order), never onto another box; without room nothing comes out. Opening removes it and clears Undo; Retry restores the floor and every box. A covered box opens only once its item is on the board. Container levels never report a loss: tests search every reachable inventory of the attic and play hundreds of random games past both boxes. The banner gives one step at a time (`src/ui/atticGuide.ts`); the header lists the boxes and what each holds. An `open` item goal (`LevelGoal`, the attic only) needs the made item tapped open to win (`openGoal`); its opening plays in `src/ui/BookOpening.tsx`. An item recipe (`LevelDefinition.craft`, the attic only) crafts an ordinary item through the same drop as Merge to treasure's chests (`craftAt`); generated recipes and their chests are unchanged. Not every matching drop merges (the corner of an L of three, dropped onto an arm, doesn't), so picking an item up (tap or drag) rings the items it would merge onto in dashed gold; if it merges nowhere from there, the banner says so and the items that would merge get a solid gold ring. The board is the same grid drawn as an attic (a plank floor framed by rafters, a window, a lamp, stored boxes and shelves); idle, it shows no grid, and empty spaces are subtly outlined only while an item is picked up. The comic uses the owner-approved illustrations (`artwork/story/attic/`); item, box and room art are code-native placeholders pending owner review; see [docs/release-notes.md](docs/release-notes.md).
 
+## Story prototype: the palace entrance (unreleased)
+
+A bounded prototype of Chapter 1's palace entrance (level 3 of [docs/story/chapter-one-review.html](docs/story/chapter-one-review.html)), with placeholder board art and draft entry illustrations, playable in the development preview (https://elkchemy.web.app/dev/, see Deploy; not in the published game): Levels → Palace entrance prototype, after The Attic, outside the numbered levels and their progress. It tests character placement and a speech bubble on a larger staged map (`src/entrance.ts`, 20 × 11), worked from the bottom up with the Crystal Palace's marked-tile rules (each a checkpoint, done for good):
+
+1. **Southern clearing:** Grove 2 of 5 on its marked tile opens the Forked path. Alisha and Fiona wait below it.
+2. **Forked path:** Song 3 opens both terraces.
+3. **West terrace:** Crystal 3 and Grove 2 on its two tiles light the crystal symbol. **East terrace:** Grove 2 reveals a concealed part (as in The Hidden Cache), then Song 3 lights the musical note. Either order.
+4. **Upper approach:** opens when both symbols are lit; Grove 3 on its tile reveals the hidden Palace forecourt, with the palace entrance and Alisha's pressure plate. Until then they are plain forest.
+5. **Alisha:** the pair are now beside the forecourt. Her bubble, "I can stand on that plate.", pauses the board until it is tapped (or Enter/Space on it); then drag her onto the glowing plate, or tap her and then the plate. Only she can stand on it; it opens the entrance for good and wins. **Enter the palace** (offered once the doors have opened on the board) plays a short entry scene over the draft illustrations C1-09 and C1-10 (`src/assets/art/README.md`), then returns to Levels.
+
+Alisha and Fiona stand on scenery spots, never on item cells, and never merge or swap. Exact inventories: the level can't be stranded. Idle, the rooms' tiles show no edges; they are outlined while something is picked up. Rules, checks and limitations: [docs/release-notes.md](docs/release-notes.md) Unreleased.
+
 ## Rules and controls
 
 - Drag an item (or tap it, then tap a destination). Dropping onto a matching item merges its connected matching group: Merge 3 for 1 upgraded item; merge 5 for 2.
@@ -132,9 +144,12 @@ npm run dev
 ## Build & Preview
 
 ```bash
-npm run build
-npm run preview
+npm run build          # the game at /, into dist/ (never deployed directly)
+npm run preview        # serves dist/
+npm run build:dev      # the development preview at /dev/, into dist-dev/
 ```
+
+`npm run build:dev` (`vite build --mode dev`) builds the working tree for https://elkchemy.web.app/dev/: base `/dev/`, build id `dev-<UTC timestamp>`, its own `version.json`, title and manifest (start, scope and icons under `/dev/`, so Add to Home Screen installs it as "Elkchemy Dev"), and a "Development preview" strip above every screen. Every URL it loads (assets, audio, icons, the update check and the update reload) stays under `/dev/`. Neither output is a hosting root: see Deploy.
 
 ## Music
 
@@ -146,7 +161,7 @@ Chromium checks cover decoding, loop configuration, mute/resume, level switching
 
 ## Updates
 
-The footer shows the running build id. "Check for updates" fetches the deployed `/version.json` on demand (never automatically) and compares it with the build id compiled into the app; if it differs, "Update now" reloads the app, which returns to the home screen and discards the current attempt. There is no service worker, so the app is not available offline.
+The footer shows the running build id. "Check for updates" fetches the deployed `/version.json` (the development preview: `/dev/version.json`) on demand (never automatically) and compares it with the build id compiled into the app; if it differs, "Update now" reloads the app, which returns to the home screen and discards the current attempt. There is no service worker, so the app is not available offline.
 
 Hosting headers (`firebase.json`): HTML, `manifest.webmanifest` and `version.json` use `Cache-Control: no-cache` (always revalidated); hashed files under `/assets/` are cached for a year (`immutable`). Icons use Firebase defaults.
 
@@ -154,6 +169,26 @@ The build id defaults to a UTC timestamp (`YYYYMMDD-HHMMSS`); set `ELKCHEMY_BUIL
 
 ## Deploy
 
+One Firebase Hosting release serves two apps: the **published game** at `/` and the **development preview** at `/dev/`. Firebase replaces the whole release on every deploy, so every deploy re-uploads the published game, and it must come from the exact published files, never from a build of the working tree.
+
+| Path | What | In git |
+| --- | --- | --- |
+| `hosting/root/` | The published game, byte for byte: build `20261021-024248` (commit `89948a3`), the files Firebase serves at `/` | yes (`binary` in `.gitattributes`) |
+| `hosting/root.json` | Its record: build, source commit, Firebase version and release time, every file's size, SHA-256 and Firebase hash, and production's `firebase.json` rules | yes |
+| `hosting/hosting.mjs` | Prepares and checks releases (no dependencies) | yes |
+| `dist/`, `dist-dev/` | `npm run build` / `npm run build:dev` outputs | no |
+| `hosting/public/` | The release to deploy: `hosting/root/` plus `dist-dev/` as `dev/` | no |
+
+**Dev release** (the published game stays exactly as it is):
+
 ```bash
-firebase deploy --only hosting --project elkchemy
+npm test && npm run build:dev   # the preview, into dist-dev/
+npm run hosting:check-live      # optional, read-only: the live / still serves exactly hosting/root
+npm run hosting:prepare         # verify hosting/root, assemble hosting/public, check it
+firebase emulators:start --only hosting --project elkchemy   # optional: http://127.0.0.1:5000/ and /dev/
+firebase deploy --only hosting --project elkchemy            # runs node hosting/hosting.mjs check first
 ```
+
+`firebase.json` deploys only `hosting/public` and runs `node hosting/hosting.mjs check` before every hosting deploy; any problem stops the deploy. The check requires: every root file byte-identical to `hosting/root.json` and no other file outside `dev/`; `dev/` a development preview (its page, assets, manifest and `version.json` under `/dev/`, no root URL in its code, a `dev-` build id different from the root's); and `firebase.json` with production's rules unchanged and new rules only for `/dev`. A plain `npm run build` and `firebase deploy` therefore can't publish the working tree at `/`: `dist/` is not deployed, and copying it into `hosting/public` fails the check. `/dev` (no slash) reaches `/dev/` through Hosting's own directory redirect; there is deliberately no redirect rule, since Firebase matches redirects with or without a trailing slash and `/dev` → `/dev/` would loop. `/dev/` is public; there is no service worker.
+
+**Production promotion** (intentional, separate review): build the reviewed commit with `npm run build` from a clean tree, then `node hosting/hosting.mjs promote dist` (refuses a dev build), which replaces `hosting/root/` and rewrites `hosting/root.json` from it with the commit. Review and commit `hosting/`, then prepare, check and deploy as above, and record the new live release (Firebase version, release time) in `hosting/root.json`. Until then every deploy keeps publishing the recorded root.

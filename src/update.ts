@@ -1,5 +1,11 @@
 export const BUILD_ID: string = __BUILD_ID__;
 
+/**
+ * Where this build is served from (Vite's base): / for the published game, /dev/ for the development preview. Each
+ * checks its own version.json and reloads its own page, so the preview never compares itself with production.
+ */
+const BASE: string = import.meta.env.BASE_URL;
+
 export type UpdateCheck =
   | { readonly kind: 'current'; readonly build: string }
   | { readonly kind: 'available'; readonly build: string }
@@ -9,9 +15,10 @@ export type UpdateCheck =
 export async function checkForUpdate(
   current: string = BUILD_ID,
   fetchFn: typeof fetch = globalThis.fetch,
+  base: string = BASE,
 ): Promise<UpdateCheck> {
   try {
-    const res = await fetchFn(`/version.json?t=${Date.now()}`, { cache: 'no-store' });
+    const res = await fetchFn(`${base}version.json?t=${Date.now()}`, { cache: 'no-store' });
     if (!res.ok) return { kind: 'error' };
     const data: unknown = await res.json();
     const build = (data as { build?: unknown } | null)?.build;
@@ -22,8 +29,8 @@ export async function checkForUpdate(
   }
 }
 
-export function updateUrl(build: string): string {
-  return `/?update=${encodeURIComponent(build)}`;
+export function updateUrl(build: string, base: string = BASE): string {
+  return `${base}?update=${encodeURIComponent(build)}`;
 }
 
 export function applyUpdate(build: string, loc: Pick<Location, 'replace'> = window.location): void {

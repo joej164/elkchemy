@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { MAX_TIER, type Item, type Family } from '../board';
 import type { Prize } from '../session';
+import { PalaceDoorArt } from './StoryArt';
 
 export const FAMILY_NAMES: Record<Family, string> = { grove: 'Grove', song: 'Song', crystal: 'Crystal', elk: 'Elk', photo: 'Photos', book: 'Book' };
 
@@ -595,6 +596,7 @@ export function DustSheetArt() {
 
 /** A room level's treasure, closed until `open`. */
 export function PrizeArt({ prize = 'backpack', open }: { prize?: Prize; open: boolean }) {
+  if (prize === 'entrance') return <PalaceDoorArt open={open} />;
   if (prize === 'ukulele') return <UkuleleCaseArt open={open} />;
   return prize === 'clarinet' ? <ClarinetCaseArt open={open} /> : <BackpackArt open={open} />;
 }

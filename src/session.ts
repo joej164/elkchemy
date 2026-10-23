@@ -1,7 +1,8 @@
 import { drop, previewMerge, type Board, type Cell, type Item, type Pos } from './board';
 import { isIngredientPair, isPair, type ItemRecipe, type Recipe } from './recipes';
 import {
-  availableTasks, isFixed, isOpen, nextLocked, platesHold, platesMet, regionAt, roomOf, unlockReady, validateRegions, type Region, type Task,
+  availableTasks, isFixed, isOpen, nextLocked, platesHold, platesMet, regionAt, roomOf, routeOf, unlockReady, validateRegions, type Region,
+  type Task,
 } from './regions';
 
 /**
@@ -14,7 +15,8 @@ import {
  *   last item must be exactly `item` (its family at exactly its tier).
  * `treasure` (room levels): collect the treasure at `at`, hidden in the last room until it opens, by tapping it.
  *   `prize` is what it is: a disc-golf backpack (the default), a clarinet case or a ukulele case. With `task` (levels
- *   with tasks), it stays hidden until that task, in its room, is done. Its cell never holds an item.
+ *   with tasks), it stays hidden until that task, in its room, is done. Its cell never holds an item. The palace entrance
+ *   prototype's `entrance` is Alisha's pressure plate instead: she opens it by standing on it (see Party), not by a tap.
  */
 export type LevelGoal =
   | { readonly kind: 'item'; readonly item: Item; readonly region?: number; readonly open?: boolean }
@@ -22,7 +24,7 @@ export type LevelGoal =
   | { readonly kind: 'leaveOne'; readonly item?: Item }
   | { readonly kind: 'treasure'; readonly at: Pos; readonly prize?: Prize; readonly task?: number };
 
-export type Prize = 'backpack' | 'clarinet' | 'ukulele';
+export type Prize = 'backpack' | 'clarinet' | 'ukulele' | 'entrance';
 
 /**
  * A placed container (the attic story prototype): it stands on its own cell, which holds no item, and holds a fixed
@@ -36,6 +38,22 @@ export interface Container {
   readonly art: 'shoebox' | 'keepsake-box';
   readonly contents: readonly Item[];
   readonly hiddenUntil?: Item;
+}
+
+/** Where Alisha and Fiona stand: scenery cells, never an item's. */
+export interface Spots { readonly alisha: Pos; readonly fiona: Pos }
+
+/**
+ * The palace entrance prototype: Alisha and Fiona on the board, beside the items but never one of them: they never
+ * merge, swap or take an item's cell. They stand at `start` until the goal's plate (its treasure cell, an `entrance`, in
+ * the last room) is revealed with that room, then at `waiting`, beside it. Alisha's one destination is that plate:
+ * standing her on it (see standOnPlate) opens the palace entrance at `door`, a scenery cell beside the last room drawn
+ * with it, and wins.
+ */
+export interface Party {
+  readonly start: Spots;
+  readonly waiting: Spots;
+  readonly door: Pos;
 }
 
 export interface LevelDefinition {
@@ -75,6 +93,8 @@ export interface LevelDefinition {
    * there, as one undoable move (see craftAt); unlike a recipe's chest, the result is a board item like any other.
    */
   readonly craft?: ItemRecipe;
+  /** The palace entrance prototype: Alisha and Fiona, and the entrance Alisha opens (see Party). */
+  readonly party?: Party;
 }
 
 export interface SessionSnapshot {
@@ -133,10 +153,31 @@ function validateContainers(level: LevelDefinition): void {
   if (level.supply.length > 0 || level.regions || level.recipe) throw new Error('Unsupported container level');
 }
 
-/** Throws for unsupported region levels (see validateRegions) and container levels (see validateContainers). */
+/**
+ * The palace entrance prototype: an `entrance` treasure goal goes with a party, in a level with tasks; every spot and the
+ * door are distinct scenery cells (outside every region, link and route).
+ */
+function validateParty(level: LevelDefinition): void {
+  const { party, goal, regions, board } = level;
+  const entrance = goal.kind === 'treasure' && goal.prize === 'entrance';
+  if (!party && !entrance) return;
+  if (!party || !entrance || !level.tasks) throw new Error('Unsupported party level');
+  const route = new Set(regions!.flatMap(routeOf).map((p) => `${p.row},${p.col}`));
+  const cells = [party.start.alisha, party.start.fiona, party.waiting.alisha, party.waiting.fiona, party.door];
+  const keys = new Set(cells.map((p) => `${p.row},${p.col}`));
+  if (keys.size !== cells.length || cells.some((p) => !inBounds(board, p) || regionAt(regions!, p) !== -1 || route.has(`${p.row},${p.col}`))) {
+    throw new Error('Unsupported party level');
+  }
+}
+
+/**
+ * Throws for unsupported region levels (see validateRegions), container levels (see validateContainers) and party levels
+ * (see validateParty).
+ */
 export function startSession(level: LevelDefinition): SessionState {
   validateRegions(level);
   validateContainers(level);
+  validateParty(level);
   return {
     level, board: level.board, supplyIndex: 0, rngState: level.seed, moves: 0, unlocked: 0, collected: false, done: [],
     chest: null, opened: false, unpacked: [], undo: null,
@@ -221,10 +262,32 @@ export function treasureRevealed(state: SessionState): boolean {
   return isOpen(state, regionAt(regions!, goal.at)) && (goal.task === undefined || state.done.includes(goal.task));
 }
 
-/** Room levels: collects the treasure once it is revealed. One undoable move. */
+/** Room levels: collects the treasure once it is revealed. One undoable move. A party's plate is never collected by a tap. */
 export function collect(state: SessionState): SessionState {
-  if (state.level.goal.kind !== 'treasure' || state.collected || !treasureRevealed(state)) return state;
+  if (state.level.goal.kind !== 'treasure' || state.level.party || state.collected || !treasureRevealed(state)) return state;
   return { ...state, collected: true, moves: state.moves + 1, undo: snapshot(state) };
+}
+
+/**
+ * Party levels: where Alisha and Fiona stand now: their start spots until the plate is revealed, then their waiting
+ * spots; once she stands on it, Alisha is on the plate.
+ */
+export function partySpots(state: SessionState): Spots | null {
+  const { party, goal } = state.level;
+  if (!party || goal.kind !== 'treasure') return null;
+  const spots = treasureRevealed(state) ? party.waiting : party.start;
+  return state.collected ? { ...spots, alisha: goal.at } : spots;
+}
+
+/**
+ * Party levels: stands Alisha on her plate at `to`, once it is revealed (with its room). That opens the palace entrance
+ * for good and wins: a checkpoint, so Undo is cleared. Anywhere else, or again, nothing changes.
+ */
+export function standOnPlate(state: SessionState, to: Pos): SessionState {
+  const { party, goal } = state.level;
+  if (!party || goal.kind !== 'treasure' || state.collected || !treasureRevealed(state)) return state;
+  if (goal.at.row !== to.row || goal.at.col !== to.col) return state;
+  return { ...state, collected: true, moves: state.moves + 1, undo: null };
 }
 
 /** Levels with an `open` item goal: whether the item at `p` is the made goal item, not yet opened. */

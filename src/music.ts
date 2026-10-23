@@ -4,10 +4,12 @@ export interface MusicState {
   error: boolean;
 }
 
-export const WOODLAND_MUSIC = '/audio/woodland-stroll.wav';
-export const PUZZLE_MUSIC = '/audio/curious-clearing.wav';
-export const JOURNEY_MUSIC = '/audio/woodland-journey.wav';
-export const PALACE_MUSIC = '/audio/crystal-palace.wav';
+// Under the app's base path: / for the published game, /dev/ for the development preview.
+const AUDIO = `${import.meta.env.BASE_URL}audio/`;
+export const WOODLAND_MUSIC = `${AUDIO}woodland-stroll.wav`;
+export const PUZZLE_MUSIC = `${AUDIO}curious-clearing.wav`;
+export const JOURNEY_MUSIC = `${AUDIO}woodland-journey.wav`;
+export const PALACE_MUSIC = `${AUDIO}crystal-palace.wav`;
 
 /** One looping voice; no audio context or requests until the player enables music. */
 export class BackgroundMusic {

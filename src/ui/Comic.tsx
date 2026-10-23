@@ -11,6 +11,12 @@ export interface ComicPanel {
   readonly lines: readonly ComicLine[];
 }
 
+/**
+ * A tap this soon after the comic appears is the second half of the double tap that opened it (on the button that was
+ * under the same finger), not a request to move on, so it is ignored.
+ */
+export const COMIC_SETTLE_MS = 350;
+
 /** One text beat: line `line` of panel `panel`. A comic shows one beat at a time, with its panel's picture. */
 export interface Beat { readonly panel: number; readonly line: number }
 
@@ -77,10 +83,12 @@ export function Comic({ title, label, panels, finish, onFinish, onPanel, onHome,
   onPanelRef.current = onPanel;
   const id = useId();
 
-  useEffect(() => { sceneRef.current?.focus(); }, []);
+  const shownAt = useRef(0);
+  useEffect(() => { shownAt.current = performance.now(); sceneRef.current?.focus(); }, []);
   useEffect(() => { onPanelRef.current?.(panel); }, [panel]);
 
   const move = (to: 'next' | 'back') => {
+    if (to === 'next' && performance.now() - shownAt.current < COMIC_SETTLE_MS) return;
     const next = stepBeat(view.beat, beats.length, to);
     if (next === 'finish') onFinish();
     else if (next !== view.beat) setView({ beat: next, newPicture: beats[next].panel !== panel, moved: true });

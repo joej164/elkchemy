@@ -40,6 +40,12 @@ export const PRIZES: Record<Prize, PrizeText> = {
     done: 'Opened the ukulele case: a ukulele is inside.',
     won: 'Goal complete! You found a ukulele in the case.',
   },
+  // The palace entrance prototype: Alisha's plate, opened by standing her on it (never by a tap).
+  entrance: {
+    name: 'palace entrance', verb: 'open', opened: 'Alisha is standing on it, and the palace entrance is open',
+    done: 'Alisha stood on the plate. It sank with a click, and the palace entrance opened.',
+    won: 'The palace entrance is open!',
+  },
 };
 
 /** The text for a room level's treasure (the backpack unless the goal names another prize). */
@@ -53,7 +59,11 @@ function goalPlace(goal: LevelGoal, regions?: readonly Region[]): string {
   return goal.kind === 'item' && goal.region !== undefined && regions ? ` in ${regions[goal.region].name}` : '';
 }
 
+/** The palace entrance prototype: its goal is Alisha's plate, which (with its room) stays unnamed until revealed. */
+const isEntrance = (goal: LevelGoal) => goal.kind === 'treasure' && goal.prize === 'entrance';
+
 export function objectiveText(goal: LevelGoal, regions?: readonly Region[]): string {
+  if (isEntrance(goal)) return 'Goal: find the palace entrance';
   if (goal.kind === 'treasure') return `Goal: find the ${prizeText(goal).name}${goalPlace(goal, regions)}`;
   if (goal.kind === 'item') return `Goal: make ${itemLabel(goal.item)}${goalPlace(goal, regions)}${goal.open ? ', then open it' : ''}`;
   if (goal.kind === 'items') return `Goal: make ${allOf(goal.items.length)}`;
@@ -63,6 +73,7 @@ export function objectiveText(goal: LevelGoal, regions?: readonly Region[]): str
 
 /** Objective sentence for the help dialog. */
 export function helpObjective(goal: LevelGoal, regions?: readonly Region[]): string {
+  if (isEntrance(goal)) return 'Goal: open the rune gates northward and find the palace entrance.';
   if (goal.kind === 'treasure') {
     const { verb, name } = prizeText(goal);
     const gates = regions?.filter((r) => !!r.unlock && 'passage' in r.unlock && !!r.unlock.passage).length ?? 0;
@@ -220,7 +231,9 @@ function taskStep(state: UiState): string {
       const plates = branchPlates(session, branches[0]);
       return `Complete ${room} to open ${palace}: put ${plateItems(plates)} on its marked ${plates.length > 1 ? 'tiles' : 'tile'}.`;
     }
-    if (branches.length === needs.length) return `${found}Complete the ${countWord(needs.length)} branches in any order to open ${palace}.`;
+    if (branches.length === needs.length) {
+      return `${found}Complete the ${countWord(needs.length)} branches in ${needs.length === 2 ? 'either' : 'any'} order to open ${palace}.`;
+    }
     const rooms = listOf(branches.map((t) => regions[tasks[t].in].name));
     return `${found}Complete ${rooms} in ${branches.length === 2 ? 'either' : 'any'} order to open ${palace}.`;
   }
@@ -230,7 +243,7 @@ function taskStep(state: UiState): string {
   // Gates to every room the sealed region needs: the checklist names them, so the banner just counts them.
   const branchRooms = needs.map((n) => tasks[n].in);
   const to = opens.length > 1 && opens.length === branchRooms.length && opens.every((i) => branchRooms.includes(i))
-    ? `all ${countWord(opens.length)} branches` : listOf(opens.map((i) => regions[i].name));
+    ? `${allOf(opens.length)} branches` : listOf(opens.map((i) => regions[i].name));
   return `Put ${taskNeed(regions, tasks[t])} to open the rune ${opens.length > 1 ? 'gates' : 'gate'} to ${to}.`;
 }
 
@@ -249,8 +262,11 @@ export function progressText(tasksDone: readonly number[], opened: readonly numb
     if (goal.kind === 'treasure' && goal.task === t) return [`A closed ${prizeText(goal).name} appeared in ${regions[regions.length - 1].name}.`];
     return [];
   });
-  const shown = opened.filter((i) => !isConcealed(regions[i])).map((i) => regions[i].name);
+  // The palace entrance prototype: the last room, revealed, holds the entrance and Alisha's plate.
+  const last = isEntrance(goal) ? regions.length - 1 : -1;
+  const shown = opened.filter((i) => !isConcealed(regions[i]) && i !== last).map((i) => regions[i].name);
   for (const i of opened) if (isConcealed(regions[i])) parts.push(`More of ${regions[regions[i].joins!].name} was revealed, with more items to use.`);
+  if (opened.includes(last)) parts.push(`The way north is clear: ${regions[last].name}, with the palace entrance and a pressure plate.`);
   if (shown.length > 0) parts.push(`The rune ${shown.length > 1 ? 'gates' : 'gate'} to ${listOf(shown)} opened.`);
   return parts.map((part) => ` ${part}`).join('');
 }

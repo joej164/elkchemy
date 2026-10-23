@@ -598,7 +598,7 @@ body {
   .score { min-width: 0; }
 }
 /* Levels: the page fills the screen and the list scrolls in its own window, so the title and Home stay in view. */
-.app.is-page.is-levels { height: 100vh; height: 100dvh; grid-template-rows: minmax(0, 1fr) auto; align-items: stretch; }
+.app.is-page.is-levels { height: calc(100vh - var(--dev-strip, 0px)); height: calc(100dvh - var(--dev-strip, 0px)); grid-template-rows: minmax(0, 1fr) auto; align-items: stretch; }
 .level-page { min-height: 0; grid-template-rows: auto auto minmax(0, auto); }
 .level-scroll {
   position: relative; min-height: 0; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch;
@@ -650,7 +650,7 @@ body {
 }
 
 @media (orientation: landscape) and (min-width: 900px) {
-  :root { --board-size: min(56vw, calc(100dvh - 48px)); }
+  :root { --board-size: min(56vw, calc(100dvh - 48px - var(--dev-strip, 0px))); }
   .app {
     max-width: none;
     align-items: start;
@@ -686,7 +686,7 @@ body {
 }
 .app.is-page.is-scene {
   position: relative; z-index: 0; /* keeps the fixed artwork (z-index -1) behind the controls */
-  max-width: none; min-height: 100vh; min-height: 100dvh; padding: 0; gap: 0;
+  max-width: none; min-height: calc(100vh - var(--dev-strip, 0px)); min-height: calc(100dvh - var(--dev-strip, 0px)); padding: 0; gap: 0;
   align-items: stretch; justify-items: stretch;
   grid-template-columns: minmax(0, 1fr); grid-template-rows: 1fr auto; grid-template-areas: "page" "footer";
 }
@@ -981,4 +981,105 @@ body {
 .next-area.is-containers .check-item { width: 26px; height: 26px; }
 @media (prefers-reduced-motion: reduce) {
   [data-fx="unveil"] { display: none; }
+}
+
+/* The palace entrance prototype. Its rooms keep the woodland look, but a room's tiles join into one patch of ground
+   while idle: no tile edges, the floor colour filling the gaps between them (a spread shadow half the gap wide).
+   Picking something up (an item, or Alisha) outlines the tiles faintly. Marked tiles, gates and focus stay as elsewhere. */
+/* The spread reaches 2px past the gap's middle, so the rounded corners leave no specks where four tiles meet; while
+   outlined, it stops at the middle, so no tile's spread covers its neighbour's outline. */
+.board.is-entrance .cell {
+  border-color: transparent; border-radius: 2px;
+  background: var(--earth); box-shadow: 0 0 0 calc(var(--gap) / 2 + 2px) var(--earth);
+}
+.board.is-entrance.is-placing .cell { box-shadow: 0 0 0 calc(var(--gap) / 2) var(--earth); }
+.board.is-entrance.is-placing .cell:not(.is-locked) { border: 2px dashed rgb(74 50 32 / 0.32); }
+.board.is-entrance .cell.is-selected { border: 2px solid var(--amber); box-shadow: 0 0 0 4px var(--amber), inset 0 0 0 2px #fff6; }
+.board.is-entrance .cell.is-merge-preview {
+  background: radial-gradient(circle, #ffe9a0 0%, var(--gold) 80%); box-shadow: 0 0 14px 4px rgba(242, 193, 78, 0.9), inset 0 0 0 2px #fff8;
+}
+.board.is-entrance .cell.is-drop-target { border: 3px dashed var(--forest-1); background-color: #cfe3b5; }
+.board.is-entrance .cell.is-drop-target.is-merge-preview { background: radial-gradient(circle, #ffe9a0 0%, var(--gold) 80%); }
+.board.is-entrance .cell.is-drop-blocked { border: 3px dashed var(--berry); }
+.board.is-paused .cell { cursor: default; }
+.level-number svg { display: block; width: 100%; height: 100%; }
+
+/* Alisha and Fiona: labelled sprites on scenery spots beside the rooms, never on a tile. Alisha glows once she can
+   move (a steady glow under reduced motion), and is ringed while picked up. */
+.terrain.has-character { overflow: visible; z-index: 1; }
+.character {
+  position: absolute; inset: 0; display: grid; grid-template-rows: minmax(0, 1fr) auto; justify-items: center;
+  padding: 1px 1px 3px; border-radius: 10px;
+}
+.character-art { display: block; width: 100%; height: 100%; min-height: 0; }
+.character-art svg { display: block; width: 100%; height: 100%; pointer-events: none; filter: drop-shadow(0 2px 2px rgb(0 0 0 / 0.55)); }
+.character-name {
+  margin-top: -3px; padding: 0 6px; border-radius: 999px; border: 1px solid rgb(242 193 78 / 0.6);
+  background: var(--forest-1); color: var(--gold); font-size: 0.68rem; font-weight: 700; line-height: 1.35; white-space: nowrap;
+}
+button.character {
+  appearance: none; margin: 0; border: 0; background: transparent; color: inherit; font: inherit; cursor: grab;
+  touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent;
+}
+.character.is-ready { animation: gate-glow 1.6s ease-in-out infinite alternate; box-shadow: 0 0 0 3px var(--gold), 0 0 16px 4px rgb(242 193 78 / 0.75); }
+.character[aria-pressed="true"] { background: rgb(211 155 58 / 0.3); box-shadow: 0 0 0 4px var(--amber), inset 0 0 0 2px #fff6; }
+.character.is-lifted { opacity: 0.4; }
+.drag-ghost.is-alisha { transform: translate(-50%, -70%) scale(1.15); }
+
+/* Alisha's plate: a round stone for her, not a marked tile for an item. It glows once she can move, glows harder as her
+   target while she is picked up, and sinks under her once she stands on it. */
+.board .cell.is-character-plate { background: radial-gradient(circle, #efe4c8, var(--earth) 72%); }
+.cell.is-character-plate .plate-art { inset: 5px; }
+.board .cell.is-character-plate.is-ready { z-index: 1; box-shadow: 0 0 0 3px var(--gold), 0 0 14px 4px rgb(242 193 78 / 0.7); }
+.board .cell.is-character-plate.is-alisha-target {
+  z-index: 2; border: 3px dashed var(--forest-1); box-shadow: 0 0 0 4px var(--gold), 0 0 22px 8px rgb(242 193 78 / 0.9);
+  animation: gate-glow 1.2s ease-in-out infinite alternate;
+}
+.cell.is-character-plate.is-pressed .plate-art { animation: plate-press 450ms ease-out; }
+.cell.is-character-plate .plate-alisha { inset: 0 6px 10px; animation: alisha-step 300ms ease-out; }
+@keyframes plate-press { 0% { transform: translateY(-3px); } 60% { transform: translateY(2px) scale(0.96); } 100% { transform: none; } }
+@keyframes alisha-step { from { transform: translateY(-12px); opacity: 0.4; } to { transform: none; opacity: 1; } }
+
+/* The palace entrance in the palace wall above the forecourt: once Alisha stands on her plate its doors swing open (after
+   the plate sinks) and it glows. */
+.terrain.is-door { position: relative; z-index: 1; }
+.terrain.is-door.is-open { box-shadow: inset 0 0 0 2px #7b5ea7, 0 0 18px 6px rgb(242 193 78 / 0.7); }
+.terrain.is-door .door-leaf { transform-box: fill-box; }
+.terrain.is-door .door-leaf.is-left { transform-origin: left center; }
+.terrain.is-door .door-leaf.is-right { transform-origin: right center; }
+.terrain.is-door svg.is-opening .door-leaf { animation: door-swing 750ms 400ms ease-in-out backwards; }
+@keyframes door-swing { from { transform: scaleX(4.33); } to { transform: none; } }
+
+/* Alisha's speech bubble, beside her (its tail at her), over the board: it alone takes input until tapped. */
+.bubble-anchor { position: absolute; inset: 0; z-index: 8; pointer-events: none; }
+.speech-bubble {
+  pointer-events: auto; position: absolute; left: -6px; bottom: calc(100% + 12px);
+  width: max-content; max-width: min(290px, calc(var(--board-size) - 40px)); margin: 0;
+  display: grid; gap: 2px; text-align: left; padding: 8px 14px;
+  border: 3px solid var(--bark-dark); border-radius: 16px; background: #fffaf0; color: var(--ink);
+  font: inherit; font-size: 1.05rem; line-height: 1.25; box-shadow: 0 6px 14px rgb(0 0 0 / 0.45);
+  cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+  animation: bubble-pop 240ms ease-out;
+}
+.speech-bubble::before, .speech-bubble::after { content: ""; position: absolute; left: 24px; top: 100%; border: 11px solid transparent; }
+.speech-bubble::before { border-top-color: var(--bark-dark); }
+.speech-bubble::after { margin-top: -4px; left: 27px; border-width: 8px; border-top-color: #fffaf0; }
+.bubble-text { font-weight: 700; }
+.bubble-prompt { justify-self: end; font-size: 0.85rem; font-weight: 700; color: var(--bark); }
+@keyframes bubble-pop { from { transform: translateY(6px) scale(0.92); opacity: 0; } to { transform: none; opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+  .character.is-ready, .board .cell.is-character-plate.is-alisha-target { animation: none; }
+  .cell.is-character-plate.is-pressed .plate-art, .cell.is-character-plate .plate-alisha, .speech-bubble { animation: none; }
+  .terrain.is-door svg.is-opening .door-leaf { animation: none; }
+}
+
+/* The development preview (npm run build:dev, served at /dev/) says so in a strip above every screen. It is part of the
+   page, so it never covers a control; screens sized to the viewport subtract its height (--dev-strip, 0 in the published
+   game, which never renders it), so they still fit without scrolling. */
+:root:has(.dev-preview) { --dev-strip: 26px; }
+.dev-preview {
+  position: relative; z-index: 1; box-sizing: border-box; height: var(--dev-strip); margin: 0; padding: 0 12px;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--berry); color: #fff; border-bottom: 2px solid var(--gold);
+  font-size: 0.85rem; font-weight: 700; letter-spacing: 0.04em; white-space: nowrap;
 }

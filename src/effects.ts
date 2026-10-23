@@ -71,7 +71,7 @@ export class SoundEffects {
         const abort = new AbortController();
         const timer = setTimeout(() => abort.abort(), 15_000);
         try {
-          const response = await fetch(`/audio/${cue}.wav`, { signal: abort.signal });
+          const response = await fetch(`${import.meta.env.BASE_URL}audio/${cue}.wav`, { signal: abort.signal });
           if (!response.ok) throw new Error('Effect unavailable');
           return await context.decodeAudioData(await response.arrayBuffer());
         } finally { clearTimeout(timer); }

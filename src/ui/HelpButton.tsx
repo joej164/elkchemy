@@ -10,13 +10,18 @@ import './help.css';
  * `unlocked`: the regions open so far (the last one, or with `tasks`, whether each is open), so a concealed part of a room
  * is explained only once found.
  */
-export function HelpButton({ goal, largeBoard = false, puzzle = false, regions, unlocked = 0, tasks, recipe, containers = false, craft }: {
+export function HelpButton({ goal, largeBoard = false, puzzle = false, regions, unlocked = 0, tasks, recipe, containers = false, craft, party }: {
   goal: LevelGoal; largeBoard?: boolean; puzzle?: boolean; regions?: readonly Region[];
   unlocked?: number | ((i: number) => boolean); tasks?: readonly Task[]; recipe?: Recipe;
   /** A container level (the attic story prototype): boxes to open, no supply and no next level. */
   containers?: boolean;
   /** An item recipe (the attic): how its two ingredients combine. */
   craft?: ItemRecipe;
+  /**
+   * The palace entrance prototype: Alisha and Fiona are on the board; Alisha's plate is explained only once revealed
+   * ('plate'), not before ('hidden').
+   */
+  party?: 'hidden' | 'plate';
 }) {
   const dialogId = useId();
   const titleId = useId();
@@ -60,12 +65,18 @@ export function HelpButton({ goal, largeBoard = false, puzzle = false, regions, 
         <div className="help-content">
           <h2 id={titleId}>How to play</h2>
           <ul>
-            <li>{recipe ? recipeHelp(recipe, goal) : helpObjective(goal, regions)}{puzzle || containers ? '' : ' Winning unlocks the next level.'}</li>
+            <li>{recipe ? recipeHelp(recipe, goal) : helpObjective(goal, regions)}{puzzle || containers || party ? '' : ' Winning unlocks the next level.'}</li>
             <li>Drag an item, or tap it then tap where it should go.</li>
             <li>Drop onto a matching item to merge its connected group. Merge 3 for 1 upgraded item; merge 5 for 2.</li>
             {largeBoard && <li>{LARGE_BOARD_HINT} Center board recenters the view.</li>}
             <li>Dropping onto a different item swaps them; nothing merges on its own.</li>
             {craft && <li>{craftHelp(craft)}</li>}
+            {party && (
+              <li>
+                Alisha and Fiona travel with you; they are not items and never merge or swap.
+                {party === 'plate' && ' Drag Alisha onto her glowing pressure plate, or tap her, then the plate. Items can\'t stand on it, and once she does, it stays down.'}
+              </li>
+            )}
             {rooms ? (
               <li>{roomsHelp(regions ?? [], unlocked, tasks)}</li>
             ) : regions ? (

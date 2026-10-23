@@ -158,7 +158,7 @@ describe('HelpButton', () => {
   });
 
   it('the Levels page lists every level, any of which can be picked, marking the one up next', () => {
-    const page = renderToStaticMarkup(<LevelPicker levels={LEVELS} current={2} onPick={() => {}} onAttic={() => {}} onHome={() => {}} musicControl={null} />);
+    const page = renderToStaticMarkup(<LevelPicker levels={LEVELS} current={2} onPick={() => {}} onAttic={() => {}} onEntrance={() => {}} onHome={() => {}} musicControl={null} />);
     expect(page).toContain('<h1>Levels</h1>');
     expect(page).toContain('data-action="home"');
     expect((page.match(/data-action="pick-level"/g) ?? []).length).toBe(LEVELS.length);
@@ -173,7 +173,7 @@ describe('HelpButton', () => {
   });
 
   it('the Levels page offers The Attic above level 1, outside the numbered list, which is unchanged', () => {
-    const page = renderToStaticMarkup(<LevelPicker levels={LEVELS} current={2} onPick={() => {}} onAttic={() => {}} onHome={() => {}} musicControl={null} />);
+    const page = renderToStaticMarkup(<LevelPicker levels={LEVELS} current={2} onPick={() => {}} onAttic={() => {}} onEntrance={() => {}} onHome={() => {}} musicControl={null} />);
     const attic = page.indexOf('data-action="attic"');
     expect((page.match(/data-action="attic"/g) ?? []).length).toBe(1);
     expect(attic).toBeGreaterThan(page.indexOf('<div class="level-scroll" data-level-scroll'));
@@ -186,7 +186,7 @@ describe('HelpButton', () => {
   });
 
   it('the Levels page scrolls its list in its own window, below the title and Home, with the current level marked', () => {
-    const page = renderToStaticMarkup(<LevelPicker levels={LEVELS} current={8} onPick={() => {}} onAttic={() => {}} onHome={() => {}} musicControl={null} />);
+    const page = renderToStaticMarkup(<LevelPicker levels={LEVELS} current={8} onPick={() => {}} onAttic={() => {}} onEntrance={() => {}} onHome={() => {}} musicControl={null} />);
     const window = page.indexOf('<div class="level-scroll" data-level-scroll');
     expect(window).toBeGreaterThan(page.indexOf('<h1>Levels</h1>'));
     expect(window).toBeGreaterThan(page.indexOf('data-action="home"'));

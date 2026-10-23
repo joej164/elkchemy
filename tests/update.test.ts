@@ -49,6 +49,13 @@ describe('update URLs', () => {
   it('encodes the build', () => {
     expect(updateUrl('a b&c')).toBe('/?update=a%20b%26c');
   });
+  it('the development preview checks and reloads under its own base, never the published game\'s', async () => {
+    const f = fakeFetch({ build: 'dev-2' });
+    expect(await checkForUpdate('dev-1', f, '/dev/')).toEqual({ kind: 'available', build: 'dev-2' });
+    expect((f as any).mock.calls[0][0].startsWith('/dev/version.json?t=')).toBe(true);
+    expect(updateUrl('dev-2', '/dev/')).toBe('/dev/?update=dev-2');
+  });
+
   it('applyUpdate replaces location', () => {
     const replace = vi.fn();
     applyUpdate('x1', { replace });

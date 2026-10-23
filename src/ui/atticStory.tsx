@@ -17,7 +17,7 @@ const Art = ({ src }: { src: string }) => <img src={src} alt="" />;
 function ElkPhoto() {
   return (
     <div className="comic-photo">
-      <div className="comic-photo-frame"><img src="/icons/icon-512.png" alt="" /></div>
+      <div className="comic-photo-frame"><img src={`${import.meta.env.BASE_URL}icons/icon-512.png`} alt="" /></div>
     </div>
   );
 }

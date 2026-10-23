@@ -6,7 +6,7 @@
 .app.is-page.is-comic { max-width: none; padding-top: 8px; padding-bottom: 8px; grid-template-columns: minmax(0, 1fr); }
 .comic-page {
   max-width: 1240px; justify-self: center; gap: 8px;
-  height: calc(100vh - 16px); height: calc(100dvh - 16px);
+  height: calc(100vh - 16px - var(--dev-strip, 0px)); height: calc(100dvh - 16px - var(--dev-strip, 0px));
   grid-template-rows: auto minmax(0, 1fr) auto;
 }
 .comic-top { display: flex; align-items: center; gap: 8px; }

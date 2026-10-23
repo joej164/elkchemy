@@ -2,7 +2,7 @@ import type { Item, Pos, Tier } from '../board';
 import { inRegion, isFixed, isOpen, nextLocked, regionAt, roomOf, unlockReady } from '../regions';
 import {
   applyDrop, canDrop, chooseSupplyCell, closedContainerAt, collect, containerShown, craftedItem, goalOpenableAt, isCellOpen, openChest,
-  openContainer, openGoal, placeSupplyRandom, previewDrop, releaseCells, retry, startSession, treasureRevealed, undo, unlock,
+  openContainer, openGoal, placeSupplyRandom, previewDrop, releaseCells, retry, standOnPlate, startSession, treasureRevealed, undo, unlock,
   type LevelDefinition, type SessionState,
 } from '../session';
 import { evaluateStatus, type GameStatus } from '../status';
@@ -20,10 +20,11 @@ export interface Progress { readonly tasks: readonly number[]; readonly regions:
  * `revealed` (container levels): the covered container the action uncovered. `unpack`: a container opened, its batch at
  * `cells`. `openGoal`: the made goal item opened (the attic's Picture Book), which wins.
  * `craft`: a recipe's chest crafted, or, with an item recipe (the attic), `made` crafted at `at`.
+ * `stand` (the palace entrance prototype): Alisha stood on her plate, opening the palace entrance, which wins.
  */
 export type LastAction =
   | { readonly kind: 'move' | 'swap'; readonly opened?: number; readonly progress?: Progress; readonly revealed?: number }
-  | { readonly kind: 'undo' | 'retry' | 'collect' | 'open' | 'openGoal' }
+  | { readonly kind: 'undo' | 'retry' | 'collect' | 'open' | 'openGoal' | 'stand' }
   | { readonly kind: 'craft'; readonly made?: Item; readonly at?: Pos }
   | { readonly kind: 'unpack'; readonly container: number; readonly cells: readonly Pos[] }
   | { readonly kind: 'place'; readonly at: Pos; readonly item: Item }
@@ -46,6 +47,11 @@ export function openedRegion(a: LastAction | null): number | null {
   return a && 'opened' in a && a.opened !== undefined ? a.opened : null;
 }
 
+/**
+ * `alishaSelected` (party levels): Alisha is picked up (tapped), to be put on her plate by a tap on it. Any action, or an
+ * item picked up, puts her down. `bubbleDismissed` (party levels): her speech bubble has been tapped away; Retry
+ * brings it back with the rest of the level.
+ */
 export interface UiState {
   readonly session: SessionState;
   readonly status: GameStatus;
@@ -53,6 +59,8 @@ export interface UiState {
   readonly lastAction: LastAction | null;
   readonly actionSeq: number;
   readonly musicArea: 'woodland' | 'palace';
+  readonly alishaSelected: boolean;
+  readonly bubbleDismissed: boolean;
 }
 
 export type UiAction =
@@ -62,7 +70,12 @@ export type UiAction =
   | { readonly type: 'unlock'; readonly region?: number }
   | { readonly type: 'undo' }
   | { readonly type: 'retry' }
-  | { readonly type: 'clearSelection' };
+  | { readonly type: 'clearSelection' }
+  // Party levels: tap Alisha (to pick her up or put her down), drop her on a cell (a drag, or a tap once picked up), and
+  // tap her speech bubble away.
+  | { readonly type: 'selectAlisha' }
+  | { readonly type: 'placeAlisha'; readonly to: Pos }
+  | { readonly type: 'dismissBubble' };
 
 const inBounds = (s: SessionState, p: Pos): boolean =>
   Number.isInteger(p.row) && Number.isInteger(p.col) &&
@@ -73,12 +86,36 @@ const samePos = (a: Pos, b: Pos): boolean => a.row === b.row && a.col === b.col;
 const isOver = (state: UiState): boolean => state.status !== 'playing';
 
 function withSession(prev: UiState, session: SessionState, lastAction: LastAction): UiState {
-  return { session, status: evaluateStatus(session), selected: null, lastAction, actionSeq: prev.actionSeq + 1, musicArea: prev.musicArea };
+  return {
+    session, status: evaluateStatus(session), selected: null, lastAction, actionSeq: prev.actionSeq + 1, musicArea: prev.musicArea,
+    alishaSelected: false, bubbleDismissed: prev.bubbleDismissed,
+  };
 }
 
 export function initUi(level: LevelDefinition): UiState {
   const session = startSession(level);
-  return { session, status: evaluateStatus(session), selected: null, lastAction: null, actionSeq: 0, musicArea: 'woodland' };
+  return {
+    session, status: evaluateStatus(session), selected: null, lastAction: null, actionSeq: 0, musicArea: 'woodland',
+    alishaSelected: false, bubbleDismissed: false,
+  };
+}
+
+/** Party levels: Alisha's plate is revealed (with its room), so she can speak and then stand on it. */
+export function plateRevealed(state: UiState): boolean {
+  return !!state.session.level.party && treasureRevealed(state.session);
+}
+
+/**
+ * Party levels: Alisha's speech bubble is showing: from the move that reveals her plate until it is tapped away (never
+ * once she has stood on it). While it shows, the board is paused: only the bubble itself, Retry and leaving do anything.
+ */
+export function bubbleOpen(state: UiState): boolean {
+  return plateRevealed(state) && !state.bubbleDismissed && !state.session.collected;
+}
+
+/** Party levels: Alisha can be picked up and put on her plate: it is revealed, her bubble dismissed, the game on. */
+export function canMoveAlisha(state: UiState): boolean {
+  return plateRevealed(state) && state.bubbleDismissed && state.status === 'playing';
 }
 
 export function nextSupplyItem(state: UiState): Item | null {
@@ -100,11 +137,14 @@ export function canUnlock(state: UiState, region?: number): boolean {
   return state.status === 'playing' && unlockReady(state.session) && (region === undefined || region === nextLocked(state.session));
 }
 
-/** Whether the item at `pos` can be picked up (tapped to select, or dragged): playing, not locked away and not fixed. */
+/**
+ * Whether the item at `pos` can be picked up (tapped to select, or dragged): playing, not locked away and not fixed, and
+ * no speech bubble pausing the board.
+ */
 export function canPickUp(state: UiState, pos: Pos): boolean {
   const { session } = state;
-  return !isOver(state) && inBounds(session, pos) && session.board[pos.row][pos.col] !== null && isCellOpen(session, pos) &&
-    !isFixed(session, pos);
+  return !isOver(state) && !bubbleOpen(state) && inBounds(session, pos) && session.board[pos.row][pos.col] !== null &&
+    isCellOpen(session, pos) && !isFixed(session, pos);
 }
 
 /** Room levels: the treasure is visible (its room is open, and its task done), collected or not. */
@@ -207,14 +247,32 @@ function doDrop(state: UiState, from: Pos, to: Pos): UiState {
   return withSession(state, next, next.unlocked > session.unlocked ? { ...lastAction, opened: next.unlocked } : lastAction);
 }
 
+/** Party levels: Alisha dropped on `to` (dragged, or tapped there once picked up). Only her revealed plate takes her. */
+function placeAlisha(state: UiState, to: Pos): UiState {
+  if (!canMoveAlisha(state)) return state;
+  const next = standOnPlate(state.session, to);
+  if (next === state.session) return state.alishaSelected ? { ...state, alishaSelected: false } : state;
+  return withSession(state, next, { kind: 'stand' });
+}
+
 export function reduceUi(state: UiState, action: UiAction): UiState {
+  // An open speech bubble pauses the board: nothing but tapping it away, Retry or putting things down does anything.
+  if (bubbleOpen(state) && action.type !== 'dismissBubble' && action.type !== 'retry' && action.type !== 'clearSelection') return state;
   switch (action.type) {
     case 'drop':
       return doDrop(state, action.from, action.to);
+    case 'dismissBubble':
+      return bubbleOpen(state) ? { ...state, bubbleDismissed: true } : state;
+    case 'selectAlisha':
+      return canMoveAlisha(state) ? { ...state, selected: null, alishaSelected: !state.alishaSelected } : state;
+    case 'placeAlisha':
+      return placeAlisha(state, action.to);
     case 'tap': {
       const { pos } = action;
       const { session, selected } = state;
       if (isOver(state) || !inBounds(session, pos)) return state;
+      // Alisha picked up: a tap on her plate stands her there; anywhere else puts her down, and does nothing more.
+      if (state.alishaSelected) return placeAlisha(state, pos);
       // Room levels: tapping the revealed treasure collects it, whatever is selected.
       const { goal } = session.level;
       if (goal.kind === 'treasure' && samePos(goal.at, pos)) {
@@ -262,8 +320,8 @@ export function reduceUi(state: UiState, action: UiAction): UiState {
     case 'undo':
       return canUndo(state) ? withSession(state, undo(state.session), { kind: 'undo' }) : state;
     case 'retry':
-      return withSession({ ...state, musicArea: 'woodland' }, retry(state.session), { kind: 'retry' });
+      return withSession({ ...state, musicArea: 'woodland', bubbleDismissed: false }, retry(state.session), { kind: 'retry' });
     case 'clearSelection':
-      return state.selected === null ? state : { ...state, selected: null };
+      return state.selected === null && !state.alishaSelected ? state : { ...state, selected: null, alishaSelected: false };
   }
 }

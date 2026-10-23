@@ -1,0 +1,2 @@
+# The published game, kept byte for byte (see hosting/hosting.mjs): never convert line endings or diff it.
+hosting/root/** binary

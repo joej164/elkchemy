@@ -5,6 +5,7 @@ import { generatePuzzle, TREASURE_TIERS, treasureConfig, type GeneratedPuzzle, t
 import { RECIPES, recipeById, type ItemRecipe, type Recipe } from '../recipes';
 import { containerShown, type Container, type LevelDefinition, type LevelGoal, type SessionState } from '../session';
 import { ATTIC_LEVEL } from '../attic';
+import { ENTRANCE_LEVEL } from '../entrance';
 import { hasItem } from '../status';
 import { availableTasks, isOpen, nextLocked, sealedRegion, type Region, type Task, type TaskUnlock } from '../regions';
 import { Board, ContainerArt, LockIcon, RuneGate, SymbolIcon } from './Board';
@@ -12,6 +13,8 @@ import { Comic } from './Comic';
 import { CLOSING_PANELS, memoryMusicOn, OPENING_PANELS } from './atticStory';
 import { afterOpening, BookOpening } from './BookOpening';
 import { atticGuide } from './atticGuide';
+import { afterEntranceOpening, ENTRANCE_OPENING_MS, entranceGuide } from './entranceGuide';
+import { ENTRY_PANELS } from './StoryArt';
 import { HelpButton } from './HelpButton';
 import { Home } from './Home';
 import { LevelPicker } from './LevelPicker';
@@ -68,7 +71,7 @@ export function describeAction(
     case 'swap': return `Swapped two items.${gate}${reveal}`;
     case 'place': return `Placed ${itemLabel(a.item)} in row ${a.at.row + 1}, column ${a.at.col + 1}.`;
     case 'unlock': return `Unlocked ${regions?.[a.region]?.name ?? 'an area'}.`;
-    case 'collect': return prizeText(goal).done;
+    case 'collect': case 'stand': return prizeText(goal).done;
     case 'openGoal': return goal.kind === 'item' ? `Opened the ${itemName(goal.item)}.` : '';
     case 'craft': {
       if (!a.made) return `Crafted the ${recipe?.name ?? 'chest'}. Tap it to open it.`;
@@ -96,7 +99,9 @@ type Screen =
   | { readonly kind: 'levels' }
   | { readonly kind: 'puzzle'; readonly puzzle: GeneratedPuzzle }
   // The Attic (story prototype, from Levels): its opening comic, the puzzle, then its closing comic.
-  | { readonly kind: 'attic'; readonly phase: 'opening' | 'play' | 'closing' };
+  | { readonly kind: 'attic'; readonly phase: 'opening' | 'play' | 'closing' }
+  // The palace entrance prototype (from Levels): the puzzle, then its entry scene.
+  | { readonly kind: 'entrance'; readonly phase: 'play' | 'closing' };
 
 const isSongGoal = (d: LevelDefinition) => d.goal.kind === 'item' && d.goal.item.family === 'song';
 
@@ -120,7 +125,8 @@ export function App({ levels = LEVELS }: { levels?: readonly Level[] }) {
   const [index, setIndex] = useState(0);
   const [config, setConfig] = useState<PuzzleConfig>({ mode: 'goals', tier: 3, goals: 1 });
   const active = screen.kind === 'levels' ? levels[index].definition : screen.kind === 'puzzle' ? screen.puzzle.definition
-    : screen.kind === 'attic' && screen.phase === 'play' ? ATTIC_LEVEL : null;
+    : screen.kind === 'attic' && screen.phase === 'play' ? ATTIC_LEVEL : screen.kind === 'entrance' && screen.phase === 'play' ? ENTRANCE_LEVEL
+    : null;
   const [musicArea, setMusicArea] = useState<'woodland' | 'palace'>('woodland');
   // The closing comic's last picture, the woodland memory, brings in Woodland Journey once revealed, for the rest of it.
   const [memoryMusic, setMemoryMusic] = useState(false);
@@ -165,8 +171,8 @@ export function App({ levels = LEVELS }: { levels?: readonly Level[] }) {
     }
   };
   const toHome = () => show({ kind: 'home' });
-  const inGame = screen.kind === 'levels' || screen.kind === 'puzzle' || (screen.kind === 'attic' && screen.phase === 'play');
-  const comic = screen.kind === 'attic' && screen.phase !== 'play';
+  const inGame = screen.kind === 'levels' || screen.kind === 'puzzle' || ((screen.kind === 'attic' || screen.kind === 'entrance') && screen.phase === 'play');
+  const comic = (screen.kind === 'attic' || screen.kind === 'entrance') && screen.phase !== 'play';
   // Home and Play are drawn over full-screen artwork (SceneArt).
   const scene = screen.kind === 'home' || screen.kind === 'play';
 
@@ -190,7 +196,8 @@ export function App({ levels = LEVELS }: { levels?: readonly Level[] }) {
       {screen.kind === 'pick' && (
         <LevelPicker levels={levels} current={index} musicControl={musicControl} onHome={toHome}
           onPick={(i) => { setIndex(i); show({ kind: 'levels' }); window.scrollTo(0, 0); }}
-          onAttic={() => { show({ kind: 'attic', phase: 'opening' }); window.scrollTo(0, 0); }} />
+          onAttic={() => { show({ kind: 'attic', phase: 'opening' }); window.scrollTo(0, 0); }}
+          onEntrance={() => { show({ kind: 'entrance', phase: 'play' }); window.scrollTo(0, 0); }} />
       )}
       {screen.kind === 'levels' && (
         <Game key={run} onMusicAreaChange={setMusicArea} playEffect={effects.play} stopEffects={effects.stop} definition={levels[index].definition} musicControl={musicControl} onHome={toHome}
@@ -218,6 +225,16 @@ export function App({ levels = LEVELS }: { levels?: readonly Level[] }) {
         <Game key={run} onMusicAreaChange={setMusicArea} playEffect={effects.play} stopEffects={effects.stop} definition={ATTIC_LEVEL}
           musicControl={musicControl} onHome={toHome} label="Story prototype · The Attic" scene="attic" guide={atticGuide}
           onWin={() => show({ kind: 'attic', phase: 'closing' })} />
+      )}
+      {screen.kind === 'entrance' && screen.phase === 'play' && (
+        <Game key={run} onMusicAreaChange={setMusicArea} playEffect={effects.play} stopEffects={effects.stop} definition={ENTRANCE_LEVEL}
+          musicControl={musicControl} onHome={toHome} label="Story prototype · Palace entrance" scene="entrance" guide={entranceGuide}
+          winLabel="Enter the palace" onWin={() => show({ kind: 'entrance', phase: 'closing' })} />
+      )}
+      {screen.kind === 'entrance' && screen.phase === 'closing' && (
+        <Comic key={run} title="Palace entrance" label="Entry" panels={ENTRY_PANELS}
+          finish={{ prompt: 'Tap to return to Levels.', name: 'Back to Levels' }}
+          onFinish={() => show({ kind: 'pick' })} onHome={toHome} musicControl={musicControl} />
       )}
       <footer className="app-footer">
         <UpdateControl />
@@ -338,8 +355,11 @@ interface GameProps {
   /** Generated puzzles: the reproduction ID, and New puzzle (offered throughout). */
   puzzleId?: string;
   onNewPuzzle?: () => void;
-  /** The attic story prototype: its own room in place of the woodland backdrop and tiles (see Board). */
-  scene?: 'attic';
+  /**
+   * The attic story prototype: its own room in place of the woodland backdrop and tiles. The palace entrance prototype:
+   * the woodland, with its tiles' edges hidden while idle (see Board).
+   */
+  scene?: 'attic' | 'entrance';
   /** A level's own banner text, in place of statusMessage (the attic's step-by-step guidance). */
   guide?: (state: UiState) => string;
 }
@@ -428,6 +448,14 @@ export function Game({
   winRef.current = onWin;
   // Cancelled by the next action (Retry) and by leaving (Home), so it never moves on afterwards.
   useEffect(() => afterOpening(state, () => winRef.current?.()), [state.actionSeq]);
+  // Party levels: Enter the palace is offered once the entrance has opened on the board (at once under reduced motion);
+  // the wait is cancelled the same way.
+  const [entered, setEntered] = useState(-1);
+  useEffect(() => {
+    const seq = state.actionSeq;
+    const still = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+    return afterEntranceOpening(state, () => setEntered(seq), still ? 0 : ENTRANCE_OPENING_MS);
+  }, [state.actionSeq]);
   useEffect(() => { onMusicAreaChange?.(state.musicArea); }, [state.musicArea, onMusicAreaChange]);
   useEffect(() => () => stopEffects?.(), [stopEffects]);
   useEffect(() => {
@@ -445,7 +473,7 @@ export function Game({
     playEffect?.('completion');
   };
   const puzzle = puzzleId !== undefined;
-  const { goal, regions, tasks, recipe, containers, craft } = state.session.level;
+  const { goal, regions, tasks, recipe, containers, craft, party } = state.session.level;
   const nextArea = regions ? nextLocked(state.session) : null;
   const nextUnlock = nextArea !== null ? regions![nextArea].unlock : undefined;
   const concealedPlates = nextArea !== null && isConcealed(regions![nextArea]) && nextUnlock && 'plates' in nextUnlock
@@ -488,14 +516,15 @@ export function Game({
   return (
     <>
       {/* Decorative: web copies of artwork/gameplay/woodland-cheering-*-v1.png, behind the unchanged board layout. */}
-      {!scene && <SceneArt className="is-game" landscape={gameLandscapeArt} portrait={gamePortraitArt} alt="" />}
+      {scene !== 'attic' && <SceneArt className="is-game" landscape={gameLandscapeArt} portrait={gamePortraitArt} alt="" />}
       <header className={`info${regions ? ' has-regions' : ''}${containers ? ' has-containers' : ''}`}>
         <div className="title-row">
           <h1>Elkchemy</h1>
           <div className="title-controls">
             {musicControl}
             <HelpButton goal={goal} largeBoard={pannable} puzzle={puzzle} regions={regions} tasks={tasks} recipe={recipe} containers={!!containers}
-              craft={craft} unlocked={tasks ? (i: number) => isOpen(state.session, i) : state.session.unlocked} />
+              craft={craft} unlocked={tasks ? (i: number) => isOpen(state.session, i) : state.session.unlocked}
+              party={party ? (isOpen(state.session, regions!.length - 1) ? 'plate' : 'hidden') : undefined} />
           </div>
         </div>
         <p className="level-label">{label}</p>
@@ -585,7 +614,9 @@ export function Game({
           // Undo, Retry and Home stay on an iPad's screen.
           tasks ? (
             <div className="row">
-              <button type="button" className="btn btn-next" data-action="next-level" onClick={onWin}>{winLabel}</button>
+              {/* Party levels: offered once the entrance has opened on the board; it stays in place, disabled, until then. */}
+              <button type="button" className="btn btn-next" data-action="next-level" disabled={!!party && entered !== state.actionSeq}
+                onClick={onWin}>{winLabel}</button>
               {homeButton}
             </div>
           ) : (
