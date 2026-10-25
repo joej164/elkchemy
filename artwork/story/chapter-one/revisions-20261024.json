@@ -1,0 +1,42 @@
+[
+  {
+    "code": "C1-06C",
+    "file": "06c-second-throw-draft-v1.png",
+    "title": "Another shot",
+    "target": "06-woodland-trail-draft-v1.png",
+    "prompt": "New 4:3 landscape scene at forest disc golf clearing. Young Alisha has just thrown a pink disc toward a distant metal chain basket, but disc curves RIGHT toward an OLD partly decayed tree at right side of clearing. Fiona stands safely BESIDE Alisha at the throwing position, both in foreground LEFT. This is their SECOND throw after meeting. A small wooden course maintenance TOOL SHED behind the old tree in midground, still intact; ordinary healthy trees surround clearing. Show flight veering right, not toward Fiona or back toward Alisha. No collision/fall yet. Full bodies, antlers margins. Same characters and clothes from supplied image, replace workbench scene completely, no workbench. No captions or text.",
+    "generated": "/home/joe/.codex/generated_images/01a155f0-549f-76c0-b072-20fb120793ee/exec-ff155f8c-8145-4b22-ad69-fa0da86e0e44.png"
+  },
+  {
+    "code": "C1-06",
+    "file": "06-tool-shed-collapse-draft-v2.png",
+    "title": "The tree falls",
+    "target": "06-woodland-trail-draft-v1.png",
+    "prompt": "New 4:3 landscape story scene: after second disc throw strikes OLD decayed tree at right, tree FALLS across clearing IN FRONT OF Alisha and Fiona, onto small wooden course-maintenance TOOL SHED in middle of clearing. Broad readable composition: Alisha and Fiona safely together at LEFT foreground retreating backward, surprised; middle/right old trunk diagonal downward smashing shed roof, breaking into branches and wood chunks, loose rakes spades and hand tools scattering onto path. Disc golf basket visible well beyond debris. This is not the healthy first tree from their meeting; only this old tree collapses. Nobody hurt, no other people. Not massive explosion, no fire. Preserve character faces outfits disc bag antlers and painterly woodland style. No workbench, text or speech bubbles.",
+    "generated": "/home/joe/.codex/generated_images/01a155f0-549f-76c0-b072-20fb120793ee/exec-b74abec0-8af1-47eb-a076-3d45e7048a7d.png"
+  },
+  {
+    "code": "C1-06B",
+    "file": "06b-hidden-depot-draft-v2.png",
+    "title": "More beneath the branches",
+    "target": "06b-hidden-clearing-draft-v1.png",
+    "prompt": "Edit woodland discovery image to match cleanup story: remove magical-looking scenic pool/waterfall focus and replace background with remaining crushed wooden maintenance shed partly buried under fallen branches and broken old trunk. Alisha and Fiona safely examine newly exposed pocket of wreckage: clear scattered rakes spades hand tools emerging under branches. Some branches already gathered aside, path still partly blocked. Disc golf basket glimpsed in background confirms course clearing. Alisha gestures at tools, Fiona beside her. Keep young Alisha outfit bag glasses leafy antlers and Fiona golden four-legged elk identity, warm painterly style and generous margins. No workbench or intact chest, no text.",
+    "generated": "/home/joe/.codex/generated_images/01a155f0-549f-76c0-b072-20fb120793ee/exec-4e18370b-fc94-4986-8382-dbe3e529ff8d.png"
+  },
+  {
+    "code": "C1-07",
+    "file": "07-clearing-tidied-draft-v2.png",
+    "title": "The path is clear",
+    "target": "07-trail-onward-draft-v1.png",
+    "prompt": "Recompose this 4:3 woodland scene as AFTER CLEANUP. Alisha and Fiona stand together admiring their work in disc golf clearing, not walking away yet. Wide open usable path down center to distant disc golf basket. Neatly stacked cut logs on one side, organized closed wooden TOOL CHEST on other, small remnants of damaged shed off path so damage is not magically repaired; a few twigs and leaves remain. No intact fallen tree across path, no messy tools. Preserve exact young Alisha and Fiona identities outfits bag antlers painterly warm style. Keep whole antlers safe. No workbench. Calm satisfaction rather than perfect garden. No text.",
+    "generated": "/home/joe/.codex/generated_images/01a155f0-549f-76c0-b072-20fb120793ee/exec-c230e3d1-a891-4b16-95a9-ddc2427a06f5.png"
+  },
+  {
+    "code": "C1-10B",
+    "file": "10b-alisha-trapped-draft-v2.png",
+    "title": "The crystal partition",
+    "target": "10b-alisha-trapped-draft-v1.png",
+    "prompt": "Edit ONLY Alisha outfit markings to restore approved character continuity. Her cream zip top must have broad brown sleeves/shoulders and a LARGE centered symmetric brown elk-antler emblem on chest, matching reference image 2. Current thin branching trim is wrong. Preserve her pose face glasses curly updo own antlers, brown skirt hiking boots disc bag, transparent crystal partition, standing on plate, Fiona outside, room architecture, lighting and composition. No other scene changes. 4:3 landscape, no text.",
+    "generated": "/home/joe/.codex/generated_images/01a155f0-549f-76c0-b072-20fb120793ee/exec-a7fb63a4-4f05-4eae-8f75-30b2d1130f62.png"
+  }
+]

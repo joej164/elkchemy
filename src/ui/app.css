@@ -1052,6 +1052,7 @@ button.character {
 
 /* Alisha's speech bubble, beside her (its tail at her), over the board: it alone takes input until tapped. */
 .bubble-anchor { position: absolute; inset: 0; z-index: 8; pointer-events: none; }
+.bubble-anchor.is-waiting { visibility: hidden; }
 .speech-bubble {
   pointer-events: auto; position: absolute; left: -6px; bottom: calc(100% + 12px);
   width: max-content; max-width: min(290px, calc(var(--board-size) - 40px)); margin: 0;

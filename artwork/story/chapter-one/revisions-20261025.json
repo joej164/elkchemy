@@ -1,0 +1,16 @@
+[
+  {
+    "code": "C1-06C",
+    "old": "06c-second-throw-draft-v1.png",
+    "file": "06c-second-throw-draft-v2.png",
+    "prompt": "Use case: illustration-story. Redraw this Elkchemy comic panel in same warm painterly style, same young Alisha and golden four-legged elk Fiona, same outfits/antlers/disc bag. Strong new camera position DIRECTLY BEHIND both characters, looking DOWN the fairway. Alisha on a clearly visible rectangular concrete tee pad in bottom foreground, back to camera, finishing a pink disc throw AWAY from viewer. Fiona safely BESIDE her off right edge of tee pad, also viewed from behind. Full antlers within frame. Environment layout critical: OLD weak tree to RIGHT of fairway in middle distance, small intact wooden tool shed LEFT of fairway at similar depth, distant disc-golf chain BASKET centered in the gap BETWEEN tree and shed farther away. Long grassy fairway clearly leads to basket. Tree can fall LEFT across path onto shed in following panel. Pink disc just downrange veering right toward old tree, not travelling toward camera; no giant curved glowing trails. Not hitting tree yet, no destruction yet. Keep camera eye level just behind tee, characters occupy lower third to half, wide clear view of fairway. 4:3 landscape. No text UI speech bubbles arrows or labels.",
+    "generated": "/home/joe/.codex/generated_images/01a155f0-549f-76c0-b072-20fb120793ee/exec-cc934b5b-c67c-4c74-99a4-586b73883c1f.png"
+  },
+  {
+    "code": "C1-06",
+    "old": "06-tool-shed-collapse-draft-v2.png",
+    "file": "06-tool-shed-collapse-draft-v3.png",
+    "prompt": "Use case: illustration-story. Followup panel to image1, SAME CAMERA behind Alisha and Fiona at concrete tee, SAME geography and painterly character identities. Image2 is only reference for action of shed destruction, do NOT use its side/front camera or layout. CRITICAL: old tree rooted on RIGHT has just been struck by disc and is FALLING RIGHT TO LEFT ACROSS THE FAIRWAY onto small tool shed on LEFT. Show great trunk diagonally across upper middle from its broken base at right to collapsing shed roof left, broken branches and tools scattering across path, blocked route. Distant basket remains CENTER behind collapse, mountain background same. Alisha and Fiona both viewed FROM BEHIND in foreground on/by tee pad, startled and stepping backward safely, nobody hurt, antlers whole. Alisha keeps cream brown top skirt boots bag; Fiona golden elk no clothes. Pink disc may lie near right stump, no extra discs in air. Continuous location, no mirror image; shed must remain LEFT, tree base RIGHT, not reversed. Tree not falling toward characters. Moderate debris not explosion. 4:3 landscape. No text arrows lettering UI.",
+    "generated": "/home/joe/.codex/generated_images/01a155f0-549f-76c0-b072-20fb120793ee/exec-5fc62abb-0e2d-4856-a5b0-f91c85fe37c6.png"
+  }
+]

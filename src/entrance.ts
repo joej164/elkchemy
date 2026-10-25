@@ -99,5 +99,8 @@ export const ENTRANCE_LEVEL: LevelDefinition = {
     start: { alisha: { row: 19, col: 5 }, fiona: { row: 19, col: 4 } },
     waiting: { alisha: { row: 3, col: 4 }, fiona: { row: 3, col: 3 } },
     door: { row: 0, col: 5 },
+    // The terrace junction (C1-08A) once both terraces open; the forecourt (C1-08B) once it is revealed, before Alisha's
+    // bubble. The approach (C1-08) is shown before play, and the entry (C1-09, C1-10) after the win.
+    story: [{ id: 'C1-08A', task: OPEN_TERRACES_TASK }, { id: 'C1-08B', task: REVEAL_FORECOURT_TASK }],
   },
 };

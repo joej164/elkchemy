@@ -1,0 +1,16 @@
+[
+  {
+    "code": "C1-06B",
+    "old": "06b-hidden-depot-draft-v2.png",
+    "file": "06b-hidden-depot-draft-v3.png",
+    "prompt": "Use case: illustration-story. Edit image1 (established shattered clearing) into next scene, image2 only reference for original grassy fairway. Preserve camera geography, character identity and warm polished painterly style, 4:3 landscape. Alisha young adult curly brown updo elk ears leafy antlers brown/cream top brown skirt hiking boots disc bag. Fiona golden four-legged elk cream chest leafy antlers no clothing. MID-CLEANUP: same rear view from concrete tee down grassy fairway. Preserve wrecked shed LEFT, snapped old tree stump RIGHT, mountain and distant chain basket CENTER. Some broken branches have been moved to side revealing hand tools previously buried at LEFT shed wreckage. Young Alisha and golden elk Fiona have moved a few steps forward from tee toward exposed tools, both backs/three-quarter backs to camera. Alisha gestures toward uncovered rakes and spades at LEFT. Broken trunk sections still partly block grassy lane. No upright replacement old tree. No new buildings or path. Keep readable fallen-tree shape, not fully cleared yet. No text, UI, speech bubbles, arrows, collage. Keep all antlers inside frame.",
+    "generated": "/home/joe/.codex/generated_images/01a155f0-549f-76c0-b072-20fb120793ee/exec-397d869a-65f7-4b18-a5be-fad78d31b6bb.png"
+  },
+  {
+    "code": "C1-07",
+    "old": "07-clearing-tidied-draft-v2.png",
+    "file": "07-clearing-tidied-draft-v3.png",
+    "prompt": "Use case: illustration-story. Edit image1 (established shattered clearing) into next scene, image2 only reference for original grassy fairway. Preserve camera geography, character identity and warm polished painterly style, 4:3 landscape. Alisha young adult curly brown updo elk ears leafy antlers brown/cream top brown skirt hiking boots disc bag. Fiona golden four-legged elk cream chest leafy antlers no clothing. AFTER CLEANUP: same rear view from concrete tee down same broad GRASSY disc golf FAIRWAY, SAME mountain and distant chain basket CENTER. Remove broken trunk and loose tools from CENTER lane to make grassy fairway usable. Wrecked shed remains LEFT in original position, not magically repaired. Neatly stacked cut logs LEFT near wrecked shed, one closed organized wooden tool chest also beside shed LEFT. Snapped tree stump remains RIGHT in original position, with a few leaves/twigs nearby. Alisha and golden elk Fiona standing together foreground viewed from behind admiring cleared fairway. No new dirt or gravel trail, NO winding path; existing grassy clearing simply cleared. Only concrete is original tee bottom foreground. No intact old tree right or shed right. Maintain same clearing boundaries and perspective. No text, UI, speech bubbles, arrows, collage. Keep all antlers inside frame.",
+    "generated": "/home/joe/.codex/generated_images/01a155f0-549f-76c0-b072-20fb120793ee/exec-9fc3c3b8-bdff-422c-bf68-6e04118524c9.png"
+  }
+]

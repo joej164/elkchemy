@@ -16,7 +16,7 @@ import { batchGroups, batchText, prizeText, unlockNeed } from './messages';
 import { centerScroll, centreSpan, exceedsThreshold, moveFocus, panScroll, revealSpan, type Point } from './navigation';
 import {
   bubbleOpen, canDropAt, canMoveAlisha, canPickUp, canUnlock, goalCells, mergeSources, mergeTargets, openedRegion,
-  plateRevealed, previewCells, treasureShown, type UiAction, type UiState,
+  plateRevealed, previewCells, storyDue, treasureShown, type UiAction, type UiState,
 } from './controller';
 
 // A click arriving this soon after a drag is the browser's follow-up click, not a tap.
@@ -280,7 +280,9 @@ export function Board({ state, dispatch, onOverflowChange, onPalaceOpening, onPr
   useEffect(() => () => camera.current?.stop(), []);
   // Party levels: the speech bubble takes focus when it appears (so Enter or Space dismisses it); once it is tapped away,
   // focus goes to Alisha, now highlighted. Neither scrolls: the camera frames them.
-  useEffect(() => { if (speaking) bubbleRef.current?.focus({ preventScroll: true }); }, [speaking]);
+  // A story scene due first (the forecourt's, C1-08B) covers it: it takes focus once that has been read.
+  const storyPaused = storyDue(state) !== null;
+  useEffect(() => { if (speaking && !storyPaused) bubbleRef.current?.focus({ preventScroll: true }); }, [speaking, storyPaused]);
   const wasSpeaking = useRef(false);
   useEffect(() => {
     if (wasSpeaking.current && !speaking && movable) alishaRef.current?.focus({ preventScroll: true });
@@ -710,7 +712,7 @@ export function Board({ state, dispatch, onOverflowChange, onPalaceOpening, onPr
       <div
         ref={boardRef}
         className={`board${over ? ' is-over' : ''}${drag ? ' is-dragging' : ''}${scene ? ` is-${scene}` : ''}${
-          scene && (drag || state.selected || state.alishaSelected) ? ' is-placing' : ''}${speaking ? ' is-paused' : ''}`}
+          scene && (drag || state.selected || state.alishaSelected) ? ' is-placing' : ''}${speaking || storyPaused ? ' is-paused' : ''}`}
         role="group"
         aria-label={`Board, ${cols} columns by ${rows} rows`}
         data-board
@@ -980,8 +982,12 @@ export function Board({ state, dispatch, onOverflowChange, onPalaceOpening, onPr
         {/* Party levels: Alisha's speech bubble, beside her. It pauses the board until it is tapped (or Enter or Space
             pressed on it); taps elsewhere do nothing, and its own tap never reaches the board. */}
         {speaking && spots && (
-          <div className="bubble-anchor" style={{ gridRow: `${spots.alisha.row + 1} / span 1`, gridColumn: `${spots.alisha.col + 1} / span 1` }}>
-            <button ref={bubbleRef} type="button" className="speech-bubble" data-bubble onPointerDown={(e) => e.stopPropagation()}
+          // While a story scene is due first (the forecourt's, C1-08B), the bubble is laid out but hidden, so the camera can
+          // still frame it; it appears (its own entrance replayed) once the scene has been read.
+          <div className={`bubble-anchor${storyPaused ? ' is-waiting' : ''}`}
+            style={{ gridRow: `${spots.alisha.row + 1} / span 1`, gridColumn: `${spots.alisha.col + 1} / span 1` }}>
+            <button key={storyPaused ? 'waiting' : 'shown'} ref={bubbleRef} type="button" className="speech-bubble" data-bubble
+              onPointerDown={(e) => e.stopPropagation()}
               onClick={(e) => {
                 // A pointer's tap may be followed by a stray click on what was under the bubble; a key press has none.
                 if (e.detail > 0) suppressClick();

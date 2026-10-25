@@ -50,7 +50,8 @@ export function openedRegion(a: LastAction | null): number | null {
 /**
  * `alishaSelected` (party levels): Alisha is picked up (tapped), to be put on her plate by a tap on it. Any action, or an
  * item picked up, puts her down. `bubbleDismissed` (party levels): her speech bubble has been tapped away; Retry
- * brings it back with the rest of the level.
+ * brings it back with the rest of the level. `storySeen` (party levels): the story scenes shown in this attempt, by id;
+ * Retry clears it, so each is shown again when its move is made again.
  */
 export interface UiState {
   readonly session: SessionState;
@@ -61,6 +62,7 @@ export interface UiState {
   readonly musicArea: 'woodland' | 'palace';
   readonly alishaSelected: boolean;
   readonly bubbleDismissed: boolean;
+  readonly storySeen: readonly string[];
 }
 
 export type UiAction =
@@ -72,10 +74,11 @@ export type UiAction =
   | { readonly type: 'retry' }
   | { readonly type: 'clearSelection' }
   // Party levels: tap Alisha (to pick her up or put her down), drop her on a cell (a drag, or a tap once picked up), and
-  // tap her speech bubble away.
+  // tap her speech bubble away; and the story scene due has been read to the end.
   | { readonly type: 'selectAlisha' }
   | { readonly type: 'placeAlisha'; readonly to: Pos }
-  | { readonly type: 'dismissBubble' };
+  | { readonly type: 'dismissBubble' }
+  | { readonly type: 'finishStory' };
 
 const inBounds = (s: SessionState, p: Pos): boolean =>
   Number.isInteger(p.row) && Number.isInteger(p.col) &&
@@ -88,7 +91,7 @@ const isOver = (state: UiState): boolean => state.status !== 'playing';
 function withSession(prev: UiState, session: SessionState, lastAction: LastAction): UiState {
   return {
     session, status: evaluateStatus(session), selected: null, lastAction, actionSeq: prev.actionSeq + 1, musicArea: prev.musicArea,
-    alishaSelected: false, bubbleDismissed: prev.bubbleDismissed,
+    alishaSelected: false, bubbleDismissed: prev.bubbleDismissed, storySeen: prev.storySeen,
   };
 }
 
@@ -96,8 +99,18 @@ export function initUi(level: LevelDefinition): UiState {
   const session = startSession(level);
   return {
     session, status: evaluateStatus(session), selected: null, lastAction: null, actionSeq: 0, musicArea: 'woodland',
-    alishaSelected: false, bubbleDismissed: false,
+    alishaSelected: false, bubbleDismissed: false, storySeen: [],
   };
+}
+
+/**
+ * Party levels: the story scene due now (its id), from the move that completes its task until it has been read: the first
+ * not yet shown in this attempt. While one is due the board is paused, as for the speech bubble: only reading it to the
+ * end (`finishStory`), Retry and leaving do anything. It is never a move: the session, Undo and actionSeq stay as they are.
+ */
+export function storyDue(state: UiState): string | null {
+  const { session, storySeen } = state;
+  return session.level.party?.story?.find((s) => session.done.includes(s.task) && !storySeen.includes(s.id))?.id ?? null;
 }
 
 /** Party levels: Alisha's plate is revealed (with its room), so she can speak and then stand on it. */
@@ -139,11 +152,11 @@ export function canUnlock(state: UiState, region?: number): boolean {
 
 /**
  * Whether the item at `pos` can be picked up (tapped to select, or dragged): playing, not locked away and not fixed, and
- * no speech bubble pausing the board.
+ * no speech bubble or story scene pausing the board.
  */
 export function canPickUp(state: UiState, pos: Pos): boolean {
   const { session } = state;
-  return !isOver(state) && !bubbleOpen(state) && inBounds(session, pos) && session.board[pos.row][pos.col] !== null &&
+  return !isOver(state) && !bubbleOpen(state) && storyDue(state) === null && inBounds(session, pos) && session.board[pos.row][pos.col] !== null &&
     isCellOpen(session, pos) && !isFixed(session, pos);
 }
 
@@ -256,6 +269,11 @@ function placeAlisha(state: UiState, to: Pos): UiState {
 }
 
 export function reduceUi(state: UiState, action: UiAction): UiState {
+  // A story scene due pauses the board (before the speech bubble, which it may precede): nothing but reading it to the
+  // end, Retry or putting things down does anything.
+  const story = storyDue(state);
+  if (story !== null && action.type === 'finishStory') return { ...state, storySeen: [...state.storySeen, story] };
+  if (story !== null && action.type !== 'retry' && action.type !== 'clearSelection') return state;
   // An open speech bubble pauses the board: nothing but tapping it away, Retry or putting things down does anything.
   if (bubbleOpen(state) && action.type !== 'dismissBubble' && action.type !== 'retry' && action.type !== 'clearSelection') return state;
   switch (action.type) {
@@ -263,6 +281,8 @@ export function reduceUi(state: UiState, action: UiAction): UiState {
       return doDrop(state, action.from, action.to);
     case 'dismissBubble':
       return bubbleOpen(state) ? { ...state, bubbleDismissed: true } : state;
+    case 'finishStory':
+      return state;
     case 'selectAlisha':
       return canMoveAlisha(state) ? { ...state, selected: null, alishaSelected: !state.alishaSelected } : state;
     case 'placeAlisha':
@@ -320,7 +340,7 @@ export function reduceUi(state: UiState, action: UiAction): UiState {
     case 'undo':
       return canUndo(state) ? withSession(state, undo(state.session), { kind: 'undo' }) : state;
     case 'retry':
-      return withSession({ ...state, musicArea: 'woodland', bubbleDismissed: false }, retry(state.session), { kind: 'retry' });
+      return withSession({ ...state, musicArea: 'woodland', bubbleDismissed: false, storySeen: [] }, retry(state.session), { kind: 'retry' });
     case 'clearSelection':
       return state.selected === null && !state.alishaSelected ? state : { ...state, selected: null, alishaSelected: false };
   }

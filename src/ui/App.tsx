@@ -9,12 +9,12 @@ import { ENTRANCE_LEVEL } from '../entrance';
 import { hasItem } from '../status';
 import { availableTasks, isOpen, nextLocked, sealedRegion, type Region, type Task, type TaskUnlock } from '../regions';
 import { Board, ContainerArt, LockIcon, RuneGate, SymbolIcon } from './Board';
-import { Comic } from './Comic';
+import { Comic, ComicOverlay, type ComicScene } from './Comic';
 import { CLOSING_PANELS, memoryMusicOn, OPENING_PANELS } from './atticStory';
 import { afterOpening, BookOpening } from './BookOpening';
 import { atticGuide } from './atticGuide';
-import { afterEntranceOpening, ENTRANCE_OPENING_MS, entranceGuide } from './entranceGuide';
-import { ENTRY_PANELS } from './StoryArt';
+import { afterEntranceOpening, afterStoryDue, ENTRANCE_OPENING_MS, entranceGuide } from './entranceGuide';
+import { APPROACH_PANELS, ENTRANCE_STORY, ENTRY_PANELS } from './StoryArt';
 import { HelpButton } from './HelpButton';
 import { Home } from './Home';
 import { LevelPicker } from './LevelPicker';
@@ -37,7 +37,7 @@ import { useEffects } from './useEffects';
 import { actionEffect, palaceOpeningPending } from './audioEvents';
 import type { EffectCue } from '../effects';
 import {
-  canPlaceSupply, canUndo, canUnlock, initUi, nextSupplyItem, openedRegion, reduceUi, supplyRemaining,
+  canPlaceSupply, canUndo, canUnlock, initUi, nextSupplyItem, openedRegion, reduceUi, storyDue, supplyRemaining,
   type LastAction, type UiState,
 } from './controller';
 
@@ -100,8 +100,16 @@ type Screen =
   | { readonly kind: 'puzzle'; readonly puzzle: GeneratedPuzzle }
   // The Attic (story prototype, from Levels): its opening comic, the puzzle, then its closing comic.
   | { readonly kind: 'attic'; readonly phase: 'opening' | 'play' | 'closing' }
-  // The palace entrance prototype (from Levels): the puzzle, then its entry scene.
-  | { readonly kind: 'entrance'; readonly phase: 'play' | 'closing' };
+  // The palace entrance prototype (from Levels, development only): its approach scene, the puzzle (with its own story
+  // scenes), then its entry scene.
+  | { readonly kind: 'entrance'; readonly phase: 'opening' | 'play' | 'closing' };
+
+/**
+ * Whether the palace entrance prototype is in the app (offered in Levels): in the development preview (/dev/) and the
+ * local dev server (`npm run dev`). A production build has it false at build time, so the prototype's screens and scenes
+ * are left out of its code (Vite still copies the imported draft art into its assets, unreferenced).
+ */
+export const STORY_PREVIEW = __DEV_PREVIEW__ || import.meta.env.DEV;
 
 const isSongGoal = (d: LevelDefinition) => d.goal.kind === 'item' && d.goal.item.family === 'song';
 
@@ -125,7 +133,8 @@ export function App({ levels = LEVELS }: { levels?: readonly Level[] }) {
   const [index, setIndex] = useState(0);
   const [config, setConfig] = useState<PuzzleConfig>({ mode: 'goals', tier: 3, goals: 1 });
   const active = screen.kind === 'levels' ? levels[index].definition : screen.kind === 'puzzle' ? screen.puzzle.definition
-    : screen.kind === 'attic' && screen.phase === 'play' ? ATTIC_LEVEL : screen.kind === 'entrance' && screen.phase === 'play' ? ENTRANCE_LEVEL
+    : screen.kind === 'attic' && screen.phase === 'play' ? ATTIC_LEVEL
+    : STORY_PREVIEW && screen.kind === 'entrance' && screen.phase === 'play' ? ENTRANCE_LEVEL
     : null;
   const [musicArea, setMusicArea] = useState<'woodland' | 'palace'>('woodland');
   // The closing comic's last picture, the woodland memory, brings in Woodland Journey once revealed, for the rest of it.
@@ -197,7 +206,7 @@ export function App({ levels = LEVELS }: { levels?: readonly Level[] }) {
         <LevelPicker levels={levels} current={index} musicControl={musicControl} onHome={toHome}
           onPick={(i) => { setIndex(i); show({ kind: 'levels' }); window.scrollTo(0, 0); }}
           onAttic={() => { show({ kind: 'attic', phase: 'opening' }); window.scrollTo(0, 0); }}
-          onEntrance={() => { show({ kind: 'entrance', phase: 'play' }); window.scrollTo(0, 0); }} />
+          onEntrance={STORY_PREVIEW ? () => { show({ kind: 'entrance', phase: 'opening' }); window.scrollTo(0, 0); } : undefined} />
       )}
       {screen.kind === 'levels' && (
         <Game key={run} onMusicAreaChange={setMusicArea} playEffect={effects.play} stopEffects={effects.stop} definition={levels[index].definition} musicControl={musicControl} onHome={toHome}
@@ -226,12 +235,18 @@ export function App({ levels = LEVELS }: { levels?: readonly Level[] }) {
           musicControl={musicControl} onHome={toHome} label="Story prototype · The Attic" scene="attic" guide={atticGuide}
           onWin={() => show({ kind: 'attic', phase: 'closing' })} />
       )}
-      {screen.kind === 'entrance' && screen.phase === 'play' && (
+      {STORY_PREVIEW && screen.kind === 'entrance' && screen.phase === 'opening' && (
+        <Comic key={run} title="Palace entrance" label="Approach" panels={APPROACH_PANELS}
+          finish={{ prompt: 'Tap to start.', name: 'Start' }}
+          onFinish={() => show({ kind: 'entrance', phase: 'play' })} onHome={toHome} musicControl={musicControl} />
+      )}
+      {STORY_PREVIEW && screen.kind === 'entrance' && screen.phase === 'play' && (
         <Game key={run} onMusicAreaChange={setMusicArea} playEffect={effects.play} stopEffects={effects.stop} definition={ENTRANCE_LEVEL}
           musicControl={musicControl} onHome={toHome} label="Story prototype · Palace entrance" scene="entrance" guide={entranceGuide}
+          story={{ title: 'Palace entrance', scenes: ENTRANCE_STORY }}
           winLabel="Enter the palace" onWin={() => show({ kind: 'entrance', phase: 'closing' })} />
       )}
-      {screen.kind === 'entrance' && screen.phase === 'closing' && (
+      {STORY_PREVIEW && screen.kind === 'entrance' && screen.phase === 'closing' && (
         <Comic key={run} title="Palace entrance" label="Entry" panels={ENTRY_PANELS}
           finish={{ prompt: 'Tap to return to Levels.', name: 'Back to Levels' }}
           onFinish={() => show({ kind: 'pick' })} onHome={toHome} musicControl={musicControl} />
@@ -362,6 +377,11 @@ interface GameProps {
   scene?: 'attic' | 'entrance';
   /** A level's own banner text, in place of statusMessage (the attic's step-by-step guidance). */
   guide?: (state: UiState) => string;
+  /**
+   * Party levels: the story scenes shown during play, by id (see storyDue), and their comic's title. Each is shown over
+   * the paused game once due (after STORY_DELAY_MS), one line at a time; reading it to the end returns to the board.
+   */
+  story?: { readonly title: string; readonly scenes: Readonly<Record<string, ComicScene>> };
 }
 
 /**
@@ -440,6 +460,7 @@ export function CraftSign({ craft, state }: { craft: ItemRecipe; state: UiState 
 
 export function Game({
   definition, label, musicControl, onHome, winLabel, onWin, puzzleId, onNewPuzzle, onMusicAreaChange, playEffect, stopEffects, scene, guide,
+  story,
 }: GameProps) {
   const [state, dispatch] = useReducer(reduceUi, definition, initUi);
   const handled = useRef(0);
@@ -456,6 +477,15 @@ export function Game({
     const still = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
     return afterEntranceOpening(state, () => setEntered(seq), still ? 0 : ENTRANCE_OPENING_MS);
   }, [state.actionSeq]);
+  // Party levels: a story scene due is shown once the board has shown the move that made it due; the wait is cancelled
+  // the same way. Reading it changes neither the session nor actionSeq.
+  const due = storyDue(state);
+  const [storyReady, setStoryReady] = useState(-1);
+  useEffect(() => {
+    const seq = state.actionSeq;
+    return afterStoryDue(state, () => setStoryReady(seq));
+  }, [state.actionSeq, due]);
+  const storyScene = due !== null && storyReady === state.actionSeq ? story?.scenes[due] : undefined;
   useEffect(() => { onMusicAreaChange?.(state.musicArea); }, [state.musicArea, onMusicAreaChange]);
   useEffect(() => () => stopEffects?.(), [stopEffects]);
   useEffect(() => {
@@ -603,6 +633,12 @@ export function Game({
       <div className="sr-only" aria-live="polite" role="status">
         {describeAction(state.lastAction, puzzle ? 'Puzzle' : 'Level', goal, regions, tasks, recipe, containers)} {over ? message : ''}
       </div>
+
+      {storyScene && (
+        <ComicOverlay key={due} title={story!.title} label={storyScene.label} panels={storyScene.panels}
+          finish={{ prompt: 'Tap to return to the board.', name: 'Back to the board' }}
+          onFinish={() => dispatch({ type: 'finishStory' })} onHome={() => leave(onHome)} musicControl={musicControl} />
+      )}
 
       <section className="controls" aria-label="Controls">
         {puzzle ? (

@@ -33,7 +33,7 @@
 | 4 — Crystal Palace | Apply learned skills; character placement changes access | Shorten Crystal Palace; retain its useful branch/gate ideas | Revealing a room and placing Alisha on its plate opens the way forward but traps her. Fiona works to free her. |
 | 5 — Beyond the gate (working title) | A short application of familiar skills; no new tutorial | Adapt a compact palace passage from existing material | After the delivery, following the dog leads to the gate. End the arc with both on the far side. |
 
-These are adaptations, not five existing boards ready to rename. Level 2 needs authored inventory for its recipe. Existing region levels do not support the Attic’s placed supply containers directly; check that boundary before promising a combined container-and-gate puzzle. Do not add a new system just to fit this outline.
+These are adaptations, not five existing boards ready to rename. Level 2 needs authored inventories for its two cleanup chains. Existing region levels do not support the Attic’s placed supply containers directly; check that boundary before promising a combined container-and-gate puzzle. Do not add a new system just to fit this outline.
 
 ## Rough storyboard and text
 
@@ -57,33 +57,23 @@ Proposed dialogue below is deliberately short. Scene descriptions are placeholde
 >
 > Fiona: “I would.”
 
-### 2 — Woodland discoveries
+### 2 — Woodland cleanup
 
-**Opening:** On the route to the palace, the pair find a small work surface and stored supplies.
+**Reviewed sequence:** C1-06A (getting acquainted) → C1-06C (second throw) → C1-06 (tree falling onto the shed) → C1-06D (shattering, still recognizably a fallen tree) → puzzle → C1-06B (shed wreckage revealed) → finish puzzle → C1-07 (usable path). Full dialogue is in the HTML storyboard.
 
-> Fiona: “Someone used to come this way.”
->
-> Alisha: “Let’s see what they left behind.”
+Alisha throws toward another basket with Fiona beside her. The disc veers right into an old weakened tree. It falls in front of them onto a tool shed, breaking into branches and scattering tools across the path. This is a different tree from the healthy first tree, which stays standing. They take responsibility for clearing the mess.
 
-**Puzzle:** A multi-room forest trail with 3–5 clearings (wireframe proposes four). Start in the southern clearing; a short objective opens Songbird clearing. Progress there reveals a hidden fern clearing. Completing objectives in both clearings lights two symbols and opens the north trail exit. Teach exploration, hidden areas and combined room unlocks one at a time. Borrow Hidden Hollow, Hidden Cache and the original Crystal Palace’s recorded tasks.
+**Puzzle:** 3–5 clearings, four proposed. Clearing branches reveals a pocket of damaged depot. Two cleanup goals: loose tools → bundled tools → sorted tool sets → T4 tool chest; fallen branches → gathered bundles → trimmed logs → T4 stacked logs. The tool chest is a merge result, with no new opening recipe. Living plants are scenery. Combine recorded room objectives; keep resources within their rooms. Exact inventories still need validation.
 
-A fixed-reward crafted chest can remain as familiar practice in one clearing, but is optional until recipe/region compatibility is verified. Keep resources in their own rooms; combine completion records across rooms rather than transferring items.
-
-**Ending:** Their work opens the way farther along the trail.
-
-> Alisha: “Looks like we can get through now.”
->
-> Fiona: “Let’s try it.”
-
-The exact recipe and reward remain to be chosen from existing assets. Do not invent a special map mechanic.
+**Ending:** “It’s not perfect, but the path’s clear.” / “People can get through again.” They leave the shed damaged but make the public path usable.
 
 ### 3 — The palace entrance
 
+**Continuity:** Fiona knows the visitor route and the single entrance pressure plate. She does not know every hidden room or mechanism. Inside, the familiar gallery door is closed; puzzle progression reveals an unfamiliar side room. Full reviewed dialogue is in the HTML storyboard.
+
 **Opening:** Start at the bottom of a larger northbound map. Neither the palace entrance nor its pressure plate is visible yet; they are revealed later through progression.
 
-> Fiona: “That mark looks familiar.”
->
-> Alisha: “Maybe we can make what it needs.”
+> Alisha: “I’ll keep my discs in the bag this time. No more accidents.”
 
 **Puzzle:** A larger 4–6-room approach (wireframe proposes six), progressing bottom to top: starting room → fork → west/east terraces → upper approach → hidden palace forecourt. The fork opens both terraces; their separate completed objectives jointly unlock the upper approach. Its final objective reveals the palace entrance and character plate. Only then can Alisha reach the plate. Item objectives open the route, never the palace entrance itself. Reuse recorded tasks, concealed areas and reveal camera behavior; keep each room’s merge chains manageable. No cross-room resource transfer.
 
@@ -91,9 +81,9 @@ The exact recipe and reward remain to be chosen from existing assets. Do not inv
 
 **Ending:** Their work unlocks the palace entrance. A short cutscene shows them going inside.
 
-> Alisha: “We’re in.”
+> Alisha: “You have to admit, it’s a fun way to open one.”
 >
-> Fiona: “The Crystal Palace.”
+> Fiona: “Come on. Wait until you see inside.”
 
 ### 4 — Crystal Palace
 
@@ -192,3 +182,23 @@ Fiona’s behavior should be believable without explaining her whole life. Helpi
 Review this outline, then prototype **Meet Fiona only**, using existing art or labelled placeholders. Test the five-merge lesson and story pacing together. Approve its text and rough composition before generating polished panels or building the remaining levels.
 
 No gameplay changes, final artwork, campaign rewrite or deployment are authorized by this document.
+
+## Review status — October 24
+
+Woodland, entrance and rescue dialogue is expanded in the HTML storyboard. The rescue ends: “Let’s get that message delivered.” Five revised/new illustrations are available there. **The ending (message delivery, dog pursuit, gate crossing and linked gates) still needs review; its existing draft is not approval.** No gameplay integration or deployment in this pass.
+
+## Latest visual review changes
+
+C1-11 now ends with “Much better.” / “Let’s avoid any more pressure plates.” / “Fine by me. Let’s get that message delivered.” Cleanup poses are relaxed, terrace junction shows left/right/center routes, dog is seen at a distance, and Fiona watches the pursuit from the delivery door. Disc seats in a fitted rune-key socket. Crossing is viewed from the course toward the palace; the portal shrinks; C1-21 reveals the course from behind them. C1-22 is the separate “Elsewhere throughout the realm…” coda. Updated art remains for review; ending dialogue is not finalized.
+
+## Gate closing — disc release revision
+
+Fiona crosses first. Following her, Alisha catches the exposed orange disc rim while walking past and stumbles, freeing it from the floor socket; it rolls through ahead of her. She crosses, retrieves it, and both face the shrinking portal. The small opening shows the palace grove they just left. Once it closes: “Well… at least I’ve got my favorite disc.” Removing the disc closes this gate; the wider network has already awakened, preserving C1-22. C1-19A is the new nudge insert; C1-19 and C1-20 are redrawn.
+
+## Palace/course visual continuity
+
+C1-21 is preserved as the destination anchor. C1-17 widens to show the gate beginning to open onto its hilltop, basket, lake and sunset; C1-18 reveals more. Palace-side flooring remains polished marble with gold inlays and crystal details through C1-19A, and through the return view in C1-19/20. Course-side ground remains natural. Updated renders are pending visual review.
+
+## Ridgeview decision and mechanism trip
+
+The course is named **Ridgeview**. Under C1-18 the storyboard now shows their complete reason for crossing: Alisha recognizes a course she has wanted to play for years, Fiona knows it is a few hours from her village, and her message is delivered so she has time for a round. C1-17 starts with a small oval opening inside the rounded arch, without an apex jewel. At C1-19A Alisha trips on the raised mechanism itself; the jolt ejects the orange disc toward the gate. Spare discs are already packed. Story dialogue and action are reviewed in the image captions; puzzle maps are gameplay proposals.

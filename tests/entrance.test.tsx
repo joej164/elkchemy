@@ -17,14 +17,17 @@ import { Board } from '../src/ui/Board';
 import { viewCue } from '../src/ui/camera';
 import { actionEffect } from '../src/ui/audioEvents';
 import {
-  bubbleOpen, canMoveAlisha, canPickUp, initUi, plateRevealed, reduceUi, type UiAction, type UiState,
+  bubbleOpen, canMoveAlisha, canPickUp, initUi, plateRevealed, reduceUi, storyDue, type UiAction, type UiState,
 } from '../src/ui/controller';
-import { afterEntranceOpening, ALISHA_LINE, ENTRANCE_OPENING_MS, entranceGuide } from '../src/ui/entranceGuide';
+import {
+  afterEntranceOpening, afterStoryDue, ALISHA_LINE, ENTRANCE_OPENING_MS, entranceGuide, STORY_DELAY_MS,
+} from '../src/ui/entranceGuide';
 import { HelpButton } from '../src/ui/HelpButton';
 import { LevelPicker } from '../src/ui/LevelPicker';
 import { helpObjective, objectiveText, roomsHelp } from '../src/ui/messages';
-import { ENTRY_PANELS } from '../src/ui/StoryArt';
+import { APPROACH_PANELS, ENTRANCE_STORY, ENTRY_PANELS } from '../src/ui/StoryArt';
 import { comicBeats } from '../src/ui/Comic';
+import STORYBOARD from '../docs/story/chapter-one-review.html?raw';
 
 // Coordinates are (row, column) from 0 on the 20 × 11 map (see src/entrance.ts).
 const p = (row: number, col: number): Pos => ({ row, col });
@@ -62,14 +65,18 @@ const upperOpen = (order: 'west-east' | 'east-west' = 'west-east') => {
 };
 
 const run = (s: UiState, ...actions: UiAction[]) => actions.reduce(reduceUi, s);
+/** The story scene due, if any, read to the end, as a player taps through it. */
+const read = (s: UiState) => (storyDue(s) === null ? s : reduceUi(s, { type: 'finishStory' }));
+/** `run`, reading each story scene due before the next action (the last action's scene is left due). */
+const through = (s: UiState, ...actions: UiAction[]) => actions.reduce((u, a) => reduceUi(read(u), a), s);
 /** The loose (movable) items on open cells. */
 const items = (ui: UiState) => ui.session.board.flatMap((r, row) => r.flatMap((c, col) =>
   (c && isCellOpen(ui.session, p(row, col)) && !isFixed(ui.session, p(row, col)) ? [p(row, col)] : [])));
 const drops = (moves: readonly Move[]): UiAction[] => moves.map(([from, to]) => ({ type: 'drop', from, to }));
 const tap = (pos: Pos): UiAction => ({ type: 'tap', pos });
 const ALL_MOVES = [...OPEN_FORK, ...OPEN_TERRACES, ...FINISH_WEST, ...FINISH_EAST, ...REVEAL_FORECOURT];
-/** The game with the forecourt just revealed: Alisha's bubble showing. */
-const revealedUi = () => run(initUi(ENTRANCE_LEVEL), ...drops(ALL_MOVES));
+/** The game with the forecourt just revealed and its scene (C1-08B) read: Alisha's bubble showing. */
+const revealedUi = () => read(through(initUi(ENTRANCE_LEVEL), ...drops(ALL_MOVES)));
 /** The bubble tapped away: Alisha can move. */
 const readyUi = () => run(revealedUi(), { type: 'dismissBubble' });
 /**
@@ -221,7 +228,7 @@ describe('Palace entrance prototype: concealment', () => {
     let s = initUi(ENTRANCE_LEVEL);
     const out = [s];
     for (const moves of [OPEN_FORK, OPEN_TERRACES, FINISH_WEST, REVEAL_POCKET, FINISH_EAST.slice(2), REVEAL_FORECOURT.slice(0, 2)]) {
-      s = run(s, ...drops(moves));
+      s = through(s, ...drops(moves));
       out.push(s);
     }
     return out;
@@ -272,10 +279,11 @@ describe('Palace entrance prototype: concealment', () => {
 
 describe('Palace entrance prototype: the reveal and Alisha\'s speech bubble', () => {
   it('reveals the forecourt, the entrance and the plate together on one move, announced, with Alisha beside them', () => {
-    const before = run(initUi(ENTRANCE_LEVEL), ...drops(ALL_MOVES.slice(0, -1)));
+    const before = through(initUi(ENTRANCE_LEVEL), ...drops(ALL_MOVES.slice(0, -1)));
     expect(plateRevealed(before)).toBe(false);
     const s = run(before, ...drops(ALL_MOVES.slice(-1)));
     expect([plateRevealed(s), bubbleOpen(s), canMoveAlisha(s), s.session.undo]).toEqual([true, true, false, null]);
+    expect(storyDue(s)).toBe('C1-08B');                                                // the forecourt's scene comes first
     expect(partySpots(s.session)).toEqual(party.waiting);
     expect(describeAction(s.lastAction, 'Level', ENTRANCE_LEVEL.goal, regions, tasks)).toBe(
       'Moved an item. The way north is clear: Palace forecourt, with the palace entrance and a pressure plate.');
@@ -285,10 +293,15 @@ describe('Palace entrance prototype: the reveal and Alisha\'s speech bubble', ()
     expect(html).toContain('aria-label="Row 2, column 6, Palace forecourt: Alisha&#x27;s pressure plate"');
     expect(html).toMatch(/<button type="button" class="speech-bubble" data-bubble="true"><span class="sr-only">Alisha says: <\/span><span class="bubble-text">I can stand on that plate\.<\/span><span class="bubble-prompt">Tap to continue<\/span><\/button>/);
     expect(ALISHA_LINE).toBe('I can stand on that plate.');
-    // The bubble is anchored on Alisha's spot.
-    expect(html).toContain(`class="bubble-anchor" style="grid-row:${party.waiting.alisha.row + 1} / span 1;grid-column:${party.waiting.alisha.col + 1} / span 1"`);
+    // The bubble is anchored on Alisha's spot: laid out but hidden until the forecourt's scene (C1-08B) has been read.
+    const anchor = `style="grid-row:${party.waiting.alisha.row + 1} / span 1;grid-column:${party.waiting.alisha.col + 1} / span 1"`;
+    expect(html).toContain(`class="bubble-anchor is-waiting" ${anchor}`);
     expect(html).toContain('class="board is-entrance is-paused"');
-    expect(entranceGuide(s)).toBe('Alisha has something to say. Tap her speech bubble to continue.');
+    expect(entranceGuide(s)).toBe('The way north is clear.');
+    const read_ = read(s);
+    expect(board(read_)).toContain(`class="bubble-anchor" ${anchor}`);
+    expect(board(read_)).toContain('class="board is-entrance is-paused"');                // the bubble still pauses it
+    expect(entranceGuide(read_)).toBe('Alisha has something to say. Tap her speech bubble to continue.');
   });
 
   it('pauses the board while open: taps, drops, Alisha, Undo and supply do nothing; only the bubble\'s own action dismisses it', () => {
@@ -316,7 +329,7 @@ describe('Palace entrance prototype: the reveal and Alisha\'s speech bubble', ()
   it('comes back with the level on Retry, and Retry works while it is open', () => {
     const retried = run(revealedUi(), { type: 'retry' });
     expect([retried.session, retried.bubbleDismissed, bubbleOpen(retried)]).toEqual([startSession(ENTRANCE_LEVEL), false, false]);
-    const again = run(retried, ...drops(ALL_MOVES));
+    const again = through(retried, ...drops(ALL_MOVES));
     expect(bubbleOpen(again)).toBe(true);
     const afterDismiss = run(readyUi(), { type: 'retry' });
     expect([afterDismiss.bubbleDismissed, afterDismiss.session]).toEqual([false, startSession(ENTRANCE_LEVEL)]);
@@ -369,7 +382,7 @@ describe('Palace entrance prototype: placing Alisha', () => {
   });
 
   it('cannot reach the plate before it is revealed, or while the bubble is open', () => {
-    for (const s of [initUi(ENTRANCE_LEVEL), run(initUi(ENTRANCE_LEVEL), ...drops(ALL_MOVES.slice(0, -1))), revealedUi()]) {
+    for (const s of [initUi(ENTRANCE_LEVEL), through(initUi(ENTRANCE_LEVEL), ...drops(ALL_MOVES.slice(0, -1))), revealedUi()]) {
       expect(canMoveAlisha(s)).toBe(false);
       expect(run(s, { type: 'selectAlisha' })).toBe(s);
       expect(run(s, { type: 'placeAlisha', to: PLATE })).toBe(s);
@@ -426,21 +439,17 @@ describe('Palace entrance prototype: finishing', () => {
     expect(afterEntranceOpening(readyUi(), later)).toBeUndefined();
   });
 
-  it('has a short illustrated entry scene (C1-09, then C1-10), its words in the captions, ending back at Levels', () => {
-    expect(comicBeats(ENTRY_PANELS)).toHaveLength(3);
-    expect(ENTRY_PANELS.flatMap((p) => p.lines.map((l) => `${l.speaker ?? ''}: ${l.text}`))).toEqual([
-      ': The plate sinks with a click, and the palace doors swing open.', 'Alisha: We’re in.', 'Fiona: The Crystal Palace.',
-    ]);
-    const art = ENTRY_PANELS.map((panel) => renderToStaticMarkup(<>{panel.art}</>));
-    expect(art[0]).toMatch(/<img src="[^"]*chapter-one-09-palace-entry-v1\.webp" alt=""\/>/);
-    expect(art[1]).toMatch(/<img src="[^"]*chapter-one-10-palace-interior-v1\.webp" alt=""\/>/);
-    for (const panel of ENTRY_PANELS) {
-      expect(panel.description).toMatch(/^Alisha and Fiona /);
-      expect(panel.description).not.toMatch(/placeholder/i);
-    }
+  it('has an illustrated entry scene, C1-09 then C1-10, one line at a time', () => {
+    expect(ENTRY_PANELS.map((panel) => panel.id)).toEqual(['C1-09', 'C1-10']);
+    expect(comicBeats(ENTRY_PANELS)).toHaveLength(11);
+    expect(ENTRY_PANELS.flatMap((panel) => panel.lines).some((l) => l.speaker === undefined)).toBe(false);  // no narration
   });
 
-  it('is a separate Levels entry after The Attic, leaving the numbered levels and Home as they were', () => {
+  it('is a separate Levels entry after The Attic, only where offered (the development preview), leaving the numbered levels and Home as they were', () => {
+    const published = renderToStaticMarkup(<LevelPicker levels={LEVELS} current={0} onPick={() => {}} onAttic={() => {}} onHome={() => {}}
+      musicControl={null} />);
+    expect(published).not.toMatch(/data-action="entrance"|Palace entrance/);
+    expect(published).toContain('data-action="attic"');
     const page = renderToStaticMarkup(<LevelPicker levels={LEVELS} current={0} onPick={() => {}} onAttic={() => {}} onEntrance={() => {}}
       onHome={() => {}} musicControl={null} />);
     const entry = page.indexOf('data-action="entrance"');
@@ -458,13 +467,129 @@ describe('Palace entrance prototype: finishing', () => {
   });
 });
 
+describe('Palace entrance prototype: story scenes', () => {
+  // The storyboard (STORYBOARD) is the source of truth for the scenes' pictures and words (each figure's dialogue, one
+  // <p> per line).
+  const figure = (code: string) => {
+    const fig = STORYBOARD.match(new RegExp(`<figure class="shot" id="${code}">([\\s\\S]*?)</figure>`))?.[1] ?? '';
+    const lines = [...fig.matchAll(/<p><strong>(\w+):<\/strong> “([^”]*)”<\/p>/g)].map(([, speaker, text]) => ({ speaker, text }));
+    expect(fig.match(/“/g)?.length, `${code}: every quoted line parsed`).toBe(lines.length);
+    return { source: fig.match(/<img src="[^"]*\/([^"/]+)\.png"/)?.[1], lines };
+  };
+  const ALL_PANELS = [...APPROACH_PANELS, ...ENTRANCE_STORY['C1-08A'].panels, ...ENTRANCE_STORY['C1-08B'].panels, ...ENTRY_PANELS];
+  const WEST_ITEM = p(9, 3);                                                           // a West terrace Grove tier 1
+  /** Both terraces just opened: the terrace junction's scene due. */
+  const junction = () => through(initUi(ENTRANCE_LEVEL), ...drops([...OPEN_FORK, ...OPEN_TERRACES]));
+
+  it('uses the storyboard\'s current pictures and dialogue for C1-08 to C1-10, word for word, in order', () => {
+    expect(ALL_PANELS.map((panel) => panel.id)).toEqual(['C1-08', 'C1-08A', 'C1-08B', 'C1-09', 'C1-10']);
+    for (const panel of ALL_PANELS) {
+      const { source, lines } = figure(panel.id);
+      expect(lines.length, panel.id).toBeGreaterThan(0);
+      expect(panel.lines, panel.id).toEqual(lines);
+      // The delivery copy of the storyboard's own image (src/assets/art/README.md): 08-palace-approach-draft-v2.png →
+      // chapter-one-08-palace-approach-v2.webp.
+      expect(source, panel.id).toBeDefined();
+      expect(renderToStaticMarkup(<>{panel.art}</>), panel.id)
+        .toMatch(new RegExp(`<img src="[^"]*/chapter-one-${source!.replace('-draft-', '-')}\\.webp" alt=""/>$`));
+      expect(panel.description).toMatch(/^Alisha and Fiona /);
+    }
+    expect(STORYBOARD).toContain(`<strong>On-board Alisha bubble:</strong> “${ALISHA_LINE}”`);
+    expect(ENTRANCE_LEVEL.party!.story).toEqual([{ id: 'C1-08A', task: OPEN_TERRACES_TASK }, { id: 'C1-08B', task: REVEAL_FORECOURT_TASK }]);
+  });
+
+  it('shows the terrace junction (C1-08A) on the move that opens both terraces, the entrance still concealed', () => {
+    const before = through(initUi(ENTRANCE_LEVEL), ...drops([...OPEN_FORK, ...OPEN_TERRACES.slice(0, -1)]));
+    expect(storyDue(initUi(ENTRANCE_LEVEL))).toBeNull();                                // C1-08 is shown before play
+    expect(storyDue(before)).toBeNull();                                                 // not for the Forked path
+    const s = run(before, ...drops(OPEN_TERRACES.slice(-1)));
+    expect(storyDue(s)).toBe('C1-08A');
+    expect([isOpen(s.session, WEST), isOpen(s.session, EAST), isOpen(s.session, UPPER), plateRevealed(s)]).toEqual([true, true, false, false]);
+    expect(board(s)).not.toMatch(SPOILER);
+    expect(board(s)).toContain('class="board is-entrance is-paused"');
+  });
+
+  it('pauses the board while due: nothing but reading it, Retry and putting things down does anything; reading is not a move', () => {
+    const s = junction();
+    const blocked: UiAction[] = [
+      tap(WEST_ITEM), { type: 'drop', from: WEST_ITEM, to: p(8, 3) }, { type: 'undo' }, { type: 'placeSupply' }, { type: 'unlock' },
+      { type: 'dismissBubble' }, { type: 'selectAlisha' }, { type: 'placeAlisha', to: PLATE }, { type: 'clearSelection' },
+    ];
+    for (const a of blocked) expect(run(s, a), a.type).toBe(s);
+    expect(canPickUp(s, WEST_ITEM)).toBe(false);
+    const r = run(s, { type: 'finishStory' });
+    // The session (board, moves, Undo, tasks), actionSeq and the last action are untouched: dialogue is never a move.
+    expect([r.session, r.actionSeq, r.lastAction, r.status, r.storySeen]).toEqual([s.session, s.actionSeq, s.lastAction, s.status, ['C1-08A']]);
+    expect(r.session).toBe(s.session);
+    expect([storyDue(r), canPickUp(r, WEST_ITEM)]).toEqual([null, true]);
+    expect(run(r, { type: 'finishStory' })).toBe(r);                                    // nothing due: nothing to read
+  });
+
+  it('shows each scene once per attempt: never again on later moves or Undo, and Undo can\'t go back past its move', () => {
+    const s = junction();
+    expect(s.session.undo).toBeNull();                                                   // its move was a checkpoint
+    let r = read(s);
+    r = run(r, ...drops(FINISH_WEST.slice(0, 1)));
+    expect(storyDue(r)).toBeNull();
+    r = run(r, { type: 'undo' });
+    expect([r.lastAction?.kind, r.session.undo, r.session.done.includes(OPEN_TERRACES_TASK), storyDue(r)]).toEqual(['undo', null, true, null]);
+    // Every later move, through to the reveal, plays straight on: only the forecourt's scene comes, once.
+    const rest = [...FINISH_WEST, ...FINISH_EAST, ...REVEAL_FORECOURT];
+    for (const [i, [from, to]] of rest.entries()) {
+      const next = run(r, { type: 'drop', from, to });
+      expect(next, `move ${i}`).not.toBe(r);
+      expect(storyDue(next), `move ${i}`).toBe(i === rest.length - 1 ? 'C1-08B' : null);
+      r = next;
+    }
+  });
+
+  it('shows the forecourt (C1-08B) once it is revealed, before Alisha\'s bubble can be tapped away', () => {
+    const s = through(initUi(ENTRANCE_LEVEL), ...drops(ALL_MOVES));
+    expect([storyDue(s), plateRevealed(s), bubbleOpen(s), s.session.undo]).toEqual(['C1-08B', true, true, null]);
+    expect(run(s, { type: 'dismissBubble' })).toBe(s);
+    const r = read(s);
+    expect([storyDue(r), bubbleOpen(r), r.session, r.actionSeq]).toEqual([null, true, s.session, s.actionSeq]);
+    const ready = run(r, { type: 'dismissBubble' });
+    expect([bubbleOpen(ready), canMoveAlisha(ready)]).toEqual([false, true]);
+    const won = run(ready, { type: 'placeAlisha', to: PLATE });
+    expect([won.status, storyDue(won), won.storySeen]).toEqual(['won', null, ['C1-08A', 'C1-08B']]);
+  });
+
+  it('starts again on Retry, from any point (while a scene is due, too): each is shown again when its move is made again', () => {
+    for (const s of [junction(), read(junction()), through(initUi(ENTRANCE_LEVEL), ...drops(ALL_MOVES)), revealedUi(), readyUi()]) {
+      const retried = run(s, { type: 'retry' });
+      expect([retried.session, retried.storySeen, storyDue(retried), retried.bubbleDismissed]).toEqual([startSession(ENTRANCE_LEVEL), [], null, false]);
+      expect(storyDue(through(retried, ...drops([...OPEN_FORK, ...OPEN_TERRACES])))).toBe('C1-08A');
+    }
+  });
+
+  it('waits for the board to show the move before showing a scene; Retry, reading it or leaving cancels the wait', () => {
+    vi.useFakeTimers();
+    const ready = vi.fn();
+    const cancel = afterStoryDue(junction(), ready)!;
+    vi.advanceTimersByTime(STORY_DELAY_MS - 1);
+    expect(ready).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(1);
+    vi.advanceTimersByTime(STORY_DELAY_MS * 3);
+    expect(ready).toHaveBeenCalledTimes(1);
+    cancel();
+    const later = vi.fn();
+    afterStoryDue(junction(), later)!();                                                // Retry, reading it, Home or unmounting
+    vi.advanceTimersByTime(STORY_DELAY_MS * 3);
+    expect(later).not.toHaveBeenCalled();
+    for (const s of [initUi(ENTRANCE_LEVEL), read(junction()), run(junction(), { type: 'retry' }), revealedUi()]) {
+      expect(afterStoryDue(s, later)).toBeUndefined();
+    }
+  });
+});
+
 describe('Palace entrance prototype: camera', () => {
   it('opens the Upper approach with the sealed-gate presentation on the second terrace, whichever it is', () => {
     for (const order of ['west-east', 'east-west'] as const) {
       const [a, b] = order === 'west-east' ? [FINISH_WEST, FINISH_EAST] : [FINISH_EAST, FINISH_WEST];
-      let s = run(initUi(ENTRANCE_LEVEL), ...drops([...OPEN_FORK, ...OPEN_TERRACES, ...a]));
+      let s = through(initUi(ENTRANCE_LEVEL), ...drops([...OPEN_FORK, ...OPEN_TERRACES, ...a]));
       expect(viewCue(s)).toBeNull();
-      s = run(s, ...drops(b));
+      s = through(s, ...drops(b));
       expect(viewCue(s)).toEqual({ kind: 'palace', region: UPPER, gate: p(7, 5) });
     }
   });
@@ -483,6 +608,7 @@ describe('Palace entrance prototype: random play stays solvable (a sample, not a
   const same = (a: Item | null, b: Item | null) => !!a && !!b && a.family === b.family && a.tier === b.tier;
 
   function solverStep(ui: UiState): UiAction | null {
+    if (storyDue(ui) !== null) return { type: 'finishStory' };
     if (bubbleOpen(ui)) return { type: 'dismissBubble' };
     if (canMoveAlisha(ui)) return { type: 'placeAlisha', to: PLATE };
     const s = ui.session;
@@ -520,7 +646,7 @@ describe('Palace entrance prototype: random play stays solvable (a sample, not a
       while (ui.status !== 'won' && steps++ < 3000) {
         const pool = items(ui.session);
         let next = ui;
-        if (!bubbleOpen(ui) && random() < 0.5 && pool.length > 0) {
+        if (!bubbleOpen(ui) && storyDue(ui) === null && random() < 0.5 && pool.length > 0) {
           const from = pool[Math.floor(random() * pool.length)];
           const room = roomCells(ui.session, from);
           next = run(ui, { type: 'drop', from, to: room[Math.floor(random() * room.length)] });

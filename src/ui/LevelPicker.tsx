@@ -7,14 +7,16 @@ import { AlishaArt } from './StoryArt';
 /**
  * Levels page: every handcrafted level, any of which can be played; `current` is the one the sequence is up to. The list
  * scrolls in its own window below the title and Home, and opens with the current level in view. Above level 1, outside
- * the numbered list and its progress, sit the story prototypes: The Attic, then the palace entrance.
+ * the numbered list and its progress, sit the story prototypes: The Attic, then (development preview only) the palace
+ * entrance.
  */
 export function LevelPicker({ levels, current, onPick, onAttic, onEntrance, onHome, musicControl }: {
   levels: readonly Level[];
   current: number;
   onPick: (index: number) => void;
   onAttic: () => void;
-  onEntrance: () => void;
+  /** The palace entrance prototype: offered only in the development preview (see STORY_PREVIEW). */
+  onEntrance?: () => void;
   onHome: () => void;
   musicControl: ReactNode;
 }) {
@@ -43,11 +45,13 @@ export function LevelPicker({ levels, current, onPick, onAttic, onEntrance, onHo
           <span><span className="sr-only">Story prototype: </span>The Attic</span>
           <span className="level-next" aria-hidden="true">Story</span>
         </button>
-        <button type="button" className="btn level-choice is-story" data-action="entrance" onClick={onEntrance}>
-          <span className="level-number" aria-hidden="true"><AlishaArt /></span>
-          <span><span className="sr-only">Story prototype: </span>Palace entrance prototype</span>
-          <span className="level-next" aria-hidden="true">Prototype</span>
-        </button>
+        {onEntrance && (
+          <button type="button" className="btn level-choice is-story" data-action="entrance" onClick={onEntrance}>
+            <span className="level-number" aria-hidden="true"><AlishaArt /></span>
+            <span><span className="sr-only">Story prototype: </span>Palace entrance prototype</span>
+            <span className="level-next" aria-hidden="true">Prototype</span>
+          </button>
+        )}
         <ol className="level-list">
           {levels.map((level, i) => (
             <li key={level.name}>

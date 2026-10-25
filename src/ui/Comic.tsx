@@ -1,5 +1,6 @@
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import './comic.css';
 
 export interface ComicLine { readonly speaker?: string; readonly text: string }
@@ -10,6 +11,8 @@ export interface ComicPanel {
   readonly art: ReactNode;
   readonly lines: readonly ComicLine[];
 }
+/** A comic shown during play (the palace entrance prototype's story scenes): its label and pictures. */
+export interface ComicScene { readonly label: string; readonly panels: readonly ComicPanel[] }
 
 /**
  * A tap this soon after the comic appears is the second half of the double tap that opened it (on the button that was
@@ -122,5 +125,40 @@ export function Comic({ title, label, panels, finish, onFinish, onPanel, onHome,
         {view.moved ? beatAnnouncement(panels, beats[view.beat], view.newPicture, last ? finish.prompt : '') : ''}
       </div>
     </div>
+  );
+}
+
+/**
+ * A comic over the game, without leaving it (the palace entrance prototype's story scenes): the same comic, over the whole
+ * screen (a portal into the body). Meanwhile the app (`#root`, see main.tsx) is inert, so nothing behind it can be tapped,
+ * focused or read, and the game underneath keeps its state and view; an open Help dialog is closed first (returning focus
+ * to Help). After the last line the comic goes, but the overlay stays, invisible, for COMIC_SETTLE_MS, so the second tap
+ * of a double tap (or a second key press) never reaches the game; then `onFinish`, and focus returns where it was.
+ */
+export function ComicOverlay(props: Parameters<typeof Comic>[0]) {
+  const [closing, setClosing] = useState(false);
+  const finish = useRef(props.onFinish);
+  finish.current = props.onFinish;
+  useLayoutEffect(() => {
+    const root = document.getElementById('root');
+    if (!root) return;
+    root.querySelectorAll('dialog').forEach((d) => { if (d.open) d.close(); });
+    const before = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    root.inert = true;
+    return () => {
+      root.inert = false;
+      if (before?.isConnected) before.focus({ preventScroll: true });
+    };
+  }, []);
+  useEffect(() => {
+    if (!closing) return;
+    const timer = setTimeout(() => finish.current(), COMIC_SETTLE_MS);
+    return () => clearTimeout(timer);
+  }, [closing]);
+  return createPortal(
+    <div className={`comic-overlay${closing ? ' is-closing' : ''}`} data-comic-overlay>
+      {!closing && <Comic {...props} onFinish={() => setClosing(true)} />}
+    </div>,
+    document.body,
   );
 }

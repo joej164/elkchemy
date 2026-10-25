@@ -54,6 +54,11 @@ export interface Party {
   readonly start: Spots;
   readonly waiting: Spots;
   readonly door: Pos;
+  /**
+   * Story scenes shown during play, each once per attempt, by its storyboard code (`id`): due on the move that completes
+   * task `task` (see storyDue in src/ui/controller.ts). In task order.
+   */
+  readonly story?: readonly { readonly id: string; readonly task: number }[];
 }
 
 export interface LevelDefinition {
@@ -168,6 +173,7 @@ function validateParty(level: LevelDefinition): void {
   if (keys.size !== cells.length || cells.some((p) => !inBounds(board, p) || regionAt(regions!, p) !== -1 || route.has(`${p.row},${p.col}`))) {
     throw new Error('Unsupported party level');
   }
+  if (party.story?.some((s) => !level.tasks![s.task])) throw new Error('Unsupported party level');
 }
 
 /**

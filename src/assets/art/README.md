@@ -48,5 +48,18 @@ The palace entrance prototype's entry scene (October 23, 2026), from `artwork/st
 | --- | --- | --- | ---: |
 | chapter-one-09-palace-entry-v1.webp | 09-palace-entry-draft-v1.png | C1-09 | 164094 |
 | chapter-one-10-palace-interior-v1.webp | 10-palace-interior-draft-v1.png | C1-10 | 151968 |
+| chapter-one-08-palace-approach-v2.webp | 08-palace-approach-draft-v2.png | C1-08 | 238808 |
+| chapter-one-08a-terrace-junction-v2.webp | 08a-terrace-junction-draft-v2.png | C1-08A | 243418 |
+| chapter-one-08b-forecourt-revealed-v1.webp | 08b-forecourt-revealed-draft-v1.png | C1-08B | 187260 |
 
-Both decoded at 960 × 720 in Chromium and were inspected in the game's comic layout at four phone and iPad sizes. Source SHA-256 values match `render-manifest.json` before and after conversion (`8c52618a12ccced6584e9a3dc164009925401a9d2b52167b5124e5fe8491e3cb`, `c3eb7993772185d34d8907811d99dffd231c2bc3aa31e2abeacd7601580cc79d`); the sources were not modified.
+The C1-09 and C1-10 copies decoded at 960 × 720 in Chromium and were inspected in the game's comic layout at four phone and iPad sizes. Source SHA-256 values match `render-manifest.json` before and after conversion (`8c52618a12ccced6584e9a3dc164009925401a9d2b52167b5124e5fe8491e3cb`, `c3eb7993772185d34d8907811d99dffd231c2bc3aa31e2abeacd7601580cc79d`); the sources were not modified.
+
+Level 3 approach panels (October 25, 2026): the C1-08, C1-08A and C1-08B rows above were added from the files the storyboard (`docs/story/chapter-one-review.html`) currently references. Same method (1448 × 1086 sources downscaled to 960 × 720, quality 0.80, single VP8 chunk), encoded with Chromium 155.0.8059.12; all three outputs are 960 × 720. These are drafts awaiting owner review. The C1-09 and C1-10 WebP files are unchanged: the storyboard still references `09-palace-entry-draft-v1.png` and `10-palace-interior-draft-v1.png`, and their SHA-256 values still match the checksums above.
+
+Source SHA-256 values match `render-manifest.json` before and after conversion; the sources were not modified:
+
+```text
+7643ecb950f2951f39a9484bd1c569048b4eab7943c45a1f0ef75066a962356b  08-palace-approach-draft-v2.png
+1d47aa336cb5ebddca1bf306c8d53e9b3e8fe53443f577d3594d94b3dc4bc07c  08a-terrace-junction-draft-v2.png
+449c605b5190ccca4a69bb654c8ecf38b3db8678024d40c104b687503f46281f  08b-forecourt-revealed-draft-v1.png
+```

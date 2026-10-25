@@ -73,6 +73,18 @@
   .comic-art, .comic-caption { animation: none; }
 }
 
+/* A comic over the game (ComicOverlay): the whole screen, development strip included, on the page's own background, laid
+   out as the comic page, with the game left as it was underneath. */
+.comic-overlay {
+  position: fixed; inset: 0; z-index: 200; overflow: auto; overscroll-behavior: contain;
+  display: grid; grid-template-columns: minmax(0, 1fr); padding: 8px var(--gutter);
+  color: var(--parchment); background-color: var(--forest-1);
+  background-image: radial-gradient(ellipse at 20% 0%, var(--forest-2), transparent 60%), linear-gradient(180deg, var(--forest-2), var(--forest-1));
+}
+.comic-overlay > .comic-page { grid-area: auto; height: calc(100vh - 16px); height: calc(100dvh - 16px); }
+/* Just read: the game shows again, but taps still land on the (now transparent) overlay for a moment. */
+.comic-overlay.is-closing { background: none; }
+
 /* Photo and memory art (closing comic) composed in HTML/CSS. */
 .comic-photo { position: absolute; inset: 0; display: grid; place-items: center; background: radial-gradient(circle at 50% 40%, #8a5a30, #4a3220); }
 .comic-photo-frame { width: 58%; aspect-ratio: 1; background: #fbf7ec; padding: 5% 5% 14%; box-shadow: 0 4px 10px rgb(0 0 0 / 0.45); transform: rotate(-3deg); }
