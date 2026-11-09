@@ -80,6 +80,27 @@ function fiona(): ReactNode {
   );
 }
 
+/** Beyond the gate's dog, a placeholder: a scruffy brown dog side-on, facing left, on 100 × 100. */
+function dog(): ReactNode {
+  return (
+    <g data-sprite="dog">
+      {[34, 42, 66, 74].map((x) => <rect key={x} x={x} y="64" width="7" height="24" rx="3" fill="#7a4e2c" {...S} strokeWidth={1.5} />)}
+      <ellipse cx="56" cy="62" rx="26" ry="14" fill="#a0693d" {...S} />
+      <path d="M80 56 Q94 44 90 36" fill="none" stroke="#7a4e2c" strokeWidth={6} strokeLinecap="round" />
+      <ellipse cx="30" cy="48" rx="15" ry="12" fill="#a0693d" {...S} />
+      <ellipse cx="18" cy="54" rx="8" ry="6" fill="#d9b48a" {...S} strokeWidth={1.5} />
+      <ellipse cx="13" cy="51" rx="3.2" ry="2.6" fill={DARK} />
+      <path d="M34 38 Q44 36 42 56 Q36 54 34 38 Z" fill="#5a3420" {...S} strokeWidth={1.5} />
+      <circle cx="26" cy="44" r="2.2" fill={DARK} />
+    </g>
+  );
+}
+
+/** Beyond the gate's dog as a board sprite. Decorative (callers name it). */
+export function DogArt() {
+  return <svg viewBox="0 0 100 100" aria-hidden="true" focusable="false">{dog()}</svg>;
+}
+
 /** Young Alisha as a board sprite. Decorative (callers name her). */
 export function AlishaArt() {
   return <svg viewBox="0 0 100 100" aria-hidden="true" focusable="false">{alisha()}</svg>;
@@ -132,8 +153,8 @@ export function CharacterPlateArt({ pressed = false }: { pressed?: boolean }) {
   );
 }
 
-// The palace entrance prototype's story scenes, one line at a time as in the Attic, over the draft illustrations the
-// storyboard (docs/story/chapter-one-review.html) shows for C1-08 to C1-10 (artwork/story/chapter-one/; delivery copies:
+// The palace entrance's story scenes (and C1-10, which opens the Crystal Palace), one line at a time as in the Attic, over
+// the draft illustrations the storyboard (docs/story/chapter-one-review.html) shows for C1-08 to C1-10 (artwork/story/chapter-one/; delivery copies:
 // src/assets/art/README.md). Each panel's id is its storyboard code; its lines are that figure's dialogue, word for word,
 // in order. Words stay in the HTML captions.
 
@@ -196,7 +217,7 @@ export const ENTRANCE_STORY: Readonly<Record<string, ComicScene>> = {
   },
 };
 
-/** After the win (Enter the palace): the entrance opens (C1-09), then the first view inside (C1-10). */
+/** After the win (Enter the palace): the entrance opens (C1-09). */
 export const ENTRY_PANELS: readonly ComicPanel[] = [
   {
     id: 'C1-09',
@@ -212,6 +233,10 @@ export const ENTRY_PANELS: readonly ComicPanel[] = [
       { speaker: 'Fiona', text: 'Come on. Wait until you see inside.' },
     ],
   },
+];
+
+/** The Crystal Palace rescue, before play: the first view inside (C1-10), which opens the storyboard's level 4. */
+export const INSIDE_PANELS: readonly ComicPanel[] = [
   {
     id: 'C1-10',
     description: 'Alisha and Fiona inside the palace’s entry hall among lavender crystal columns, gold trim and flowering planters, '

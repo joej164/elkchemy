@@ -1,13 +1,17 @@
 import type { ReactNode } from 'react';
 import { MAX_TIER, type Item, type Family } from '../board';
 import type { Prize } from '../session';
-import { PalaceDoorArt } from './StoryArt';
+import { DogArt, PalaceDoorArt } from './StoryArt';
 
-export const FAMILY_NAMES: Record<Family, string> = { grove: 'Grove', song: 'Song', crystal: 'Crystal', elk: 'Elk', photo: 'Photos', book: 'Book' };
+export const FAMILY_NAMES: Record<Family, string> = {
+  grove: 'Grove', song: 'Song', crystal: 'Crystal', elk: 'Elk', photo: 'Photos', book: 'Book', wood: 'Wood', tool: 'Tools',
+};
 
 /** Per-tier display names for families that have them (tiers past the list use its last name). */
 export const ITEM_NAMES: Partial<Record<Family, readonly string[]>> = {
   photo: ['Loose photos', 'Photo bundle', 'Scrapbook pages'], book: ['Old book', 'Book stack', 'Blank book', 'Picture Book'],
+  wood: ['Fallen branches', 'Gathered bundle', 'Trimmed logs', 'Stacked logs'],
+  tool: ['Loose tools', 'Bundled tools', 'Sorted tool set', 'Tool chest'],
 };
 
 /** An item's name, without its tier. */
@@ -280,6 +284,116 @@ function book(t: number): ReactNode {
   );
 }
 
+// Chapter 1's woodland cleanup (placeholder art, pending owner review): fallen wood and the tool shed's tools.
+
+/** A log seen from its cut end at cx,cy, radius r: bark ring, pale wood and growth rings. */
+function logEnd(cx: number, cy: number, r: number): ReactNode {
+  return (
+    <g key={`${cx},${cy}`}>
+      <circle cx={cx} cy={cy} r={r} fill="#8a5a34" {...S} />
+      <circle cx={cx} cy={cy} r={r * 0.74} fill="#e3c08a" stroke="#b98d55" strokeWidth={1.2} />
+      <circle cx={cx} cy={cy} r={r * 0.42} fill="none" stroke="#b98d55" strokeWidth={1.2} />
+    </g>
+  );
+}
+
+function wood(t: number): ReactNode {
+  if (t === 0) {
+    // Two fallen branches, crossed, with twigs and a couple of dry leaves.
+    return (
+      <>
+        <path d="M14 70 L84 36 M34 60 L30 44 M62 47 L70 32" fill="none" stroke="#6b4a2f" strokeWidth={6} strokeLinecap="round" />
+        <path d="M18 34 L80 72 M44 50 L52 36 M66 64 L78 58" fill="none" stroke="#8a5a34" strokeWidth={5} strokeLinecap="round" />
+        <ellipse cx="72" cy="30" rx="6" ry="3.2" transform="rotate(-30 72 30)" fill="#c9952b" {...S} strokeWidth={1.5} />
+        <ellipse cx="28" cy="42" rx="5" ry="2.8" transform="rotate(40 28 42)" fill="#b8834f" {...S} strokeWidth={1.5} />
+      </>
+    );
+  }
+  if (t === 1) {
+    // A bundle of sticks tied with twine.
+    return (
+      <>
+        {[-12, -6, 0, 6, 12].map((d, i) => (
+          <path key={d} d={`M${22 + i * 2} ${66 + d * 0.4} L${80 - i * 2} ${30 + d}`} stroke={i % 2 ? '#8a5a34' : '#6b4a2f'} strokeWidth={5.5}
+            strokeLinecap="round" />
+        ))}
+        <path d="M46 34 Q52 50 50 66 M54 30 Q60 46 58 62" fill="none" stroke="#e6d3a3" strokeWidth={3.5} />
+      </>
+    );
+  }
+  if (t === 2) {
+    // Three trimmed logs, side by side, their cut ends toward us.
+    return (
+      <>
+        <rect x="16" y="48" width="52" height="22" rx="10" fill="#8a5a34" {...S} />
+        {logEnd(68, 59, 11)}
+        <rect x="26" y="26" width="52" height="22" rx="10" fill="#7a4e2c" {...S} />
+        {logEnd(78, 37, 11)}
+      </>
+    );
+  }
+  // Stacked logs: a neat pile of six cut ends.
+  return (
+    <>
+      {[[30, 66], [50, 66], [70, 66], [40, 48], [60, 48], [50, 30]].map(([x, y]) => logEnd(x, y, 10.5))}
+    </>
+  );
+}
+
+/** A small hammer with its head at x,y, turned by `rot`. */
+function hammer(x: number, y: number, rot: number): ReactNode {
+  return (
+    <g transform={`rotate(${rot} ${x} ${y})`}>
+      <rect x={x - 2.5} y={y} width="5" height="34" rx="2" fill="#b8834f" {...S} strokeWidth={1.5} />
+      <rect x={x - 10} y={y - 6} width="20" height="9" rx="2" fill="#7d8b94" {...S} strokeWidth={1.5} />
+    </g>
+  );
+}
+
+/** A small wrench from x,y, turned by `rot`. */
+function wrench(x: number, y: number, rot: number): ReactNode {
+  return (
+    <g transform={`rotate(${rot} ${x} ${y})`}>
+      <rect x={x - 2.5} y={y + 4} width="5" height="30" rx="2.5" fill="#9fb1bb" {...S} strokeWidth={1.5} />
+      <path d={`M${x - 8} ${y - 6} Q${x} ${y + 12} ${x + 8} ${y - 6} L${x + 4} ${y - 6} L${x + 3} ${y} L${x - 3} ${y} L${x - 4} ${y - 6} Z`}
+        fill="#9fb1bb" {...S} strokeWidth={1.5} />
+    </g>
+  );
+}
+
+function tool(t: number): ReactNode {
+  if (t === 0) return <>{hammer(36, 30, -30)}{wrench(64, 30, 25)}</>;
+  if (t === 1) {
+    // Tools tied together with a leather strap.
+    return (
+      <>
+        {hammer(42, 22, -8)}{wrench(58, 24, 8)}{hammer(50, 20, 0)}
+        <rect x="30" y="46" width="40" height="8" rx="3" fill="#a5463b" {...S} strokeWidth={1.5} />
+      </>
+    );
+  }
+  if (t === 2) {
+    // A sorted set: a tool tray with each tool in its slot.
+    return (
+      <>
+        <path d="M14 44 H86 L80 76 H20 Z" fill="#a5463b" {...S} />
+        <rect x="22" y="30" width="56" height="16" rx="3" fill="#7a2f28" {...S} />
+        {hammer(34, 20, 0)}{wrench(50, 16, 0)}{hammer(66, 20, 0)}
+        <path d="M14 44 H86" stroke={DARK} strokeWidth={2} />
+      </>
+    );
+  }
+  // A tool chest: a red metal box with drawers and a carrying handle.
+  return (
+    <>
+      <path d="M36 24 Q36 14 50 14 Q64 14 64 24" fill="none" stroke="#7d8b94" strokeWidth={5} strokeLinecap="round" />
+      <rect x="16" y="24" width="68" height="54" rx="5" fill="#c0392b" {...S} />
+      {[38, 52, 66].map((y) => <path key={y} d={`M16 ${y} H84`} stroke={DARK} strokeWidth={2} />)}
+      {[31, 45, 59, 72].map((y) => <rect key={y} x="44" y={y - 2} width="12" height="4" rx="2" fill="#e6d3a3" {...S} strokeWidth={1} />)}
+    </>
+  );
+}
+
 /** The Picture Book's front cover (spine, gold frame and corners, leaf, antlers and clasp), on 16–78 × 14–76. */
 function pictureBookCover(): ReactNode {
   return (
@@ -384,7 +498,7 @@ export function BookPageArt({ page }: { page: number }) {
   );
 }
 
-const ART: Record<Family, (t: number) => ReactNode> = { grove, song, crystal, elk, photo, book };
+const ART: Record<Family, (t: number) => ReactNode> = { grove, song, crystal, elk, photo, book, wood, tool };
 
 /** A flying disc seen at an angle: its rim and flight plate. */
 function disc(cx: number, cy: number, tilt: number, fill: string): ReactNode {
@@ -594,9 +708,25 @@ export function DustSheetArt() {
   );
 }
 
+/** The woodland cleanup's goal: a signpost to the trail north; once followed, the trail past it lit gold. Decorative. */
+export function TrailSignArt({ open }: { open: boolean }) {
+  return (
+    <svg viewBox="0 0 100 100" width="100%" height="100%" aria-hidden="true" focusable="false" data-trail={open ? 'followed' : 'waiting'}>
+      {open && <path d="M50 96 Q38 70 52 50 Q66 30 50 6" fill="none" stroke="#f2c14e" strokeWidth={10} strokeLinecap="round" opacity={0.6} />}
+      <ellipse cx="50" cy="93" rx="20" ry="5" fill="#5f8f3a" {...S} strokeWidth={1.5} />
+      <rect x="46" y="18" width="8" height="76" rx="2" fill="#8a5a32" {...S} />
+      <path d="M20 22 H70 L81 32 L70 42 H20 Z" fill="#c8955a" {...S} />
+      <path d="M80 50 H30 L19 60 L30 70 H80 Z" fill="#b07d48" {...S} />
+      <path d="M32 32 H64 M36 60 H68" stroke={DARK} strokeWidth={2.5} strokeLinecap="round" />
+    </svg>
+  );
+}
+
 /** A room level's treasure, closed until `open`. */
 export function PrizeArt({ prize = 'backpack', open }: { prize?: Prize; open: boolean }) {
-  if (prize === 'entrance') return <PalaceDoorArt open={open} />;
+  if (prize === 'entrance' || prize === 'door') return <PalaceDoorArt open={open} />;
+  if (prize === 'trail') return <TrailSignArt open={open} />;
+  if (prize === 'dog') return <DogArt />;
   if (prize === 'ukulele') return <UkuleleCaseArt open={open} />;
   return prize === 'clarinet' ? <ClarinetCaseArt open={open} /> : <BackpackArt open={open} />;
 }

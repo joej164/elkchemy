@@ -15,56 +15,65 @@ const c2: Item = { family: 'crystal', tier: 2 };
 export const [SOUTH, FORK, WEST, EAST, EAST_POCKET, UPPER, FORECOURT] = [0, 1, 2, 3, 4, 5, 6];
 export const [OPEN_FORK_TASK, OPEN_TERRACES_TASK, REVEAL_POCKET_TASK, WEST_TASK, EAST_TASK, REVEAL_FORECOURT_TASK] = [0, 1, 2, 3, 4, 5];
 
-// The palace entrance (a story prototype, outside the numbered levels): one 20 × 11 map, worked from the bottom up.
-// Code coordinates are (row, column) from 0; the player sees no numbers or room labels beyond the rooms' names.
+// The palace entrance (Chapter 1, level 3; development preview only): one 20 × 11 map, worked from the bottom up. Code
+// coordinates are (row, column) from 0; the player sees no numbers or room labels beyond the rooms' names. Tiers as the
+// player sees them (g2: Grove, tier 2 of 5); [x] a marked tile (with the item it needs, or holding one).
 //        0  1  2  3  4  5  6  7  8  9  10
-//    0   ~  ~  w  w  w  D  w  w  w  ~  ~     D the palace entrance, w palace wall: forest until the forecourt is revealed
-//    1   ~  ~  ~  F  F  @  F  F  ~  ~  ~     F Palace forecourt (hidden, no items); @ Alisha's plate, the goal
-//    2   ~  ~  ~  F  F  F  F  F  ~  ~  ~
-//    3   ~  ~  ~  f  a  ‖  ~  ~  ~  ~  ~     ‖ its rune gate, forest until it opens; f a Fiona and Alisha once it is revealed
-//    4   ~  ~  ~  .  . [G] .  .  ~  ~  ~     Upper approach (rows 4-6): [G] Grove 3 of 5 reveals the forecourt
-//    5   ~  ~  ~  g0 g0 .  .  .  ~  s1 s0    East terrace's concealed part (rows 5-6, columns 9-10)
-//    6   ~  ~  ~  g1 g1 .  g0 .  ~  s1 .
-//    7   ~  ~  ~  ~  ~  ‖  ~  ~  ~  *  ~     ‖ the Upper approach's sealed gate, with a symbol for each terrace; * the link
-//    8  [C] g0 g0 [g] ~  =  ~  s0 .  .  [g]  West terrace (rows 8-10, columns 0-3): [C] Crystal 3 and [g] Grove 2 of 5
-//    9   c0 c0 .  g0 ~  =  ~  g0 g0 .  .     East terrace (rows 8-10, columns 7-10): [g] Grove 2 reveals its concealed part,
-//   10   c1 c1 c0 .  ~  =  ~  s0 .  g0 [S]     then [S] Song 3 of 5 completes it
+//    0   ~  ~  ~  ~  ~  D  ~  ~  ~  ~  ~     D the palace entrance in the palace wall: forest until the forecourt is revealed
+//    1   ~  ~  ~  .  .  @  .  .  ~  ~  ~     Palace forecourt (rows 1-2, hidden, no items); @ Alisha's plate, the goal
+//    2   ~  ~  ~  .  .  .  .  .  ~  ~  ~
+//    3   ~  ~  ~  f  a  |  ~  ~  ~  ~  ~     | its rune gate, forest until it opens; f a Fiona and Alisha once it is revealed
+//    4   ~  ~  ~  .  g1[g3 .  g1 ~  ~  ~     Upper approach (rows 4-6): [g3] Grove 3 of 5 reveals the forecourt
+//    5   ~  ~  ~  g1 .  g1 .  g1 ~  s1 s1    East terrace's concealed part (rows 5-6, columns 9-10)
+//    6   ~  ~  ~  g1 g1 .  .  g1 ~  s2 s1
+//    7   ~  ~  ~  ~  ~  |  ~  ~  ~  *  ~     | the Upper approach's sealed gate, with a symbol for each terrace; * the link
+//    8  [c3 g1 g1[g2 ~  =  ~  s1 .  . [g2    West terrace (rows 8-10, columns 0-3): [c3] Crystal 3 and [g2] Grove 2 of 5
+//    9   c1 c1 .  g1 ~  =  ~  g1 g1 .  .     East terrace (rows 8-10, columns 7-10): [g2] Grove 2 reveals its concealed part,
+//   10   c1 c2 c1 c1 ~  =  ~  s1 .  g1[s3       then [s3] Song 3 of 5 completes it
 //   11   ~  ~  ~  |  ~  =  ~  |  ~  ~  ~     | rune gates to the terraces; = the path up to the Upper approach's gate
-//   12   ~  ~  ~  .  . [S]  .  .  ~  ~  ~    Forked path (rows 12-14): [S] Song 3 of 5 opens both terraces
-//   13   ~  ~  ~  s0 s0 .  .  .  ~  ~  ~
-//   14   ~  ~  ~  .  .  s0 s1 s1 ~  ~  ~
+//   12   ~  ~  ~  .  . [s3 .  .  ~  ~  ~     Forked path (rows 12-14): [s3] Song 3 of 5 opens both terraces
+//   13   ~  ~  ~  s1 s1 .  .  s1 ~  ~  ~
+//   14   ~  ~  ~  .  s1 .  s2 s1 ~  ~  ~
 //   15   ~  ~  ~  ~  ~  |  ~  ~  ~  ~  ~
-//   16   ~  ~  ~  .  .  .  . [g]  ~  ~  ~    Southern clearing (rows 16-18), open: [g] Grove 2 of 5 opens the Forked path
-//   17   ~  ~  ~  g0 g0 .  .  .  ~  ~  ~
-//   18   ~  ~  ~  .  .  g0 .  .  ~  ~  ~
+//   16   ~  ~  ~  .  .  .  . [g2 ~  ~  ~     Southern clearing (rows 16-18), open: [g2] Grove 2 of 5 opens the Forked path
+//   17   ~  ~  ~  g1 g1 .  .  .  ~  ~  ~
+//   18   ~  ~  ~  .  .  g1 .  .  ~  ~  ~
 //   19   ~  ~  ~  ~  f  a  ~  ~  ~  ~  ~     f a Fiona and Alisha at the start
 // Every marked tile is a task (Crystal Palace rules): done for good on the move that leaves exactly its items, a
 // checkpoint that fixes them and clears Undo. The terraces open together and can be completed in either order; each
 // lights its symbol on the Upper approach's gate (crystal west, musical note east), and the second opens it. The East
-// terrace's two Song tier 1 can't merge until its concealed part adds the third and two Song tier 2 (as in The Hidden
+// terrace's two Song tier 1 can't merge until its concealed part adds three more and a Song tier 2 (as in The Hidden
 // Cache). Items never leave their room.
-// Exact inventories: in every room each family's pieces make one plain chain (three tier 1 make a tier 2, which with two
-// more makes a tier 3), never five alike, so every merge is a 3-merge, every order of merges ends with the plates' items,
-// and the level can't be stranded (room levels never report a loss).
-// Winning lines: Southern clearing (18,5)→(17,4), (17,4)→(16,7). Forked path (14,5)→(13,4), (13,4)→(14,6), (14,6)→(12,5).
-//   West terrace (10,2)→(9,1), (9,1)→(10,1), (10,1)→(8,0), (9,3)→(8,2), (8,2)→(8,3).
-//   East terrace (10,9)→(9,8), (9,8)→(8,10) reveals; (10,7)→(9,7), (5,10)→(9,7), (9,7)→(6,9), (6,9)→(10,10).
-//   Upper approach (6,6)→(5,4), (5,4)→(6,4), (6,4)→(4,5) reveals the forecourt; then Alisha onto (1,5).
+// Chapter 1 inventories (strandable, see src/chapter.ts): the Southern clearing is a plain warm-up; elsewhere a five-merge
+// is needed: the Forked path's five Song 1, the West terrace's five Crystal 1, the East terrace's five Song 1 once its
+// concealed part is found, and the Upper approach's eight Grove 1 (one five-merge and one three-merge, in either order).
+// A wrong choice leaves too few pieces, is reported at once and Undo takes it back; no checkpoint can strand a room.
+// Winning lines: Southern clearing (18,5)→(17,4), (17,4)→(16,7).
+//   Forked path (13,7)→(14,5), (14,7)→(14,5) 5-merge, (14,5)→(12,5), (14,6)→(13,5), (14,7)→(12,5).
+//   West terrace (10,2)→(9,2), (10,3)→(9,2) 5-merge, (9,2)→(8,0), (10,1)→(9,0), (10,3)→(8,0), (9,3)→(8,2), (8,2)→(8,3).
+//   East terrace (10,9)→(9,8), (9,8)→(8,10) reveals; (6,9)→(9,9), (8,7)→(6,9), (10,7)→(6,9) 5-merge, (9,9)→(10,10),
+//   (6,9)→(10,9), (10,7)→(10,10).
+//   Upper approach (5,5)→(5,4), (4,4)→(5,4) 5-merge, (4,7)→(5,7), (5,4)→(4,5), (5,7)→(4,5) reveals the forecourt; then
+//   Alisha onto (1,5).
 const AREAS: [number, number, Item][] = [
   [17, 3, g0], [17, 4, g0], [18, 5, g0],                                                    // Southern clearing
-  [13, 3, s0], [13, 4, s0], [14, 5, s0], [14, 6, s1], [14, 7, s1],                          // Forked path
-  [8, 1, g0], [8, 2, g0], [9, 3, g0], [9, 0, c0], [9, 1, c0], [10, 2, c0], [10, 0, c1], [10, 1, c1], // West terrace
+  [13, 3, s0], [13, 4, s0], [14, 4, s0], [13, 7, s0], [14, 7, s0], [14, 6, s1],             // Forked path
+  [8, 1, g0], [8, 2, g0], [9, 3, g0], [9, 0, c0], [9, 1, c0], [10, 0, c0], [10, 2, c0], [10, 3, c0], [10, 1, c1], // West terrace
   [9, 7, g0], [9, 8, g0], [10, 9, g0], [8, 7, s0], [10, 7, s0],                             // East terrace
-  [5, 10, s0], [5, 9, s1], [6, 9, s1],                                                      // its concealed part
-  [5, 3, g0], [5, 4, g0], [6, 6, g0], [6, 3, g1], [6, 4, g1],                               // Upper approach
+  [5, 9, s0], [5, 10, s0], [6, 10, s0], [6, 9, s1],                                         // its concealed part
+  [5, 3, g0], [6, 3, g0], [6, 4, g0], [4, 7, g0], [5, 7, g0], [6, 7, g0], [4, 4, g0], [5, 5, g0], // Upper approach
 ];
 const board: Cell[][] = Array.from({ length: 20 }, () => Array.from({ length: 11 }, (): Cell => null));
 for (const [row, col, item] of AREAS) board[row][col] = item;
+
+/** Alisha's line, in her speech bubble, once the forecourt is revealed. */
+export const ALISHA_LINE = 'I can stand on that plate.';
 
 export const ENTRANCE_LEVEL: LevelDefinition = {
   seed: 10,
   board,
   supply: [],
+  strandable: true,
   regions: [
     { name: 'Southern clearing', row: 16, col: 3, rows: 3, cols: 5 },
     { name: 'Forked path', row: 12, col: 3, rows: 3, cols: 5, unlock: { tasks: [OPEN_FORK_TASK], from: SOUTH, passage: { row: 15, col: 5 } } },
@@ -102,5 +111,6 @@ export const ENTRANCE_LEVEL: LevelDefinition = {
     // The terrace junction (C1-08A) once both terraces open; the forecourt (C1-08B) once it is revealed, before Alisha's
     // bubble. The approach (C1-08) is shown before play, and the entry (C1-09, C1-10) after the win.
     story: [{ id: 'C1-08A', task: OPEN_TERRACES_TASK }, { id: 'C1-08B', task: REVEAL_FORECOURT_TASK }],
+    talk: [{ id: 'plate', after: REVEAL_FORECOURT_TASK, lines: [{ who: 'alisha', text: ALISHA_LINE }] }],
   },
 };

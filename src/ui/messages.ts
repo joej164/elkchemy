@@ -4,6 +4,7 @@ import {
 import type { Item } from '../board';
 import type { ItemRecipe, Recipe } from '../recipes';
 import { contentCells, craftReady, treasureRevealed, type LevelGoal, type Prize, type SessionState } from '../session';
+import { strandedRoom } from '../status';
 import { FAMILY_NAMES, itemLabel } from './ItemArt';
 import type { UiState } from './controller';
 
@@ -24,7 +25,10 @@ export function isLargeBoard(board: readonly (readonly unknown[])[]): boolean {
  * Room levels: the treasure the last room hides. `verb`: what a tap on it does; `opened`: its cell's state once tapped;
  * `done`: the announcement of that tap; `won`: the win message.
  */
-export interface PrizeText { readonly name: string; readonly verb: string; readonly opened: string; readonly done: string; readonly won: string }
+/** `idle`: the tile's state until tapped, when "closed, tap to <verb>" does not fit. */
+export interface PrizeText {
+  readonly name: string; readonly verb: string; readonly opened: string; readonly done: string; readonly won: string; readonly idle?: string;
+}
 export const PRIZES: Record<Prize, PrizeText> = {
   backpack: {
     name: 'disc-golf backpack', verb: 'collect', opened: 'open, collected',
@@ -46,6 +50,20 @@ export const PRIZES: Record<Prize, PrizeText> = {
     done: 'Alisha stood on the plate. It sank with a click, and the palace entrance opened.',
     won: 'The palace entrance is open!',
   },
+  // Beyond the gate: Alisha's spot beside the dog, reached by standing her on it (never by a tap).
+  dog: {
+    name: 'dog', verb: 'catch up with', opened: 'Alisha has caught up with the dog',
+    done: 'Alisha caught up with the dog.', won: 'You caught up with the dog!',
+  },
+  // The palace rescue: the message room's door, reached once the antechamber is clear.
+  door: {
+    name: 'message room door', verb: 'open', opened: 'open', done: 'Opened the message room door.', won: 'You reached the message room!',
+  },
+  // The woodland cleanup: the signpost to the trail north, once the path is clear.
+  trail: {
+    name: 'trail signpost', verb: 'follow', idle: 'tap to follow the trail', opened: 'followed', done: 'Followed the trail north.',
+    won: 'The path is clear!',
+  },
 };
 
 /** The text for a room level's treasure (the backpack unless the goal names another prize). */
@@ -62,8 +80,18 @@ function goalPlace(goal: LevelGoal, regions?: readonly Region[]): string {
 /** The palace entrance prototype: its goal is Alisha's plate, which (with its room) stays unnamed until revealed. */
 const isEntrance = (goal: LevelGoal) => goal.kind === 'treasure' && goal.prize === 'entrance';
 
+/** Chapter 1's own goals, which never name a room still hidden: the woodland cleanup's, the rescue's and the last level's. */
+const STORY_GOALS: Partial<Record<Prize, { readonly short: string; readonly help: string }>> = {
+  trail: { short: 'Goal: clear the way to the trail north', help: 'Goal: finish both cleanups to open the trail north, then tap its signpost.' },
+  door: { short: 'Goal: reach the message room', help: 'Goal: work through the palace, free Alisha, and tap the message room door.' },
+  dog: { short: 'Goal: catch up with the dog', help: 'Goal: follow the dog through the palace grounds, then stand Alisha beside it.' },
+};
+const storyGoal = (goal: LevelGoal) => (goal.kind === 'treasure' && goal.prize ? STORY_GOALS[goal.prize] : undefined);
+
 export function objectiveText(goal: LevelGoal, regions?: readonly Region[]): string {
   if (isEntrance(goal)) return 'Goal: find the palace entrance';
+  const story = storyGoal(goal);
+  if (story) return story.short;
   if (goal.kind === 'treasure') return `Goal: find the ${prizeText(goal).name}${goalPlace(goal, regions)}`;
   if (goal.kind === 'item') return `Goal: make ${itemLabel(goal.item)}${goalPlace(goal, regions)}${goal.open ? ', then open it' : ''}`;
   if (goal.kind === 'items') return `Goal: make ${allOf(goal.items.length)}`;
@@ -74,6 +102,8 @@ export function objectiveText(goal: LevelGoal, regions?: readonly Region[]): str
 /** Objective sentence for the help dialog. */
 export function helpObjective(goal: LevelGoal, regions?: readonly Region[]): string {
   if (isEntrance(goal)) return 'Goal: open the rune gates northward and find the palace entrance.';
+  const story = storyGoal(goal);
+  if (story) return story.help;
   if (goal.kind === 'treasure') {
     const { verb, name } = prizeText(goal);
     const gates = regions?.filter((r) => !!r.unlock && 'passage' in r.unlock && !!r.unlock.passage).length ?? 0;
@@ -169,7 +199,9 @@ export function roomsHelp(regions: readonly Region[], unlocked: number | ((i: nu
   });
   const sealed = tasks ? sealedRegion(regions) : -1;
   if (sealed >= 0) {
-    const names = (regions[sealed].unlock as TaskUnlock).tasks.map((t) => regions[tasks![t].in].name);
+    // A room still hidden (the woodland cleanup's depot) is not named before it is found.
+    const names = (regions[sealed].unlock as TaskUnlock).tasks.map((t) => (regions[tasks![t].in].hidden && !open(tasks![t].in)
+      ? 'a room still to find' : regions[tasks![t].in].name));
     return 'Marked tiles work by themselves, on the move that puts exactly the items shown on them: they open rune gates, ' +
       `or complete ${listOf(names, 'or')}, in any order. Each one completed lights its symbol on the gate to ` +
       `${regions[sealed].name}, and ${allOf(names.length)} open it.${shared.join('')} Items never leave their own room.`;
@@ -247,7 +279,7 @@ function taskStep(state: UiState): string {
   return `Put ${taskNeed(regions, tasks[t])} to open the rune ${opens.length > 1 ? 'gates' : 'gate'} to ${to}.`;
 }
 
-const SYMBOL_NAMES: Record<GateSymbol, string> = { fern: 'fern', crystal: 'crystal', note: 'musical note' };
+const SYMBOL_NAMES: Record<GateSymbol, string> = { fern: 'fern', crystal: 'crystal', note: 'musical note', wood: 'log', tool: 'hammer' };
 
 /**
  * Levels with tasks: the announcement of what a drop's checkpoint did, e.g. " Crystal Glade is complete: its crystal is
@@ -355,6 +387,12 @@ export function recipeHelp(recipe: Recipe, goal: LevelGoal): string {
 
 const contents = (recipe: Recipe) => `three ${itemLabel(recipe.contents.item)}`;
 
+/** A workshop (the palace rescue): how its recipe crafts a chest there, for Help. */
+export function workshopHelp(recipe: Recipe, room: string): string {
+  return `In ${room}, merge pieces into ${recipeNeed(recipe)}. ${craftDrop(recipe)} (or tap one, then the other), to craft the ` +
+    `${recipe.name}; tap it to open it: ${contents(recipe)} come out there. Opening it can't be undone.`;
+}
+
 /** An item recipe (the attic): how to craft its result, for Help. */
 export function craftHelp(craft: ItemRecipe): string {
   const [a, b] = craft.ingredients.map(itemLabel);
@@ -378,7 +416,12 @@ export function statusMessage(state: UiState, pannable = isLargeBoard(state.sess
     const last = state.session.board.flat().find((c) => c !== null);
     return last ? `Goal complete! Only ${itemLabel(last)} remains.` : 'Goal complete!';
   }
-  if (regions) return REGION_STUCK_MESSAGE;
+  if (regions) {
+    // Chapter 1 room levels: a choice left a room too few pieces for its marked tiles (see strandedRoom).
+    const room = state.session.level.strandable ? strandedRoom(state.session) : -1;
+    return room === -1 ? REGION_STUCK_MESSAGE
+      : `${regions[room].name} can no longer be finished: too few pieces are left for its marked tiles. Undo, or Retry.`;
+  }
   if (state.session.level.earlyLoss === false) return state.session.chest ? NO_ROOM_MESSAGE : NO_MERGES_MESSAGE;
   if (goal.kind === 'items') return 'A goal item can no longer be made. Undo or retry.';
   if (goal.kind === 'item') {

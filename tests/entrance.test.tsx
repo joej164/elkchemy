@@ -11,7 +11,7 @@ import {
   applyDrop, canDrop, collect, isCellOpen, partySpots, previewDrop, retry, standOnPlate, startSession, treasureRevealed, undo,
   type LevelDefinition, type SessionState,
 } from '../src/session';
-import { evaluateStatus } from '../src/status';
+import { evaluateStatus, strandedRoom } from '../src/status';
 import { App, describeAction, Game } from '../src/ui/App';
 import { Board } from '../src/ui/Board';
 import { viewCue } from '../src/ui/camera';
@@ -25,7 +25,7 @@ import {
 import { HelpButton } from '../src/ui/HelpButton';
 import { LevelPicker } from '../src/ui/LevelPicker';
 import { helpObjective, objectiveText, roomsHelp } from '../src/ui/messages';
-import { APPROACH_PANELS, ENTRANCE_STORY, ENTRY_PANELS } from '../src/ui/StoryArt';
+import { APPROACH_PANELS, ENTRANCE_STORY, ENTRY_PANELS, INSIDE_PANELS } from '../src/ui/StoryArt';
 import { comicBeats } from '../src/ui/Comic';
 import STORYBOARD from '../docs/story/chapter-one-review.html?raw';
 
@@ -34,18 +34,18 @@ const p = (row: number, col: number): Pos => ({ row, col });
 const it_ = (family: Family, tier: Tier): Item => ({ family, tier });
 const regions = ENTRANCE_LEVEL.regions!;
 const tasks = ENTRANCE_LEVEL.tasks!;
-const party = ENTRANCE_LEVEL.party!;
+const party = { ...ENTRANCE_LEVEL.party!, waiting: ENTRANCE_LEVEL.party!.waiting!, door: ENTRANCE_LEVEL.party!.door! };
 const PLATE = p(1, 5);
 const DOOR = p(0, 5);
 
 type Move = [Pos, Pos];
 const m = (moves: [number, number, number, number][]): Move[] => moves.map(([a, b, c, d]) => [p(a, b), p(c, d)]);
 const OPEN_FORK = m([[18, 5, 17, 4], [17, 4, 16, 7]]);
-const OPEN_TERRACES = m([[14, 5, 13, 4], [13, 4, 14, 6], [14, 6, 12, 5]]);
-const FINISH_WEST = m([[10, 2, 9, 1], [9, 1, 10, 1], [10, 1, 8, 0], [9, 3, 8, 2], [8, 2, 8, 3]]);
+const OPEN_TERRACES = m([[13, 7, 14, 5], [14, 7, 14, 5], [14, 5, 12, 5], [14, 6, 13, 5], [14, 7, 12, 5]]);
+const FINISH_WEST = m([[10, 2, 9, 2], [10, 3, 9, 2], [9, 2, 8, 0], [10, 1, 9, 0], [10, 3, 8, 0], [9, 3, 8, 2], [8, 2, 8, 3]]);
 const REVEAL_POCKET = m([[10, 9, 9, 8], [9, 8, 8, 10]]);
-const FINISH_EAST = [...REVEAL_POCKET, ...m([[10, 7, 9, 7], [5, 10, 9, 7], [9, 7, 6, 9], [6, 9, 10, 10]])];
-const REVEAL_FORECOURT = m([[6, 6, 5, 4], [5, 4, 6, 4], [6, 4, 4, 5]]);
+const FINISH_EAST = [...REVEAL_POCKET, ...m([[6, 9, 9, 9], [8, 7, 6, 9], [10, 7, 6, 9], [9, 9, 10, 10], [6, 9, 10, 9], [10, 7, 10, 10]])];
+const REVEAL_FORECOURT = m([[5, 5, 5, 4], [4, 4, 5, 4], [4, 7, 5, 7], [5, 4, 4, 5], [5, 7, 4, 5]]);
 const BRANCHES = { west: FINISH_WEST, east: FINISH_EAST };
 
 function play(s: SessionState, moves: readonly Move[]): SessionState {
@@ -137,31 +137,9 @@ describe('Palace entrance prototype: layout and inventory', () => {
     expect(() => startSession({ ...ENTRANCE_LEVEL, party: undefined })).toThrow(/Unsupported party level/);
   });
 
-  it('gives every room exact plain chains: only 3-merges, and every order of merges ends with exactly its plates\' items', () => {
-    // Each room's pieces per family and tier, merged three at a time as far as they go (counts decide everything, since
-    // a family never has five alike at one tier, so no 5-merge is ever possible).
-    const rooms = [SOUTH, FORK, WEST, EAST, UPPER, FORECOURT];
-    for (const room of rooms) {
-      const counts = new Map<string, number>();
-      regions.forEach((r, i) => {
-        if (roomOf(regions, i) !== room) return;
-        ENTRANCE_LEVEL.board.forEach((row, rr) => row.forEach((c, cc) => {
-          if (c && regionAt(regions, p(rr, cc)) === i) counts.set(`${c.family}${c.tier}`, (counts.get(`${c.family}${c.tier}`) ?? 0) + 1);
-        }));
-      });
-      const final: string[] = [];
-      for (const family of ['grove', 'song', 'crystal', 'elk'] as Family[]) {
-        let carry = 0;
-        for (let t = 0; t <= 4; t++) {
-          const n = (counts.get(`${family}${t}`) ?? 0) + carry;
-          expect(n, `room ${room} ${family} tier ${t}`).toBeLessThan(5);
-          carry = Math.floor(n / 3);
-          for (let k = 0; k < n % 3; k++) final.push(`${family}${t}`);
-        }
-      }
-      const plates = tasks.filter((t) => roomOf(regions, t.in) === room).flatMap((t) => t.plates.map((pl) => `${pl.item.family}${pl.item.tier}`));
-      expect(final.sort(), `room ${room}`).toEqual(plates.sort());
-    }
+  it('has Chapter 1 inventories: strandable, every room can fill its tiles at the start (choices: tests/chapter.test.tsx)', () => {
+    expect(ENTRANCE_LEVEL.strandable).toBe(true);
+    expect(strandedRoom(startSession(ENTRANCE_LEVEL))).toBe(-1);
   });
 });
 
@@ -286,20 +264,20 @@ describe('Palace entrance prototype: the reveal and Alisha\'s speech bubble', ()
     expect(storyDue(s)).toBe('C1-08B');                                                // the forecourt's scene comes first
     expect(partySpots(s.session)).toEqual(party.waiting);
     expect(describeAction(s.lastAction, 'Level', ENTRANCE_LEVEL.goal, regions, tasks)).toBe(
-      'Moved an item. The way north is clear: Palace forecourt, with the palace entrance and a pressure plate.');
+      'Merged 3 into 1 item: Grove, tier 3 of 5. The way north is clear: Palace forecourt, with the palace entrance and a pressure plate.');
     expect(viewCue(s)).toEqual({ kind: 'region', region: FORECOURT });
     const html = board(s);
     expect(html).toContain('aria-label="The palace entrance, closed"');
     expect(html).toContain('aria-label="Row 2, column 6, Palace forecourt: Alisha&#x27;s pressure plate"');
-    expect(html).toMatch(/<button type="button" class="speech-bubble" data-bubble="true"><span class="sr-only">Alisha says: <\/span><span class="bubble-text">I can stand on that plate\.<\/span><span class="bubble-prompt">Tap to continue<\/span><\/button>/);
+    expect(html).toMatch(/<button type="button" class="speech-bubble" data-bubble="true" data-speaker="alisha"><span class="sr-only">Alisha says: <\/span><span class="bubble-text">I can stand on that plate\.<\/span><span class="bubble-prompt">Tap to continue<\/span><\/button>/);
     expect(ALISHA_LINE).toBe('I can stand on that plate.');
     // The bubble is anchored on Alisha's spot: laid out but hidden until the forecourt's scene (C1-08B) has been read.
     const anchor = `style="grid-row:${party.waiting.alisha.row + 1} / span 1;grid-column:${party.waiting.alisha.col + 1} / span 1"`;
-    expect(html).toContain(`class="bubble-anchor is-waiting" ${anchor}`);
+    expect(html).toContain(`class="bubble-anchor is-alisha is-waiting" ${anchor}`);
     expect(html).toContain('class="board is-entrance is-paused"');
     expect(entranceGuide(s)).toBe('The way north is clear.');
     const read_ = read(s);
-    expect(board(read_)).toContain(`class="bubble-anchor" ${anchor}`);
+    expect(board(read_)).toContain(`class="bubble-anchor is-alisha" ${anchor}`);
     expect(board(read_)).toContain('class="board is-entrance is-paused"');                // the bubble still pauses it
     expect(entranceGuide(read_)).toBe('Alisha has something to say. Tap her speech bubble to continue.');
   });
@@ -328,11 +306,11 @@ describe('Palace entrance prototype: the reveal and Alisha\'s speech bubble', ()
 
   it('comes back with the level on Retry, and Retry works while it is open', () => {
     const retried = run(revealedUi(), { type: 'retry' });
-    expect([retried.session, retried.bubbleDismissed, bubbleOpen(retried)]).toEqual([startSession(ENTRANCE_LEVEL), false, false]);
+    expect([retried.session, retried.talkHeard.length > 0, bubbleOpen(retried)]).toEqual([startSession(ENTRANCE_LEVEL), false, false]);
     const again = through(retried, ...drops(ALL_MOVES));
     expect(bubbleOpen(again)).toBe(true);
     const afterDismiss = run(readyUi(), { type: 'retry' });
-    expect([afterDismiss.bubbleDismissed, afterDismiss.session]).toEqual([false, startSession(ENTRANCE_LEVEL)]);
+    expect([afterDismiss.talkHeard.length > 0, afterDismiss.session]).toEqual([false, startSession(ENTRANCE_LEVEL)]);
   });
 });
 
@@ -412,7 +390,7 @@ describe('Palace entrance prototype: placing Alisha', () => {
     }
     expect(standOnPlate(won.session, PLATE)).toBe(won.session);
     const retried = run(won, { type: 'retry' });
-    expect([retried.session, retried.status, retried.bubbleDismissed, retried.alishaSelected])
+    expect([retried.session, retried.status, retried.talkHeard.length > 0, retried.alishaSelected])
       .toEqual([startSession(ENTRANCE_LEVEL), 'playing', false, false]);
     expect(viewCue(retried)).toEqual({ kind: 'start' });
   });
@@ -439,25 +417,11 @@ describe('Palace entrance prototype: finishing', () => {
     expect(afterEntranceOpening(readyUi(), later)).toBeUndefined();
   });
 
-  it('has an illustrated entry scene, C1-09 then C1-10, one line at a time', () => {
-    expect(ENTRY_PANELS.map((panel) => panel.id)).toEqual(['C1-09', 'C1-10']);
-    expect(comicBeats(ENTRY_PANELS)).toHaveLength(11);
-    expect(ENTRY_PANELS.flatMap((panel) => panel.lines).some((l) => l.speaker === undefined)).toBe(false);  // no narration
-  });
-
-  it('is a separate Levels entry after The Attic, only where offered (the development preview), leaving the numbered levels and Home as they were', () => {
-    const published = renderToStaticMarkup(<LevelPicker levels={LEVELS} current={0} onPick={() => {}} onAttic={() => {}} onHome={() => {}}
-      musicControl={null} />);
-    expect(published).not.toMatch(/data-action="entrance"|Palace entrance/);
-    expect(published).toContain('data-action="attic"');
-    const page = renderToStaticMarkup(<LevelPicker levels={LEVELS} current={0} onPick={() => {}} onAttic={() => {}} onEntrance={() => {}}
-      onHome={() => {}} musicControl={null} />);
-    const entry = page.indexOf('data-action="entrance"');
-    expect(entry).toBeGreaterThan(page.indexOf('data-action="attic"'));
-    expect(entry).toBeLessThan(page.indexOf('<ol class="level-list">'));
-    expect(page).toMatch(/data-action="entrance"[^>]*>(?:(?!<\/button>).)*<span class="sr-only">Story prototype: <\/span>Palace entrance prototype(?:(?!<\/button>).)*Prototype/);
-    expect(page.match(/<li>/g)).toHaveLength(LEVELS.length);
-    expect(renderToStaticMarkup(<App />)).not.toContain('entrance');
+  it('has an illustrated entry scene, C1-09, one line at a time; C1-10 now opens the Crystal Palace (storyboard order)', () => {
+    expect(ENTRY_PANELS.map((panel) => panel.id)).toEqual(['C1-09']);
+    expect(INSIDE_PANELS.map((panel) => panel.id)).toEqual(['C1-10']);
+    expect([comicBeats(ENTRY_PANELS).length, comicBeats(INSIDE_PANELS).length]).toEqual([6, 5]);
+    expect([...ENTRY_PANELS, ...INSIDE_PANELS].flatMap((panel) => panel.lines).some((l) => l.speaker === undefined)).toBe(false);  // no narration
   });
 
   it('shows the Help line for Alisha\'s plate once it is revealed', () => {
@@ -476,7 +440,7 @@ describe('Palace entrance prototype: story scenes', () => {
     expect(fig.match(/“/g)?.length, `${code}: every quoted line parsed`).toBe(lines.length);
     return { source: fig.match(/<img src="[^"]*\/([^"/]+)\.png"/)?.[1], lines };
   };
-  const ALL_PANELS = [...APPROACH_PANELS, ...ENTRANCE_STORY['C1-08A'].panels, ...ENTRANCE_STORY['C1-08B'].panels, ...ENTRY_PANELS];
+  const ALL_PANELS = [...APPROACH_PANELS, ...ENTRANCE_STORY['C1-08A'].panels, ...ENTRANCE_STORY['C1-08B'].panels, ...ENTRY_PANELS, ...INSIDE_PANELS];
   const WEST_ITEM = p(9, 3);                                                           // a West terrace Grove tier 1
   /** Both terraces just opened: the terrace junction's scene due. */
   const junction = () => through(initUi(ENTRANCE_LEVEL), ...drops([...OPEN_FORK, ...OPEN_TERRACES]));
@@ -558,7 +522,7 @@ describe('Palace entrance prototype: story scenes', () => {
   it('starts again on Retry, from any point (while a scene is due, too): each is shown again when its move is made again', () => {
     for (const s of [junction(), read(junction()), through(initUi(ENTRANCE_LEVEL), ...drops(ALL_MOVES)), revealedUi(), readyUi()]) {
       const retried = run(s, { type: 'retry' });
-      expect([retried.session, retried.storySeen, storyDue(retried), retried.bubbleDismissed]).toEqual([startSession(ENTRANCE_LEVEL), [], null, false]);
+      expect([retried.session, retried.storySeen, storyDue(retried), retried.talkHeard.length > 0]).toEqual([startSession(ENTRANCE_LEVEL), [], null, false]);
       expect(storyDue(through(retried, ...drops([...OPEN_FORK, ...OPEN_TERRACES])))).toBe('C1-08A');
     }
   });
@@ -592,76 +556,5 @@ describe('Palace entrance prototype: camera', () => {
       s = through(s, ...drops(b));
       expect(viewCue(s)).toEqual({ kind: 'palace', region: UPPER, gate: p(7, 5) });
     }
-  });
-});
-
-describe('Palace entrance prototype: random play stays solvable (a sample, not a proof)', () => {
-  // A seeded mix of random legal moves and a simple solver's steps, from the start to the win. The count argument above
-  // is what rules out stranding; this checks it against the real board rules (rooms, links, fixed plates, swaps).
-  const rng = (seed: number) => () => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed / 2 ** 32; };
-  const cells = ENTRANCE_LEVEL.board.flatMap((r, row) => r.map((_, col) => p(row, col))).filter((q) => regionAt(regions, q) !== -1);
-  const roomCells = (s: SessionState, q: Pos) => {
-    const room = roomOf(regions, regionAt(regions, q));
-    return cells.filter((c) => isCellOpen(s, c) && roomOf(regions, regionAt(regions, c)) === room);
-  };
-  const items = (s: SessionState) => cells.filter((q) => s.board[q.row][q.col] && isCellOpen(s, q) && !isFixed(s, q));
-  const same = (a: Item | null, b: Item | null) => !!a && !!b && a.family === b.family && a.tier === b.tier;
-
-  function solverStep(ui: UiState): UiAction | null {
-    if (storyDue(ui) !== null) return { type: 'finishStory' };
-    if (bubbleOpen(ui)) return { type: 'dismissBubble' };
-    if (canMoveAlisha(ui)) return { type: 'placeAlisha', to: PLATE };
-    const s = ui.session;
-    // Fill a marked tile of an open task with its exact item from the same room.
-    for (const t of tasks.keys()) {
-      if (s.done.includes(t) || !isOpen(s, tasks[t].in)) continue;
-      for (const pl of tasks[t].plates) {
-        if (same(s.board[pl.row][pl.col], pl.item)) continue;
-        const from = items(s).find((q) => same(s.board[q.row][q.col], pl.item) && roomCells(s, q).some((c) => c.row === pl.row && c.col === pl.col) &&
-          !tasks[t].plates.some((o) => o.row === q.row && o.col === q.col));
-        if (from) return { type: 'drop', from, to: p(pl.row, pl.col) };
-      }
-    }
-    // Any merge ready now.
-    const all = items(s);
-    for (const a of all) for (const b of all) if (a !== b && previewDrop(s, a, b).length >= 3) return { type: 'drop', from: a, to: b };
-    // Gather three alike: put a second beside the first, then the third merges onto them.
-    for (const a of all) {
-      const alike = all.filter((b) => b !== a && same(s.board[b.row][b.col], s.board[a.row][a.col]) && roomCells(s, a).includes(b));
-      if (alike.length < 2) continue;
-      const room = roomCells(s, a);
-      const beside = room.find((c) => Math.abs(c.row - a.row) + Math.abs(c.col - a.col) === 1 && !isFixed(s, c) && !(c.row === PLATE.row && c.col === PLATE.col) &&
-        !alike.includes(c));
-      if (beside) return { type: 'drop', from: alike[0], to: beside };
-    }
-    return null;
-  }
-
-  it('wins 150 seeded games mixing random moves with solver steps, reaching both terrace orders', () => {
-    const orders = new Set<string>();
-    for (let g = 0; g < 150; g++) {
-      const random = rng(g + 1);
-      let ui = initUi(ENTRANCE_LEVEL);
-      let steps = 0;
-      while (ui.status !== 'won' && steps++ < 3000) {
-        const pool = items(ui.session);
-        let next = ui;
-        if (!bubbleOpen(ui) && storyDue(ui) === null && random() < 0.5 && pool.length > 0) {
-          const from = pool[Math.floor(random() * pool.length)];
-          const room = roomCells(ui.session, from);
-          next = run(ui, { type: 'drop', from, to: room[Math.floor(random() * room.length)] });
-        } else {
-          const step = solverStep(ui);
-          expect(step, `game ${g} stuck after ${steps} steps`).not.toBeNull();
-          next = run(ui, step!);
-          expect(next, `game ${g}: ${JSON.stringify(step)}`).not.toBe(ui);
-        }
-        ui = next;
-      }
-      expect(ui.status, `game ${g}`).toBe('won');
-      orders.add(ui.session.done.filter((d) => d === WEST_TASK || d === EAST_TASK).join('-'));
-      expect(evaluateStatus(ui.session)).toBe('won');
-    }
-    expect([...orders].sort()).toEqual([`${WEST_TASK}-${EAST_TASK}`, `${EAST_TASK}-${WEST_TASK}`].sort());
   });
 });

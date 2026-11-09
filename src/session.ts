@@ -1,8 +1,8 @@
 import { drop, previewMerge, type Board, type Cell, type Item, type Pos } from './board';
 import { isIngredientPair, isPair, type ItemRecipe, type Recipe } from './recipes';
 import {
-  availableTasks, isFixed, isOpen, nextLocked, platesHold, platesMet, regionAt, roomOf, routeOf, unlockReady, validateRegions, type Region,
-  type Task,
+  availableTasks, inRegion, isFixed, isOpen, itemTasks, nextLocked, platesHold, platesMet, regionAt, roomOf, routeOf, unlockReady,
+  validateRegions, type Region, type Task,
 } from './regions';
 
 /**
@@ -16,7 +16,10 @@ import {
  * `treasure` (room levels): collect the treasure at `at`, hidden in the last room until it opens, by tapping it.
  *   `prize` is what it is: a disc-golf backpack (the default), a clarinet case or a ukulele case. With `task` (levels
  *   with tasks), it stays hidden until that task, in its room, is done. Its cell never holds an item. The palace entrance
- *   prototype's `entrance` is Alisha's pressure plate instead: she opens it by standing on it (see Party), not by a tap.
+ *   prototype's `entrance` is Alisha's pressure plate instead: she opens it by standing on it (see Party), not by a tap;
+ *   Beyond the gate's `dog` is likewise her spot beside the dog, which she catches up with by standing there. `door` (the
+ *   palace rescue) is the message room's door and `trail` (the woodland cleanup) a signpost to the trail north, each
+ *   tapped like the other prizes.
  */
 export type LevelGoal =
   | { readonly kind: 'item'; readonly item: Item; readonly region?: number; readonly open?: boolean }
@@ -24,7 +27,7 @@ export type LevelGoal =
   | { readonly kind: 'leaveOne'; readonly item?: Item }
   | { readonly kind: 'treasure'; readonly at: Pos; readonly prize?: Prize; readonly task?: number };
 
-export type Prize = 'backpack' | 'clarinet' | 'ukulele' | 'entrance';
+export type Prize = 'backpack' | 'clarinet' | 'ukulele' | 'entrance' | 'dog' | 'door' | 'trail';
 
 /**
  * A placed container (the attic story prototype): it stands on its own cell, which holds no item, and holds a fixed
@@ -43,22 +46,39 @@ export interface Container {
 /** Where Alisha and Fiona stand: scenery cells, never an item's. */
 export interface Spots { readonly alisha: Pos; readonly fiona: Pos }
 
+/** A line spoken on the board, in a speech bubble beside its speaker. */
+export interface TalkLine { readonly who: 'alisha' | 'fiona'; readonly text: string }
+
 /**
- * The palace entrance prototype: Alisha and Fiona on the board, beside the items but never one of them: they never
- * merge, swap or take an item's cell. They stand at `start` until the goal's plate (its treasure cell, an `entrance`, in
- * the last room) is revealed with that room, then at `waiting`, beside it. Alisha's one destination is that plate:
- * standing her on it (see standOnPlate) opens the palace entrance at `door`, a scenery cell beside the last room drawn
- * with it, and wins.
+ * On-board dialogue: lines tapped through one at a time (see talkDue in src/ui/controller.ts), due once task `after` is
+ * done (at the start without it). Each is heard once per attempt; while one is showing the board is paused.
+ */
+export interface Talk { readonly id: string; readonly after?: number; readonly lines: readonly TalkLine[] }
+
+/**
+ * Party levels (Chapter 1): Alisha and Fiona on the board, beside the items but never one of them: they never merge, swap
+ * or take an item's cell. They stand on scenery spots: at `start`, then at `waiting` (if given) once the room of Alisha's
+ * plate is open. Her plates are her only destinations (see alishaPlate):
+ * - a goal plate (an `entrance` or `dog` treasure, in the last room): standing her on it wins (see standOnPlate); the
+ *   palace entrance prototype's opens the palace entrance at `door`, a scenery cell beside the last room drawn with it;
+ * - a task's plate (Task.alisha): standing her on it does that task. With `trap` (the palace rescue), that task traps her:
+ *   she stays on the plate, behind a crystal partition across her room's passage, and Fiona stands at `trap.fiona`, until
+ *   task `trap.release` is done; then both stand at `trap.free`.
+ * `dog` (Beyond the gate): a dog seen on the board, at the last of its spots whose task `after` is done (or from the start).
  */
 export interface Party {
   readonly start: Spots;
-  readonly waiting: Spots;
-  readonly door: Pos;
+  readonly waiting?: Spots;
+  readonly door?: Pos;
   /**
    * Story scenes shown during play, each once per attempt, by its storyboard code (`id`): due on the move that completes
    * task `task` (see storyDue in src/ui/controller.ts). In task order.
    */
   readonly story?: readonly { readonly id: string; readonly task: number }[];
+  /** On-board dialogue, in order of their tasks; a story scene due on the same task comes first. */
+  readonly talk?: readonly Talk[];
+  readonly trap?: { readonly task: number; readonly release: number; readonly fiona: Pos; readonly free: Spots };
+  readonly dog?: readonly { readonly at: Pos; readonly after?: number }[];
 }
 
 export interface LevelDefinition {
@@ -84,9 +104,16 @@ export interface LevelDefinition {
   /**
    * Merge to treasure (generated puzzles): the board's one recipe. Its ingredients craft its chest when one is dropped
    * onto the other (see craftAt); the chest opens to its contents (see openChest); everything then merges into the
-   * goal (`leaveOne` with that item: it alone left, and no closed chest).
+   * goal (`leaveOne` with that item: it alone left, and no closed chest). In a level with tasks (the palace rescue's
+   * workshop) it crafts only in the room of region `workshop`, and the contents come out in that room.
    */
   readonly recipe?: Recipe;
+  readonly workshop?: number;
+  /**
+   * Levels with tasks whose choices can strand a room (Chapter 1): status reports 'lost' once some room's marked tiles
+   * can no longer all be filled (see strandedRoom in status.ts), so Undo can take the choice back. Others never lose.
+   */
+  readonly strandable?: boolean;
   /**
    * Container levels (the attic): placed containers, each opened once by a tap (a checkpoint). They need no supply,
    * regions or recipe; status never reports a loss (see evaluateStatus), so such a level must be built so it can't be
@@ -98,7 +125,7 @@ export interface LevelDefinition {
    * there, as one undoable move (see craftAt); unlike a recipe's chest, the result is a board item like any other.
    */
   readonly craft?: ItemRecipe;
-  /** The palace entrance prototype: Alisha and Fiona, and the entrance Alisha opens (see Party). */
+  /** Chapter 1 levels: Alisha and Fiona on the board (see Party). */
   readonly party?: Party;
 }
 
@@ -158,22 +185,44 @@ function validateContainers(level: LevelDefinition): void {
   if (level.supply.length > 0 || level.regions || level.recipe) throw new Error('Unsupported container level');
 }
 
+/** Whether the level's goal is Alisha's plate (an `entrance` or `dog` treasure): she wins by standing on it. */
+export function plateGoal(level: LevelDefinition): boolean {
+  const { goal } = level;
+  return goal.kind === 'treasure' && (goal.prize === 'entrance' || goal.prize === 'dog');
+}
+
 /**
- * The palace entrance prototype: an `entrance` treasure goal goes with a party, in a level with tasks; every spot and the
- * door are distinct scenery cells (outside every region, link and route).
+ * Party levels go with tasks, and a plate goal (see plateGoal) with a party. Every spot, the door and the dog's spots
+ * are scenery cells (outside every region, link and route); the spots shown together, and the door, are distinct. A trap
+ * names Alisha's task and a release; story scenes and talk name tasks; only Alisha and Fiona talk.
  */
 function validateParty(level: LevelDefinition): void {
-  const { party, goal, regions, board } = level;
-  const entrance = goal.kind === 'treasure' && goal.prize === 'entrance';
-  if (!party && !entrance) return;
-  if (!party || !entrance || !level.tasks) throw new Error('Unsupported party level');
-  const route = new Set(regions!.flatMap(routeOf).map((p) => `${p.row},${p.col}`));
-  const cells = [party.start.alisha, party.start.fiona, party.waiting.alisha, party.waiting.fiona, party.door];
-  const keys = new Set(cells.map((p) => `${p.row},${p.col}`));
-  if (keys.size !== cells.length || cells.some((p) => !inBounds(board, p) || regionAt(regions!, p) !== -1 || route.has(`${p.row},${p.col}`))) {
-    throw new Error('Unsupported party level');
-  }
-  if (party.story?.some((s) => !level.tasks![s.task])) throw new Error('Unsupported party level');
+  const { party, regions, board } = level;
+  const fail = (): never => { throw new Error('Unsupported party level'); };
+  if (!party && !plateGoal(level)) return;
+  if (!party || !level.tasks || !regions) return fail();
+  const tasks = level.tasks;
+  const route = new Set(regions.flatMap(routeOf).map((p) => `${p.row},${p.col}`));
+  const { start, waiting, door, trap } = party;
+  const scenery = [start.alisha, start.fiona, ...(waiting ? [waiting.alisha, waiting.fiona] : []), ...(door ? [door] : []),
+    ...(trap ? [trap.fiona, trap.free.alisha, trap.free.fiona] : []), ...(party.dog ?? []).map((d) => d.at)];
+  if (scenery.some((p) => !inBounds(board, p) || regionAt(regions, p) !== -1 || route.has(`${p.row},${p.col}`))) fail();
+  const same = (a: Pos, b: Pos) => a.row === b.row && a.col === b.col;
+  const pairs = [start, ...(waiting ? [waiting] : []), ...(trap ? [trap.free] : [])];
+  if (pairs.some((q) => same(q.alisha, q.fiona) || (door && (same(q.alisha, door) || same(q.fiona, door))))) fail();
+  if (trap && door && same(trap.fiona, door)) fail();
+  const task = (t: number | undefined) => t === undefined || !!tasks[t];
+  if (party.story?.some((s) => !task(s.task)) || party.dog?.some((d) => !task(d.after))) fail();
+  if (party.talk?.some((t) => !task(t.after) || t.lines.length === 0 || t.lines.some((l) => l.who !== 'alisha' && l.who !== 'fiona'))) fail();
+  if (trap && (!tasks[trap.task]?.alisha || !task(trap.release) || trap.release === trap.task)) fail();
+  if (tasks.some((t) => t.alisha) !== !!trap || (plateGoal(level) && trap)) fail();
+}
+
+/** Levels with tasks and a recipe (the palace rescue's workshop): a recipe crafts in one region's room, `workshop`. */
+function validateWorkshop(level: LevelDefinition): void {
+  const { recipe, workshop, regions } = level;
+  if (workshop === undefined && (!recipe || !level.tasks)) return;
+  if (!recipe || !level.tasks || !regions?.[workshop ?? -1]) throw new Error('Unsupported workshop level');
 }
 
 /**
@@ -184,6 +233,7 @@ export function startSession(level: LevelDefinition): SessionState {
   validateRegions(level);
   validateContainers(level);
   validateParty(level);
+  validateWorkshop(level);
   return {
     level, board: level.board, supplyIndex: 0, rngState: level.seed, moves: 0, unlocked: 0, collected: false, done: [],
     chest: null, opened: false, unpacked: [], undo: null,
@@ -202,6 +252,8 @@ export function canDrop(state: SessionState, from: Pos, to: Pos): boolean {
   const { regions, goal } = level;
   if (!regions) return true;
   if (goal.kind === 'treasure' && goal.at.row === to.row && goal.at.col === to.col) return false;
+  // Alisha's plates never hold an item.
+  if (level.tasks?.some((t) => t.alisha && t.alisha.row === to.row && t.alisha.col === to.col)) return false;
   const a = regionAt(regions, from);
   const b = regionAt(regions, to);
   return isOpen(state, a) && isOpen(state, b) && roomOf(regions, a) === roomOf(regions, b) &&
@@ -254,7 +306,7 @@ export function applyDrop(state: SessionState, from: Pos, to: Pos): SessionState
   const next = { ...state, board: result.board, moves: state.moves + 1, undo: snapshot(state) };
   if (state.level.tasks) {
     const tasks = state.level.tasks;
-    const met = availableTasks(state).filter((i) => platesHold(result.board, tasks[i].plates));
+    const met = itemTasks(state).filter((i) => platesHold(result.board, tasks[i].plates));
     return met.length > 0 ? { ...next, done: [...state.done, ...met], undo: null } : next;
   }
   const n = nextLocked(state);
@@ -268,32 +320,63 @@ export function treasureRevealed(state: SessionState): boolean {
   return isOpen(state, regionAt(regions!, goal.at)) && (goal.task === undefined || state.done.includes(goal.task));
 }
 
-/** Room levels: collects the treasure once it is revealed. One undoable move. A party's plate is never collected by a tap. */
+/** Room levels: collects the treasure once it is revealed. One undoable move. Alisha's plate is never collected by a tap. */
 export function collect(state: SessionState): SessionState {
-  if (state.level.goal.kind !== 'treasure' || state.level.party || state.collected || !treasureRevealed(state)) return state;
+  if (state.level.goal.kind !== 'treasure' || plateGoal(state.level) || state.collected || !treasureRevealed(state)) return state;
   return { ...state, collected: true, moves: state.moves + 1, undo: snapshot(state) };
 }
 
-/**
- * Party levels: where Alisha and Fiona stand now: their start spots until the plate is revealed, then their waiting
- * spots; once she stands on it, Alisha is on the plate.
- */
-export function partySpots(state: SessionState): Spots | null {
-  const { party, goal } = state.level;
-  if (!party || goal.kind !== 'treasure') return null;
-  const spots = treasureRevealed(state) ? party.waiting : party.start;
-  return state.collected ? { ...spots, alisha: goal.at } : spots;
+/** Party levels with a trap (the palace rescue): Alisha is shut in behind the partition, between its task and its release. */
+export function trapped(state: SessionState): boolean {
+  const trap = state.level.party?.trap;
+  return !!trap && state.done.includes(trap.task) && !state.done.includes(trap.release);
 }
 
 /**
- * Party levels: stands Alisha on her plate at `to`, once it is revealed (with its room). That opens the palace entrance
- * for good and wins: a checkpoint, so Undo is cleared. Anywhere else, or again, nothing changes.
+ * Party levels: where Alisha and Fiona stand now (see Party): their start spots, then (once the room of her plate is
+ * open) their waiting spots; on a goal plate once she stands on it; with a trap, Alisha on its plate and Fiona outside
+ * while she is trapped, then both at their free spots.
+ */
+export function partySpots(state: SessionState): Spots | null {
+  const { party, goal, tasks } = state.level;
+  if (!party) return null;
+  const { trap } = party;
+  if (trap && state.done.includes(trap.release)) return trap.free;
+  if (trapped(state)) return { alisha: tasks![trap!.task].alisha!, fiona: trap!.fiona };
+  const near = plateGoal(state.level) ? treasureRevealed(state) : !!trap && isOpen(state, tasks![trap.task].in);
+  const spots = near && party.waiting ? party.waiting : party.start;
+  return state.collected && plateGoal(state.level) && goal.kind === 'treasure' ? { ...spots, alisha: goal.at } : spots;
+}
+
+/** Beyond the gate: where the dog is seen now (the last of its spots due), or null. */
+export function dogSpot(state: SessionState): Pos | null {
+  const due = state.level.party?.dog?.filter((d) => d.after === undefined || state.done.includes(d.after)) ?? [];
+  return due.length > 0 ? due[due.length - 1].at : null;
+}
+
+/**
+ * Party levels: Alisha's one destination now, or null: her goal plate once revealed (until she stands on it), or the
+ * plate of an Alisha task whose room is open.
+ */
+export function alishaPlate(state: SessionState): Pos | null {
+  const { goal, tasks, party } = state.level;
+  if (!party) return null;
+  if (plateGoal(state.level)) return goal.kind === 'treasure' && !state.collected && treasureRevealed(state) ? goal.at : null;
+  const t = availableTasks(state).find((i) => tasks![i].alisha);
+  return t === undefined ? null : tasks![t].alisha!;
+}
+
+/**
+ * Party levels: stands Alisha on her plate at `to` (see alishaPlate). A goal plate wins (the palace entrance opens for
+ * good); a task's plate does that task, opening what waits on it (with a trap, shutting her in). Either is a checkpoint:
+ * Undo is cleared. Anywhere else, or again, nothing changes.
  */
 export function standOnPlate(state: SessionState, to: Pos): SessionState {
-  const { party, goal } = state.level;
-  if (!party || goal.kind !== 'treasure' || state.collected || !treasureRevealed(state)) return state;
-  if (goal.at.row !== to.row || goal.at.col !== to.col) return state;
-  return { ...state, collected: true, moves: state.moves + 1, undo: null };
+  const at = alishaPlate(state);
+  if (!at || at.row !== to.row || at.col !== to.col) return state;
+  if (plateGoal(state.level)) return { ...state, collected: true, moves: state.moves + 1, undo: null };
+  const t = state.level.tasks!.findIndex((task) => task.alisha?.row === to.row && task.alisha.col === to.col);
+  return { ...state, done: [...state.done, t], moves: state.moves + 1, undo: null };
 }
 
 /** Levels with an `open` item goal: whether the item at `p` is the made goal item, not yet opened. */
@@ -332,16 +415,23 @@ export function craftedItem(state: SessionState, from: Pos, to: Pos): Item | nul
   return a && b && isPair(craft.ingredients, a, b) ? craft.result : null;
 }
 
+/** Levels with a workshop: whether `p` is in the workshop's room (always true for other recipe levels). */
+function inWorkshop(state: SessionState, p: Pos): boolean {
+  const { regions, workshop } = state.level;
+  if (workshop === undefined || !regions) return true;
+  return roomOf(regions, regionAt(regions, p)) === roomOf(regions, workshop);
+}
+
 /**
  * Recipe levels: the drop of one ingredient onto the other (either way round) crafts the chest: those two items are
  * consumed, every other piece stays, and the chest stands at the destination. With an item recipe (`craft`), the same
  * drop puts its result, an ordinary item, at the destination instead. One undoable move. Null for any other drop, which
- * keeps its ordinary meaning (a swap, for two different items).
+ * keeps its ordinary meaning (a swap, for two different items). With a workshop, only there.
  */
 export function craftAt(state: SessionState, from: Pos, to: Pos): SessionState | null {
   const made = craftedItem(state, from, to);
   if (!made) {
-    if (!canStillCraft(state)) return null;
+    if (!canStillCraft(state) || !inWorkshop(state, to)) return null;
     const a = state.board[from.row]?.[from.col];
     const b = state.board[to.row]?.[to.col];
     if (!a || !b || !isIngredientPair(state.level.recipe!, a, b)) return null;
@@ -360,18 +450,33 @@ export function craftAt(state: SessionState, from: Pos, to: Pos): SessionState |
 export function contentCells(state: SessionState): Pos[] | null {
   const { chest, level } = state;
   if (!chest || !level.recipe) return null;
-  return releaseFrom(state.board, chest, level.recipe.contents.count, []);
+  return releaseFrom(state.board, chest, level.recipe.contents.count, [], level.regions ? (p) => releasable(state, chest, p) : undefined);
+}
+
+/**
+ * Levels with a workshop: whether a chest at `chest` may put an item on the empty cell `p`: an open cell of its room,
+ * never a marked tile, Alisha's plate or the treasure's cell (so opening it never does a task).
+ */
+function releasable(state: SessionState, chest: Pos, p: Pos): boolean {
+  const { regions, tasks, goal } = state.level;
+  const i = regionAt(regions!, p);
+  if (i === -1 || !isOpen(state, i) || roomOf(regions!, i) !== roomOf(regions!, regionAt(regions!, chest))) return false;
+  if (goal.kind === 'treasure' && goal.at.row === p.row && goal.at.col === p.col) return false;
+  const at = (q: Pos) => q.row === p.row && q.col === p.col;
+  return !tasks?.some((t) => t.plates.some(at) || (t.alisha && at(t.alisha)));
 }
 
 /**
  * Where `count` items released from the container at `at` go: `at` itself, then the nearest empty cells (by distance,
- * then reading order), never a `reserved` cell. Null if there are too few.
+ * then reading order), never a `reserved` cell, and only cells `allowed` accepts. Null if there are too few.
  */
-function releaseFrom(board: Board, at: Pos, count: number, reserved: readonly Pos[]): Pos[] | null {
+function releaseFrom(board: Board, at: Pos, count: number, reserved: readonly Pos[], allowed?: (p: Pos) => boolean): Pos[] | null {
   const empty: Pos[] = [];
   board.forEach((r, row) => r.forEach((c, col) => {
     const p = { row, col };
-    if (c === null && !(row === at.row && col === at.col) && !reserved.some((q) => q.row === row && q.col === col)) empty.push(p);
+    if (c === null && !(row === at.row && col === at.col) && !reserved.some((q) => q.row === row && q.col === col) && (!allowed || allowed(p))) {
+      empty.push(p);
+    }
   }));
   const d = (p: Pos) => Math.abs(p.row - at.row) + Math.abs(p.col - at.col);
   empty.sort((a, b) => d(a) - d(b) || a.row - b.row || a.col - b.col);

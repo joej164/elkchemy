@@ -9,7 +9,7 @@ export function actionEffect(state: UiState): EffectCue | null {
   if (!action || action.kind === 'undo' || action.kind === 'retry') return null;
   // Room levels' treasure and the attic's Picture Book: opening the prize is the win.
   // The palace entrance prototype: Alisha opening the entrance is the win too.
-  if (action.kind === 'collect' || action.kind === 'openGoal' || action.kind === 'stand') return 'case-victory';
+  if (action.kind === 'collect' || action.kind === 'openGoal' || (action.kind === 'stand' && !action.progress)) return 'case-victory';
   // Merge to treasure: crafting and opening are steps, not the win (which is the final merge's own sound). The attic's
   // crafting (the Picture Book, still to be opened) is a step too.
   if (action.kind === 'craft') return 'completion';

@@ -3,9 +3,8 @@ import { LEVELS, nextLevelIndex, type Level } from '../levels';
 import { MAX_TIER, type Item } from '../board';
 import { generatePuzzle, TREASURE_TIERS, treasureConfig, type GeneratedPuzzle, type PuzzleConfig } from '../generator';
 import { RECIPES, recipeById, type ItemRecipe, type Recipe } from '../recipes';
-import { containerShown, type Container, type LevelDefinition, type LevelGoal, type SessionState } from '../session';
+import { alishaPlate, containerShown, type Container, type LevelDefinition, type LevelGoal, type SessionState } from '../session';
 import { ATTIC_LEVEL } from '../attic';
-import { ENTRANCE_LEVEL } from '../entrance';
 import { hasItem } from '../status';
 import { availableTasks, isOpen, nextLocked, sealedRegion, type Region, type Task, type TaskUnlock } from '../regions';
 import { Board, ContainerArt, LockIcon, RuneGate, SymbolIcon } from './Board';
@@ -13,12 +12,12 @@ import { Comic, ComicOverlay, type ComicScene } from './Comic';
 import { CLOSING_PANELS, memoryMusicOn, OPENING_PANELS } from './atticStory';
 import { afterOpening, BookOpening } from './BookOpening';
 import { atticGuide } from './atticGuide';
-import { afterEntranceOpening, afterStoryDue, ENTRANCE_OPENING_MS, entranceGuide } from './entranceGuide';
-import { APPROACH_PANELS, ENTRANCE_STORY, ENTRY_PANELS } from './StoryArt';
+import { afterEntranceOpening, afterStoryDue, ENTRANCE_OPENING_MS } from './entranceGuide';
+import { CHAPTER_ONE } from './chapterOne';
 import { HelpButton } from './HelpButton';
 import { Home } from './Home';
 import { LevelPicker } from './LevelPicker';
-import { PlaySetup } from './PlaySetup';
+import { loadPuzzle, PlaySetup } from './PlaySetup';
 import { PuzzleId } from './PuzzleId';
 import { ReleaseNotes } from './ReleaseNotes';
 import { Scores } from './Scores';
@@ -71,7 +70,11 @@ export function describeAction(
     case 'swap': return `Swapped two items.${gate}${reveal}`;
     case 'place': return `Placed ${itemLabel(a.item)} in row ${a.at.row + 1}, column ${a.at.col + 1}.`;
     case 'unlock': return `Unlocked ${regions?.[a.region]?.name ?? 'an area'}.`;
-    case 'collect': case 'stand': return prizeText(goal).done;
+    case 'collect': return prizeText(goal).done;
+    // The palace rescue's trap: Alisha's plate opened the rooms across the gallery and shut her in.
+    case 'stand': return a.progress
+      ? `Alisha stood on the plate.${progressText(a.progress.tasks, a.progress.regions, goal, regions!, tasks!)} A crystal partition closed behind her.`
+      : prizeText(goal).done;
     case 'openGoal': return goal.kind === 'item' ? `Opened the ${itemName(goal.item)}.` : '';
     case 'craft': {
       if (!a.made) return `Crafted the ${recipe?.name ?? 'chest'}. Tap it to open it.`;
@@ -92,7 +95,7 @@ export function describeAction(
 
 type Screen =
   | { readonly kind: 'home' }
-  | { readonly kind: 'play'; readonly error?: string }
+  | { readonly kind: 'play'; readonly error?: string; readonly loadError?: string }
   | { readonly kind: 'notes' }
   | { readonly kind: 'scores' }
   | { readonly kind: 'pick' }
@@ -100,14 +103,14 @@ type Screen =
   | { readonly kind: 'puzzle'; readonly puzzle: GeneratedPuzzle }
   // The Attic (story prototype, from Levels): its opening comic, the puzzle, then its closing comic.
   | { readonly kind: 'attic'; readonly phase: 'opening' | 'play' | 'closing' }
-  // The palace entrance prototype (from Levels, development only): its approach scene, the puzzle (with its own story
-  // scenes), then its entry scene.
-  | { readonly kind: 'entrance'; readonly phase: 'opening' | 'play' | 'closing' };
+  // A Chapter 1 level (from Levels, development only): its opening comic, the puzzle (with its own story scenes), then
+  // its closing comic, if any, and on to the next level.
+  | { readonly kind: 'chapter'; readonly level: number; readonly phase: 'opening' | 'play' | 'closing' };
 
 /**
- * Whether the palace entrance prototype is in the app (offered in Levels): in the development preview (/dev/) and the
- * local dev server (`npm run dev`). A production build has it false at build time, so the prototype's screens and scenes
- * are left out of its code (Vite still copies the imported draft art into its assets, unreferenced).
+ * Whether Chapter 1 is in the app (offered in Levels): in the development preview (/dev/) and the local dev server (`npm
+ * run dev`). A production build has it false at build time, so the chapter's screens and scenes are left out of its code
+ * (Vite still copies the imported draft art into its assets, unreferenced).
  */
 export const STORY_PREVIEW = __DEV_PREVIEW__ || import.meta.env.DEV;
 
@@ -132,16 +135,19 @@ export function App({ levels = LEVELS }: { levels?: readonly Level[] }) {
   const [screen, setScreen] = useState<Screen>({ kind: 'home' });
   const [index, setIndex] = useState(0);
   const [config, setConfig] = useState<PuzzleConfig>({ mode: 'goals', tier: 3, goals: 1 });
+  // Chapter 1 (development preview): the level up next, kept in memory only, apart from the numbered levels' progress.
+  const [chapterNext, setChapterNext] = useState(0);
+  const chapter = STORY_PREVIEW && screen.kind === 'chapter' ? CHAPTER_ONE[screen.level] : null;
   const active = screen.kind === 'levels' ? levels[index].definition : screen.kind === 'puzzle' ? screen.puzzle.definition
     : screen.kind === 'attic' && screen.phase === 'play' ? ATTIC_LEVEL
-    : STORY_PREVIEW && screen.kind === 'entrance' && screen.phase === 'play' ? ENTRANCE_LEVEL
+    : chapter && screen.kind === 'chapter' && screen.phase === 'play' ? chapter.definition
     : null;
   const [musicArea, setMusicArea] = useState<'woodland' | 'palace'>('woodland');
   // The closing comic's last picture, the woodland memory, brings in Woodland Journey once revealed, for the rest of it.
   const [memoryMusic, setMemoryMusic] = useState(false);
   const palaceLevel = active?.regions?.some((r) => r.building === 'palace');
   const music = useMusic(memoryMusic ? JOURNEY_MUSIC : palaceLevel ? musicArea === 'palace' ? PALACE_MUSIC : JOURNEY_MUSIC
-    : active && isSongGoal(active) ? PUZZLE_MUSIC : WOODLAND_MUSIC);
+    : chapter?.palace ? PALACE_MUSIC : active && isSongGoal(active) ? PUZZLE_MUSIC : WOODLAND_MUSIC);
   const effects = useEffects();
   const musicControl = (
     <>
@@ -180,8 +186,11 @@ export function App({ levels = LEVELS }: { levels?: readonly Level[] }) {
     }
   };
   const toHome = () => show({ kind: 'home' });
-  const inGame = screen.kind === 'levels' || screen.kind === 'puzzle' || ((screen.kind === 'attic' || screen.kind === 'entrance') && screen.phase === 'play');
-  const comic = (screen.kind === 'attic' || screen.kind === 'entrance') && screen.phase !== 'play';
+  // Chapter 1: each level leads into the next one's opening; after the last, back to Levels.
+  const openChapter = (level: number) => { show({ kind: 'chapter', level, phase: 'opening' }); window.scrollTo(0, 0); };
+  const afterChapter = (level: number) => (level + 1 < CHAPTER_ONE.length ? openChapter(level + 1) : show({ kind: 'pick' }));
+  const inGame = screen.kind === 'levels' || screen.kind === 'puzzle' || ((screen.kind === 'attic' || screen.kind === 'chapter') && screen.phase === 'play');
+  const comic = (screen.kind === 'attic' || screen.kind === 'chapter') && screen.phase !== 'play';
   // Home and Play are drawn over full-screen artwork (SceneArt).
   const scene = screen.kind === 'home' || screen.kind === 'play';
 
@@ -195,7 +204,14 @@ export function App({ levels = LEVELS }: { levels?: readonly Level[] }) {
           levelsNote={index > 0 ? `Levels continue at level ${index + 1} of ${levels.length}, ${levels[index].name}.` : undefined} />
       )}
       {screen.kind === 'play' && (
-        <PlaySetup config={config} onConfig={setConfig} error={screen.error} musicControl={musicControl} onHome={toHome}
+        <PlaySetup config={config} onConfig={setConfig} error={screen.error} loadError={screen.loadError} musicControl={musicControl}
+          onHome={toHome}
+          onLoad={(code) => {
+            // A puzzle code reopens that puzzle's exact start (by the generator version it names); nothing else is restored.
+            const loaded = loadPuzzle(code);
+            if ('puzzle' in loaded) show({ kind: 'puzzle', puzzle: loaded.puzzle });
+            else setScreen({ kind: 'play', loadError: loaded.error });
+          }}
           onStart={() => startPuzzle(config.mode === 'treasure'
             ? treasureConfig(RECIPES[0].id, TREASURE_TIERS.includes(config.tier) ? config.tier : TREASURE_TIERS[0])
             : { ...config, goals: config.mode === 'one' ? 1 : config.goals })} />
@@ -206,7 +222,7 @@ export function App({ levels = LEVELS }: { levels?: readonly Level[] }) {
         <LevelPicker levels={levels} current={index} musicControl={musicControl} onHome={toHome}
           onPick={(i) => { setIndex(i); show({ kind: 'levels' }); window.scrollTo(0, 0); }}
           onAttic={() => { show({ kind: 'attic', phase: 'opening' }); window.scrollTo(0, 0); }}
-          onEntrance={STORY_PREVIEW ? () => { show({ kind: 'entrance', phase: 'opening' }); window.scrollTo(0, 0); } : undefined} />
+          chapter={STORY_PREVIEW ? { names: CHAPTER_ONE.map((c) => c.name), next: chapterNext, onPick: openChapter } : undefined} />
       )}
       {screen.kind === 'levels' && (
         <Game key={run} onMusicAreaChange={setMusicArea} playEffect={effects.play} stopEffects={effects.stop} definition={levels[index].definition} musicControl={musicControl} onHome={toHome}
@@ -235,21 +251,25 @@ export function App({ levels = LEVELS }: { levels?: readonly Level[] }) {
           musicControl={musicControl} onHome={toHome} label="Story prototype · The Attic" scene="attic" guide={atticGuide}
           onWin={() => show({ kind: 'attic', phase: 'closing' })} />
       )}
-      {STORY_PREVIEW && screen.kind === 'entrance' && screen.phase === 'opening' && (
-        <Comic key={run} title="Palace entrance" label="Approach" panels={APPROACH_PANELS}
-          finish={{ prompt: 'Tap to start.', name: 'Start' }}
-          onFinish={() => show({ kind: 'entrance', phase: 'play' })} onHome={toHome} musicControl={musicControl} />
+      {chapter && screen.kind === 'chapter' && screen.phase === 'opening' && (
+        <Comic key={run} title={chapter.name} label="Opening" panels={chapter.opening} finish={{ prompt: 'Tap to start.', name: 'Start' }}
+          onFinish={() => show({ ...screen, phase: 'play' })} onHome={toHome} musicControl={musicControl} />
       )}
-      {STORY_PREVIEW && screen.kind === 'entrance' && screen.phase === 'play' && (
-        <Game key={run} onMusicAreaChange={setMusicArea} playEffect={effects.play} stopEffects={effects.stop} definition={ENTRANCE_LEVEL}
-          musicControl={musicControl} onHome={toHome} label="Story prototype · Palace entrance" scene="entrance" guide={entranceGuide}
-          story={{ title: 'Palace entrance', scenes: ENTRANCE_STORY }}
-          winLabel="Enter the palace" onWin={() => show({ kind: 'entrance', phase: 'closing' })} />
+      {chapter && screen.kind === 'chapter' && screen.phase === 'play' && (
+        <Game key={run} onMusicAreaChange={setMusicArea} playEffect={effects.play} stopEffects={effects.stop} definition={chapter.definition}
+          musicControl={musicControl} onHome={toHome} label={`Chapter 1 · ${screen.level + 1} of ${CHAPTER_ONE.length} · ${chapter.name}`}
+          scene={chapter.scene} guide={chapter.guide} story={chapter.story && { title: chapter.name, scenes: chapter.story }}
+          winLabel={chapter.winLabel}
+          onWin={() => {
+            setChapterNext(screen.level + 1 < CHAPTER_ONE.length ? screen.level + 1 : 0);
+            if (chapter.closing) show({ ...screen, phase: 'closing' }); else afterChapter(screen.level);
+          }} />
       )}
-      {STORY_PREVIEW && screen.kind === 'entrance' && screen.phase === 'closing' && (
-        <Comic key={run} title="Palace entrance" label="Entry" panels={ENTRY_PANELS}
-          finish={{ prompt: 'Tap to return to Levels.', name: 'Back to Levels' }}
-          onFinish={() => show({ kind: 'pick' })} onHome={toHome} musicControl={musicControl} />
+      {chapter && screen.kind === 'chapter' && screen.phase === 'closing' && chapter.closing && (
+        <Comic key={run} title={chapter.name} label="Ending" panels={chapter.closing}
+          finish={screen.level + 1 < CHAPTER_ONE.length ? { prompt: 'Tap to continue.', name: 'Continue' }
+            : { prompt: 'Tap to return to Levels.', name: 'Back to Levels' }}
+          onFinish={() => afterChapter(screen.level)} onHome={toHome} musicControl={musicControl} />
       )}
       <footer className="app-footer">
         <UpdateControl />
@@ -261,13 +281,34 @@ export function App({ levels = LEVELS }: { levels?: readonly Level[] }) {
 /**
  * Levels with tasks: until the first gate opens, what opens it (as for other room levels); then a checklist of the rooms
  * the sealed region needs, each with its symbol (lit once done) and what it asks for now, and the sealed region itself.
+ * A level with no sealed region (Beyond the gate: one room after another) shows what opens the next gate throughout.
  */
 export function TaskPanel({ session }: { session: SessionState }) {
   const regions = session.level.regions!;
   const tasks = session.level.tasks!;
-  if (!regions.some((_, i) => i > 0 && isOpen(session, i))) {
-    const t = availableTasks(session)[0];
-    const names = regions.flatMap((r, i) => (i > 0 && (r.unlock as TaskUnlock).tasks.includes(t) ? [r.name] : []));
+  const sealed = sealedRegion(regions);
+  if (sealed === -1 || !regions.some((_, i) => i > 0 && isOpen(session, i))) {
+    const opens = (t: number) => regions.filter((r, i) => i > 0 && (r.unlock as TaskUnlock).tasks.includes(t));
+    const t = availableTasks(session).find((i) => opens(i).length > 0);
+    if (t === undefined) {
+      return (
+        <div className="panel next-area" data-next-area>
+          <div className="art"><span className="art-glyph" aria-hidden="true">✓</span></div>
+          <p><strong>All gates open</strong></p>
+        </div>
+      );
+    }
+    // A room still hidden, or a concealed part of one, is not named: only the marked tiles and what they need.
+    const { plates } = tasks[t];
+    if (opens(t).some((r) => r.hidden || isConcealed(r)) && plates.length > 0) {
+      return (
+        <div className="panel next-area" data-next-area>
+          <div className="art"><ItemArt item={plates[0].item} /></div>
+          <p><strong>Marked {plates.length > 1 ? 'tiles' : 'tile'} in {regions[tasks[t].in].name}</strong><br />Needs {plateItems(plates)}</p>
+        </div>
+      );
+    }
+    const names = opens(t).map((r) => r.name);
     return (
       <div className="panel next-area" data-next-area>
         <div className="art"><RuneGate /></div>
@@ -275,7 +316,6 @@ export function TaskPanel({ session }: { session: SessionState }) {
       </div>
     );
   }
-  const sealed = sealedRegion(regions);
   const needs = (regions[sealed].unlock as TaskUnlock).tasks;
   const open = isOpen(session, sealed);
   const lit = needs.filter((t) => session.done.includes(t)).length;
@@ -289,7 +329,8 @@ export function TaskPanel({ session }: { session: SessionState }) {
           return (
             <li key={t} className={done ? 'is-done' : undefined} data-task={t}>
               <span className="check-symbol" aria-hidden="true"><SymbolIcon symbol={tasks[t].symbol!} lit={done} /></span>
-              <span className="check-name">{regions[tasks[t].in].name}</span>
+              {/* A room still hidden (the woodland cleanup's depot) is not named before it is found. */}
+              <span className="check-name">{regions[tasks[t].in].hidden && !reachable ? 'Not found yet' : regions[tasks[t].in].name}</span>
               <span className="check-state">
                 {done ? <span className="check-mark" aria-hidden="true">✓</span>
                   : !reachable ? <span className="check-lock" aria-hidden="true"><LockIcon /></span>
@@ -371,10 +412,10 @@ interface GameProps {
   puzzleId?: string;
   onNewPuzzle?: () => void;
   /**
-   * The attic story prototype: its own room in place of the woodland backdrop and tiles. The palace entrance prototype:
-   * the woodland, with its tiles' edges hidden while idle (see Board).
+   * The attic story prototype: its own room in place of the woodland backdrop and tiles. Chapter 1: the woodland
+   * ('entrance') or the palace's marble halls ('palace'), with tiles' edges hidden while idle (see Board).
    */
-  scene?: 'attic' | 'entrance';
+  scene?: 'attic' | 'entrance' | 'palace';
   /** A level's own banner text, in place of statusMessage (the attic's step-by-step guidance). */
   guide?: (state: UiState) => string;
   /**
@@ -503,7 +544,7 @@ export function Game({
     playEffect?.('completion');
   };
   const puzzle = puzzleId !== undefined;
-  const { goal, regions, tasks, recipe, containers, craft, party } = state.session.level;
+  const { goal, regions, tasks, recipe, containers, craft, party, workshop } = state.session.level;
   const nextArea = regions ? nextLocked(state.session) : null;
   const nextUnlock = nextArea !== null ? regions![nextArea].unlock : undefined;
   const concealedPlates = nextArea !== null && isConcealed(regions![nextArea]) && nextUnlock && 'plates' in nextUnlock
@@ -538,8 +579,8 @@ export function Game({
     if (!over && !tasks && nextArea !== null) hint = 'Gates open by themselves and stay open';
   } else if (regions) {
     if (!over) hint = nextArea === null ? '' : unlockable ? 'The item stays where it is' : `Needs ${unlockNeed(regions, nextArea)}`;
-  } else if (containers) {
-    // Container levels have no supply: their boxes are on the board.
+  } else if (containers || definition.supply.length === 0) {
+    // Container levels have no supply: their boxes are on the board. Nor has Meet Fiona: its pieces are all there.
   } else if (canSupply) hint = 'Lands in a random empty cell';
   else if (!over) hint = left <= 0 ? 'No supply left' : 'Board is full';
 
@@ -553,12 +594,13 @@ export function Game({
           <div className="title-controls">
             {musicControl}
             <HelpButton goal={goal} largeBoard={pannable} puzzle={puzzle} regions={regions} tasks={tasks} recipe={recipe} containers={!!containers}
+              workshop={workshop !== undefined ? regions![workshop].name : undefined}
               craft={craft} unlocked={tasks ? (i: number) => isOpen(state.session, i) : state.session.unlocked}
-              party={party ? (isOpen(state.session, regions!.length - 1) ? 'plate' : 'hidden') : undefined} />
+              party={party ? (alishaPlate(state.session) || state.session.collected || state.session.done.some((t) => tasks![t].alisha) ? 'plate' : 'hidden') : undefined} />
           </div>
         </div>
         <p className="level-label">{label}</p>
-        {recipe ? <RecipeSign recipe={recipe} state={state} /> : craft ? <CraftSign craft={craft} state={state} /> : (
+        {recipe && workshop === undefined ? <RecipeSign recipe={recipe} state={state} /> : craft ? <CraftSign craft={craft} state={state} /> : (
         <div className={`panel goal${puzzle ? ' is-wide' : ''}`}>
           {goal.kind === 'items' ? (
             <div className="targets">
@@ -587,6 +629,8 @@ export function Game({
         </div>
         )}
         {regions && tasks && <TaskPanel session={state.session} />}
+        {/* The palace rescue: the workshop's recipe, while its room is open and its chest still to open. */}
+        {recipe && workshop !== undefined && isOpen(state.session, workshop) && !state.session.opened && <RecipeSign recipe={recipe} state={state} />}
         {containers && <ContainerPanel session={state.session} />}
         {regions && !tasks && (
           <div className="panel next-area" data-next-area>
@@ -606,7 +650,7 @@ export function Game({
             </p>
           </div>
         )}
-        {!puzzle && !regions && !containers && (
+        {!puzzle && !regions && !containers && definition.supply.length > 0 && (
           <div className="panel supply-info">
             <div className="art">{next ? <ItemArt item={next} /> : <span className="art-empty" aria-hidden="true" />}</div>
             <p>
@@ -631,7 +675,10 @@ export function Game({
       </div>
 
       <div className="sr-only" aria-live="polite" role="status">
-        {describeAction(state.lastAction, puzzle ? 'Puzzle' : 'Level', goal, regions, tasks, recipe, containers)} {over ? message : ''}
+        {describeAction(state.lastAction, puzzle ? 'Puzzle' : 'Level', goal, regions, tasks, recipe, containers)}
+        {/* The palace rescue: the move that releases Alisha opens her partition too. */}
+        {party?.trap && state.lastAction && 'progress' in state.lastAction && state.lastAction.progress?.tasks.includes(party.trap.release)
+          ? ' The crystal partition opened: Alisha is free.' : ''} {over ? message : ''}
       </div>
 
       {storyScene && (
@@ -650,8 +697,9 @@ export function Game({
           // Undo, Retry and Home stay on an iPad's screen.
           tasks ? (
             <div className="row">
-              {/* Party levels: offered once the entrance has opened on the board; it stays in place, disabled, until then. */}
-              <button type="button" className="btn btn-next" data-action="next-level" disabled={!!party && entered !== state.actionSeq}
+              {/* The palace entrance: offered once its doors have opened on the board; it stays in place, disabled, until then. */}
+              <button type="button" className="btn btn-next" data-action="next-level"
+                disabled={!!party?.door && state.lastAction?.kind === 'stand' && entered !== state.actionSeq}
                 onClick={onWin}>{winLabel}</button>
               {homeButton}
             </div>
@@ -660,7 +708,7 @@ export function Game({
               {winLabel}
             </button>
           )
-        ) : rooms || containers ? null : regions ? (
+        ) : rooms || containers || (!puzzle && !regions && definition.supply.length === 0) ? null : regions ? (
           // Stays in place (disabled) once every area is open, so Undo and Retry never shift under a finger.
           <button type="button" className="btn btn-unlock" data-action="unlock" disabled={!unlockable}
             aria-describedby="supply-hint" onClick={() => dispatch({ type: 'unlock' })}>
@@ -680,7 +728,7 @@ export function Game({
             <span>Add supply</span>
           </button>
         )}
-        {!puzzle && !containers && (hint || !tasks) && <p className="hint" id="supply-hint">{hint}</p>}
+        {!puzzle && !containers && definition.supply.length + (regions?.length ?? 0) > 0 && (hint || !tasks) && <p className="hint" id="supply-hint">{hint}</p>}
         <div className="row">
           <button type="button" className="btn" data-action="undo" disabled={!canUndo(state)}
             onClick={() => dispatch({ type: 'undo' })}>Undo</button>

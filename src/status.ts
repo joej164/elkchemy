@@ -1,5 +1,5 @@
 import { MAX_TIER, type Board, type Family, type Item } from './board';
-import { hasItemIn, isOpen, nextLocked, unlockReady, type Region } from './regions';
+import { hasItemIn, isFixed, isOpen, nextLocked, roomOf, unlockReady, type Plate, type Region, type TaskUnlock } from './regions';
 import { contentCells, craftReady, type SessionState } from './session';
 
 // Supported assumption: the board is rectangular and
@@ -200,11 +200,99 @@ function evaluateRegions(state: SessionState): GameStatus {
   return regionTargets(state).some((t) => canMergeToward(state.board, t.region, t.item)) ? 'playing' : 'lost';
 }
 
+/** Counts per tier of one family. */
+type Counts = number[];
+const zero = (): Counts => Array.from({ length: MAX_TIER + 1 }, () => 0);
+
+/**
+ * Whether `have` (one family's counts per tier) can be merged until it holds at least `need` at each exact tier at once.
+ * Tier by tier from the bottom: keep what that tier needs and merge the rest as far up as it goes (more items higher up
+ * never hurt, since leftovers may stay).
+ */
+export function canMakeExact(have: Counts, need: Counts): boolean {
+  let carry = 0;
+  for (let t = 0; t <= MAX_TIER; t++) {
+    const n = have[t] + carry;
+    if (n < need[t]) return false;
+    carry = t < MAX_TIER ? maxPromotions(n - need[t]) : 0;
+  }
+  return true;
+}
+
+function tally(items: Iterable<Item>, into = new Map<Family, Counts>()): Map<Family, Counts> {
+  for (const { family, tier } of items) {
+    const c = into.get(family) ?? zero();
+    c[tier]++;
+    into.set(family, c);
+  }
+  return into;
+}
+
+function canFill(need: Map<Family, Counts>, pool: Map<Family, Counts>): boolean {
+  return [...need].every(([family, n]) => canMakeExact(pool.get(family) ?? zero(), n));
+}
+
+/**
+ * Levels with tasks that can strand (LevelDefinition.strandable): the first room whose marked tiles can no longer all be
+ * filled, or -1. For each room, the items its tasks still need (exact family and tier) must be makeable from its loose
+ * items, including those of its concealed parts still to be found; the tasks revealing such a part from the items
+ * already in reach alone; and a workshop's room may count on its recipe (its ingredients needed too, its contents
+ * added), once the chest is crafted must. Counts only, assuming any merge can be arranged, so a room reported stranded
+ * truly can't be finished; Alisha's plates need no items.
+ */
+export function strandedRoom(state: SessionState): number {
+  const { level } = state;
+  const regions = level.regions!;
+  const tasks = level.tasks ?? [];
+  const rooms = [...new Set(regions.map((_, i) => roomOf(regions, i)))];
+  for (const room of rooms) {
+    const inRoom = (i: number) => roomOf(regions, i) === room;
+    const pending = tasks.flatMap((t, i) => (!state.done.includes(i) && !t.alisha && inRoom(t.in) ? [i] : []));
+    // `reach`: leave out concealed parts not yet found (the room's other regions count, open yet or not).
+    const items = (reach: boolean) => {
+      const out: Item[] = [];
+      regions.forEach((r, i) => {
+        if (!inRoom(i) || (reach && r.hidden && r.joins !== undefined && !isOpen(state, i))) return;
+        for (let row = r.row; row < r.row + r.rows; row++) {
+          for (let col = r.col; col < r.col + r.cols; col++) {
+            const c = state.board[row][col];
+            if (c && !isFixed(state, { row, col })) out.push(c);
+          }
+        }
+        if (r.link) {
+          const c = state.board[r.link.row][r.link.col];
+          if (c && !isFixed(state, r.link)) out.push(c);
+        }
+      });
+      return out;
+    };
+    const plates = (list: readonly number[]): Item[] => list.flatMap((t) => tasks[t].plates.map((pl: Plate) => pl.item));
+    const recipe = level.recipe && level.workshop !== undefined && inRoom(level.workshop) && !state.opened ? level.recipe : null;
+    const contents = recipe ? Array.from({ length: recipe.contents.count }, () => recipe.contents.item) : [];
+    const ingredients = recipe ? recipe.ingredients.flatMap(({ item, count }) => Array.from({ length: count }, () => item)) : [];
+    const fillable = (need: Item[], pool: Item[]) => {
+      if (!recipe) return canFill(tally(need), tally(pool));
+      if (state.chest) return canFill(tally(need), tally([...pool, ...contents]));
+      return canFill(tally(need), tally(pool)) || canFill(tally([...need, ...ingredients]), tally([...pool, ...contents]));
+    };
+    if (pending.length > 0 && !fillable(plates(pending), items(false))) return room;
+    // A task revealing a concealed part of this room must be done with what is in reach now.
+    const reveals = pending.filter((t) => regions.some((r, i) => r.hidden && r.joins !== undefined && inRoom(i) && !isOpen(state, i) &&
+      (r.unlock as TaskUnlock).tasks.includes(t)));
+    if (reveals.length > 0 && !fillable(plates(reveals), items(true))) return room;
+  }
+  return -1;
+}
+
 export function evaluateStatus(state: SessionState): GameStatus {
   const { goal } = state.level;
-  // Room levels never report a loss: gates open by moves alone and the treasure by a tap, and a sound "lost" would
-  // need a room-aware search. The one room level is built so it cannot be stranded (see RUNE_LEVEL in levels.ts).
-  if (goal.kind === 'treasure') return state.collected ? 'won' : 'playing';
+  // Room levels never report a loss (gates open by moves alone and the treasure by a tap) unless they can strand (Chapter
+  // 1): then once a room can no longer be finished. The original room levels are built so they cannot be stranded (see
+  // RUNE_LEVEL in levels.ts).
+  if (goal.kind === 'treasure') {
+    if (state.collected) return 'won';
+    return state.level.strandable && strandedRoom(state) !== -1 ? 'lost' : 'playing';
+  }
   // Container levels (the attic) never report a loss either: closed containers hold items the counts below can't see.
   // The attic is built so no reachable state is stranded (tests/attic.test.ts searches its inventories).
   if (state.level.containers) return isGoalMet(state) ? 'won' : 'playing';

@@ -37,14 +37,17 @@ export interface TaskUnlock {
  * (other items may stay, as on pressure plates), are done for good. Doing one is a checkpoint: its plate items stay
  * fixed and Undo history is cleared. `symbol`: the emblem it lights on the gate it helps open, for a task that is one of
  * several a region needs.
+ * `alisha` (party levels, the palace rescue): Alisha's pressure plate instead, a cell of region `in` that never holds an
+ * item; the task is done when she stands on it (see standOnPlate in session.ts), not by items, and it has no `plates`.
  */
 export interface Task {
   readonly in: number;
   readonly plates: readonly Plate[];
   readonly symbol?: GateSymbol;
+  readonly alisha?: Pos;
 }
 
-export type GateSymbol = 'fern' | 'crystal' | 'note';
+export type GateSymbol = 'fern' | 'crystal' | 'note' | 'wood' | 'tool';
 
 /**
  * A rectangular area of a region level's board (plus, in room levels, an optional `link` cell), without overlap. Item-goal levels split the board exactly; in room
@@ -103,10 +106,15 @@ export function isOpen(state: SessionState, index: number): boolean {
   return (regions![index].unlock as TaskUnlock).tasks.every((t) => state.done.includes(t));
 }
 
-/** Levels with tasks: the tasks still to do whose marked tiles are in an open region. */
+/** Levels with tasks: the tasks still to do whose marked tiles (or Alisha's plate) are in an open region. */
 export function availableTasks(state: SessionState): number[] {
   const { tasks } = state.level;
   return (tasks ?? []).flatMap((t, i) => (!state.done.includes(i) && isOpen(state, t.in) ? [i] : []));
+}
+
+/** Levels with tasks: the available tasks done by items on marked tiles (not by Alisha). */
+export function itemTasks(state: SessionState): number[] {
+  return availableTasks(state).filter((i) => !state.level.tasks![i].alisha);
 }
 
 /** Levels with tasks: the region that needs several tasks, each lighting its symbol on that region's gate (or -1). */
@@ -295,7 +303,16 @@ function validateTasks(
   });
   const plates = new Set<string>();
   tasks.forEach((t, i) => {
-    if (!(Number.isInteger(t.in) && t.in >= 0 && t.in < regions.length) || t.plates.length === 0) fail(`task ${i} needs plates in a region`);
+    if (!(Number.isInteger(t.in) && t.in >= 0 && t.in < regions.length) || (t.plates.length === 0) === !t.alisha) {
+      fail(`task ${i} needs plates in a region, or Alisha's plate`);
+    }
+    if (t.alisha) {
+      const key = `${t.alisha.row},${t.alisha.col}`;
+      if (!level.party || !inRegion(regions[t.in], t.alisha) || level.board[t.alisha.row][t.alisha.col] !== null || plates.has(key)) {
+        fail(`task ${i}'s plate for Alisha must be an empty cell of region ${t.in}, in a party level`);
+      }
+      plates.add(key);
+    }
     for (const pl of t.plates) {
       const key = `${pl.row},${pl.col}`;
       if (!inRegion(regions[t.in], pl) || plates.has(key)) fail(`task ${i}'s plates must be in region ${t.in}, on cells of their own`);
@@ -303,7 +320,7 @@ function validateTasks(
     }
     const u = regions[t.in].unlock as TaskUnlock | undefined;
     if (u && u.tasks.some((n) => n >= i)) fail(`task ${i}'s region must open by earlier tasks`);
-    if (platesHold(level.board, t.plates)) fail(`task ${i} must not be done at the start`);
+    if (!t.alisha && platesHold(level.board, t.plates)) fail(`task ${i} must not be done at the start`);
   });
   const routes = new Set<string>();
   regions.forEach((r, i) => {

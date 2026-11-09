@@ -6,17 +6,19 @@ import type { Item, Pos } from '../board';
 import {
   isFixed, isOpen, regionAt, roomOf, routeFrom, routeOf, sealedRegion, type GateSymbol, type PlateUnlock, type Region, type TaskUnlock,
 } from '../regions';
-import { closedContainerAt, containerShown, craftedItem, goalOpenableAt, isCellOpen, partySpots, type Container } from '../session';
+import {
+  alishaPlate, closedContainerAt, containerShown, craftedItem, dogSpot, goalOpenableAt, isCellOpen, partySpots, plateGoal, trapped,
+  type Container,
+} from '../session';
 import { ChestArt, DustSheetArt, ItemArt, itemLabel, KeepsakeBoxArt, PrizeArt, ShoeboxArt } from './ItemArt';
 import { AtticLampArt, AtticWindowArt, ShelfArt, StackedBoxesArt } from './AtticArt';
-import { AlishaArt, CharacterPlateArt, FionaArt, PalaceDoorArt } from './StoryArt';
-import { ALISHA_LINE } from './entranceGuide';
+import { AlishaArt, CharacterPlateArt, DogArt, FionaArt, PalaceDoorArt } from './StoryArt';
 import { direct, palaceShots, viewCue, type Camera, type Frames, type Phase, type Shot, type View } from './camera';
 import { batchGroups, batchText, prizeText, unlockNeed } from './messages';
 import { centerScroll, centreSpan, exceedsThreshold, moveFocus, panScroll, revealSpan, type Point } from './navigation';
 import {
   bubbleOpen, canDropAt, canMoveAlisha, canPickUp, canUnlock, goalCells, mergeSources, mergeTargets, openedRegion,
-  plateRevealed, previewCells, storyDue, treasureShown, type UiAction, type UiState,
+  plateRevealed, previewCells, storyDue, talkShown, treasureShown, type UiAction, type UiState,
 } from './controller';
 
 // A click arriving this soon after a drag is the browser's follow-up click, not a tap.
@@ -100,6 +102,23 @@ function emblem(symbol: GateSymbol, x: number, y: number, size: number, color: s
   if (symbol === 'crystal') {
     return <path transform={at} d="M0 -9 L7 -2 L0 9 L-7 -2 Z M-7 -2 H7" fill={color} stroke={color} strokeWidth={1} strokeLinejoin="round" />;
   }
+  if (symbol === 'wood') {
+    // A log's cut end, with its rings.
+    return (
+      <g transform={at} fill="none" stroke={color} strokeWidth={2.2}>
+        <circle r="8" /><circle r="4.5" /><circle r="1.2" fill={color} />
+      </g>
+    );
+  }
+  if (symbol === 'tool') {
+    // A hammer.
+    return (
+      <g transform={at} fill={color}>
+        <rect x="-1.6" y="-4" width="3.2" height="13" rx="1.2" />
+        <rect x="-7" y="-9" width="14" height="6" rx="1.5" />
+      </g>
+    );
+  }
   return (
     <g transform={at}>
       <ellipse cx="-3" cy="6" rx="4.6" ry="3.4" fill={color} transform="rotate(-20 -3 6)" />
@@ -134,6 +153,17 @@ export function GateSymbols({ symbols, lit }: { symbols: readonly GateSymbol[]; 
 /** One symbol's medallion on its own, unlit or lit, as on its gate. Decorative. */
 export function SymbolIcon({ symbol, lit }: { symbol: GateSymbol; lit: boolean }) {
   return <svg viewBox="0 0 100 100" aria-hidden="true" focusable="false">{medallion(symbol, 50, 44, lit)}</svg>;
+}
+
+/** The palace rescue's crystal partition, shut across a passage: tall pale crystal panes. Decorative. */
+function PartitionArt() {
+  return (
+    <svg viewBox="0 0 100 100" aria-hidden="true" focusable="false">
+      <path d="M8 96 L14 10 L34 4 L36 96 Z M38 96 L42 2 L60 2 L62 96 Z M64 96 L66 4 L86 10 L92 96 Z" fill="#c9eef2" stroke="#3d6f7a"
+        strokeWidth="3" strokeLinejoin="round" opacity="0.92" />
+      <path d="M22 20 L24 80 M50 12 L50 86 M76 20 L74 80" stroke="#ffffff" strokeWidth="3" opacity="0.7" strokeLinecap="round" />
+    </svg>
+  );
 }
 
 /** A crystal palace wall: pale crystal blocks with a spire rising through them. Decorative. */
@@ -174,23 +204,26 @@ function AtticDecor() {
   );
 }
 
+const NAMES = { alisha: 'Alisha', fiona: 'Fiona', dog: 'Dog' } as const;
+
 /**
  * A party level's character on her spot: Alisha as a button while she can be moved (tap to pick her up, or drag her),
- * otherwise, like Fiona, a labelled picture. Never a cell: no item ever goes here.
+ * otherwise, like Fiona (and Beyond the gate's dog), a labelled picture. Never a cell: no item ever goes here.
  */
 function Character({ who, movable = false, selected = false, ready = false, lifted = false, buttonRef, onClick, onKeyDown }: {
-  who: 'alisha' | 'fiona'; movable?: boolean; selected?: boolean; ready?: boolean; lifted?: boolean;
+  who: 'alisha' | 'fiona' | 'dog'; movable?: boolean; selected?: boolean; ready?: boolean; lifted?: boolean;
   buttonRef?: (el: HTMLButtonElement | null) => void; onClick?: (e: MouseEvent<HTMLButtonElement>) => void; onKeyDown?: () => void;
 }) {
-  const name = who === 'alisha' ? 'Alisha' : 'Fiona';
+  const name = NAMES[who];
   const body = (
     <>
-      <span className="character-art">{who === 'alisha' ? <AlishaArt /> : <FionaArt />}</span>
+      <span className="character-art">{who === 'alisha' ? <AlishaArt /> : who === 'fiona' ? <FionaArt /> : <DogArt />}</span>
       <span className="character-name" aria-hidden="true">{name}</span>
     </>
   );
   const cls = `character is-${who}${ready ? ' is-ready' : ''}${lifted ? ' is-lifted' : ''}`;
-  if (!movable) return <span className={cls} role="img" aria-label={who === 'fiona' ? 'Fiona, an elk' : name}>{body}</span>;
+  const label = who === 'fiona' ? 'Fiona, an elk' : who === 'dog' ? 'A dog, a little way off' : name;
+  if (!movable) return <span className={cls} role="img" aria-label={label}>{body}</span>;
   return (
     <button ref={buttonRef} type="button" className={cls} data-alisha aria-pressed={selected} onClick={onClick} onKeyDown={onKeyDown}
       aria-label={selected ? 'Alisha, picked up: now choose her plate' : 'Alisha: drag her onto the glowing plate, or tap to pick her up'}>
@@ -204,14 +237,15 @@ function Character({ who, movable = false, selected = false, ready = false, lift
  * `scene` 'attic': the same grid drawn as a room, its tiles hidden on a wooden floor (outlined faintly while an item is
  * picked up), with the room framing it. 'entrance' (the palace entrance prototype): the woodland rooms with their tiles'
  * edges hidden until something is picked up (an item or Alisha), when they are outlined faintly.
- * Party levels: Alisha and Fiona stand on their spots, Alisha's speech bubble shows (pausing the board) once her plate is
- * revealed, and the palace entrance opens when she stands on it.
+ * Party levels: Alisha and Fiona stand on their spots, their speech bubbles show (pausing the board) as their talk comes
+ * due, Alisha's plates glow once she can stand on them, and the palace entrance opens when she stands on its plate; the
+ * palace rescue's partition closes behind her while she is trapped.
  */
 export function Board({ state, dispatch, onOverflowChange, onPalaceOpening, onPresentationCancel, scene }: {
   state: UiState; dispatch: Dispatch<UiAction>; onOverflowChange?: (overflowing: boolean) => void;
   onPalaceOpening?: (seq: number) => void;
   onPresentationCancel?: () => void;
-  scene?: 'attic' | 'entrance';
+  scene?: 'attic' | 'entrance' | 'palace';
 }) {
   const palaceOpeningRef = useRef(onPalaceOpening);
   palaceOpeningRef.current = onPalaceOpening;
@@ -223,12 +257,22 @@ export function Board({ state, dispatch, onOverflowChange, onPalaceOpening, onPr
   const rows = board.length;
   const cols = board[0].length;
   const over = state.status !== 'playing';
-  // Party levels: where Alisha and Fiona stand, her plate (the goal's cell) and the palace entrance beside its room.
+  // Party levels: where Alisha and Fiona stand, her plates (a goal plate, or a task's: shown once their room is open,
+  // pressed once she has stood there), her destination now, and the palace entrance beside the last room.
   const { party, goal } = state.session.level;
   const spots = partySpots(state.session);
-  const alishaPlate = party && goal.kind === 'treasure' ? goal.at : null;
+  const destination = alishaPlate(state.session);
   const plateShown = plateRevealed(state);
+  const alishaPlates = !party ? [] : [
+    ...(plateGoal(state.session.level) && goal.kind === 'treasure' ? [{ at: goal.at, shown: plateShown, pressed: state.session.collected }] : []),
+    ...(tasks ?? []).flatMap((t, i) => (t.alisha ? [{ at: t.alisha, shown: isOpen(state.session, t.in), pressed: state.session.done.includes(i) }] : [])),
+  ];
+  const line = talkShown(state);
   const speaking = bubbleOpen(state);
+  const shut = trapped(state.session);
+  // The palace rescue's partition: the passage of the room Alisha is shut in.
+  const partition = shut ? (regions![tasks![party!.trap!.task].in].unlock as TaskUnlock).passage : undefined;
+  const dog = dogSpot(state.session);
   const movable = canMoveAlisha(state);
   const bubbleRef = useRef<HTMLButtonElement>(null);
   const alishaRef = useRef<HTMLButtonElement | null>(null);
@@ -462,18 +506,19 @@ export function Board({ state, dispatch, onOverflowChange, onPalaceOpening, onPr
       shots = palaceShots(instant, toGate, inside, (p) => setShow(p && { seq, phase: p }),
         () => palaceOpeningRef.current?.(seq));
     } else if (cue.kind === 'entrance') {
-      // Alisha on her plate: keep it and the palace entrance beside it in view as it opens.
-      shots = [{ pan: () => { const b = boxOf(cue.door, cue.plate); return b && reveal(view.read(), b); } }];
+      // Alisha on her plate: keep it (and the palace entrance beside it, as it opens) in view.
+      shots = [{ pan: () => { const b = boxOf(cue.door ?? cue.plate, cue.plate); return b && reveal(view.read(), b); } }];
     } else if (cue.kind === 'start') {
       shots = [{ pan: () => { const b = startBox(); return b && centre(b); } }];
     } else {
       const r = regions[cue.region];
-      // Party levels: the last room comes into view with Alisha and Fiona beside it and the palace entrance, then her
-      // speech bubble is brought fully into view (on a small screen, the room may not fit around it).
-      const meeting = party && spots && cue.region === regions.length - 1;
+      // Party levels: the room of Alisha's plate comes into view with Alisha and Fiona beside it (and the palace entrance),
+      // then the speech bubble due is brought fully into view with its speaker (on a small screen, the room may not fit
+      // around it).
+      const meeting = party && spots && destination && regionAt(regions, destination) === cue.region;
       shots = [{
         pan: () => {
-          const b = meeting ? withCells(r, [spots.alisha, spots.fiona, party.door]) : regionBox(r);
+          const b = meeting ? withCells(r, [spots.alisha, spots.fiona, ...(party.door ? [party.door] : [])]) : regionBox(r);
           const cell = keep && boxOf(keep, keep);
           return b && (cell ? reveal(centre(b), cell) : centre(b));
         },
@@ -482,7 +527,8 @@ export function Board({ state, dispatch, onOverflowChange, onPalaceOpening, onPr
         shots.push({
           pan: () => {
             const b = elementBox(bubbleRef.current);
-            const a = boxOf(spots.alisha, spots.alisha);
+            const who = line ? spots[line.who] : spots.alisha;
+            const a = boxOf(who, who);
             return b && a && reveal(view.read(), {
               left: Math.min(a.left, b.left), top: Math.min(a.top, b.top), right: Math.max(a.right, b.right), bottom: Math.max(a.bottom, b.bottom),
             });
@@ -661,12 +707,13 @@ export function Board({ state, dispatch, onOverflowChange, onPalaceOpening, onPr
   // Party levels: the palace wall along the top of the last room, the entrance in it, drawn once the room is revealed.
   const palace = useMemo(() => {
     const map = new Map<string, 'is-door' | 'is-wall'>();
-    if (!party || !plateShown || !regions) return map;
+    const door = party?.door;
+    if (!door || !plateShown || !regions) return map;
     const r = regions[regions.length - 1];
-    const row = party.door.row;
+    const row = door.row;
     for (let col = r.col - 1; col <= r.col + r.cols; col++) {
       if (col < 0 || col >= cols || regionAt(regions, { row, col }) !== -1 || routes.has(`${row},${col}`)) continue;
-      map.set(`${row},${col}`, col === party.door.col ? 'is-door' : 'is-wall');
+      map.set(`${row},${col}`, col === door.col ? 'is-door' : 'is-wall');
     }
     return map;
   }, [party, plateShown, regions, routes, cols]);
@@ -688,8 +735,8 @@ export function Board({ state, dispatch, onOverflowChange, onPalaceOpening, onPr
     const picking = !state.alishaSelected;
     dispatch({ type: 'selectAlisha' });
     // From the keyboard, picking her up moves focus to her plate, her one destination: Enter or Space there stands her on it.
-    if (picking && e.detail === 0 && alishaPlate) {
-      const el = cellRefs.current[alishaPlate.row * cols + alishaPlate.col];
+    if (picking && e.detail === 0 && destination) {
+      const el = cellRefs.current[destination.row * cols + destination.col];
       el?.focus({ preventScroll: true });
       el?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
     }
@@ -747,7 +794,7 @@ export function Board({ state, dispatch, onOverflowChange, onPalaceOpening, onPr
                   </div>
                 );
               }
-              const who = spots && same(spots.alisha, pos) ? 'alisha' : spots && same(spots.fiona, pos) ? 'fiona' : null;
+              const who = spots && same(spots.alisha, pos) ? 'alisha' : spots && same(spots.fiona, pos) ? 'fiona' : dog && same(dog, pos) ? 'dog' : null;
               if (who) {
                 return (
                   <div key={`${r}-${c}`} className="terrain has-character" data-spot={who}>
@@ -770,6 +817,15 @@ export function Board({ state, dispatch, onOverflowChange, onPalaceOpening, onPr
               }
               const gate = route.region;
               const sides = routeSides(pos, gate);
+              // The palace rescue: while Alisha is trapped, a crystal partition stands across her room's passage.
+              if (partition && same(partition, pos)) {
+                return (
+                  <div key={`${r}-${c}`} className={`passage is-partition${sides.includes('l') || sides.includes('r') ? ' is-across' : ''}`}
+                    data-partition role="img" aria-label="A crystal partition, closed, with Alisha behind it">
+                    <PartitionArt />
+                  </div>
+                );
+              }
               if (!route.gate) {
                 return (
                   <div key={`${r}-${c}`} className="path" aria-hidden="true">
@@ -799,11 +855,13 @@ export function Board({ state, dispatch, onOverflowChange, onPalaceOpening, onPr
             const locked = !isCellOpen(state.session, pos);
             const plate = plates.get(`${r},${c}`);
             const fixed = !!plate && isFixed(state.session, pos);
-            const treasure = !party && goal.kind === 'treasure' && same(goal.at, pos) && treasureShown(state);
-            // Party levels: Alisha's plate, once revealed: never an item's, glowing once she can move, and her target
-            // while she is picked up; she stands on it once placed.
-            const standHere = !!alishaPlate && same(alishaPlate, pos) && plateShown;
-            const standing = standHere && state.session.collected;
+            const treasure = !plateGoal(state.session.level) && goal.kind === 'treasure' && same(goal.at, pos) && treasureShown(state);
+            // Party levels: Alisha's plates, once revealed: never an item's, glowing once she can move there, and her target
+            // while she is picked up; she stands on one once placed (on a trap's until she is freed).
+            const charPlate = alishaPlates.find((q) => q.shown && same(q.at, pos));
+            const standHere = !!charPlate;
+            const isTarget = !!destination && same(destination, pos);
+            const standing = standHere && !!spots && same(spots.alisha, pos);
             // Merge to treasure: the crafted chest stands on a cell that holds no item.
             const chest = same(state.session.chest, pos);
             // Container levels: a closed container stands on a cell that holds no item, covered by a dust sheet until its
@@ -816,9 +874,9 @@ export function Board({ state, dispatch, onOverflowChange, onPalaceOpening, onPr
             if (item || treasure || chest || container || standing) cls.push('has-item');
             if (standHere) {
               cls.push('is-character-plate');
-              if (standing) cls.push('is-pressed');
-              else if (aiming) cls.push('is-alisha-target');
-              else if (movable) cls.push('is-ready');
+              if (charPlate.pressed) cls.push('is-pressed');
+              else if (aiming && isTarget) cls.push('is-alisha-target');
+              else if (movable && isTarget) cls.push('is-ready');
             }
             if (openable) cls.push('is-openable');
             if (container) cls.push(covered ? 'is-covered' : 'has-container');
@@ -832,7 +890,7 @@ export function Board({ state, dispatch, onOverflowChange, onPalaceOpening, onPr
             if (same(state.selected, pos)) cls.push('is-selected');
             if (preview.some((q) => q.row === r && q.col === c)) cls.push('is-merge-preview');
             if (drag && drag.hover && same(drag.hover, pos) && !same(drag.hover, drag.origin)) {
-              const fits = drag.alisha ? standHere : canDropAt(state, drag.origin, pos);
+              const fits = drag.alisha ? isTarget : canDropAt(state, drag.origin, pos);
               cls.push(fits ? 'is-drop-target' : 'is-drop-blocked');
             }
             if (same(origin, pos)) cls.push('is-drag-origin');
@@ -846,9 +904,10 @@ export function Board({ state, dispatch, onOverflowChange, onPalaceOpening, onPr
             const isOutput = !!merge && has(merge.outputs, pos);
             const isConsumed = !!merge && !isOutput && has(merge.cells, pos);
             const label = standHere
-              ? `Alisha's pressure plate${standing ? `: ${prize.opened}` : state.alishaSelected ? ', tap to stand Alisha here' : ''}`
+              ? `Alisha's pressure plate${standing && shut ? ': Alisha is standing on it, behind a crystal partition'
+                : standing ? `: ${prize.opened}` : charPlate.pressed ? ', pressed down' : state.alishaSelected && isTarget ? ', tap to stand Alisha here' : ''}`
               : treasure
-              ? `${prize.name}, ${state.session.collected ? prize.opened : `closed, tap to ${prize.verb}`}`
+              ? `${prize.name}, ${state.session.collected ? prize.opened : prize.idle ?? `closed, tap to ${prize.verb}`}`
               : chest ? `${state.session.level.recipe!.name}, closed, tap to open`
               : container ? (covered ? 'something under a dust sheet'
                 : `${container.name}, closed, holds ${batchText(container.contents)}, tap to open`)
@@ -909,7 +968,7 @@ export function Board({ state, dispatch, onOverflowChange, onPalaceOpening, onPr
                 {treasure && goal.kind === 'treasure' && (
                   <span className="cell-art"><PrizeArt prize={goal.prize} open={state.session.collected} /></span>
                 )}
-                {standHere && <span className="cell-art plate-art"><CharacterPlateArt pressed={standing} /></span>}
+                {standHere && <span className="cell-art plate-art"><CharacterPlateArt pressed={charPlate.pressed} /></span>}
                 {standing && <span className="cell-art plate-alisha"><AlishaArt /></span>}
                 {merge && isConsumed && (
                   <span key={`consumed-${seq}`} data-fx="consumed" aria-hidden="true"><ItemArt item={merge.input} /></span>
@@ -979,22 +1038,23 @@ export function Board({ state, dispatch, onOverflowChange, onPalaceOpening, onPr
             </div>
           );
         })}
-        {/* Party levels: Alisha's speech bubble, beside her. It pauses the board until it is tapped (or Enter or Space
-            pressed on it); taps elsewhere do nothing, and its own tap never reaches the board. */}
-        {speaking && spots && (
+        {/* Party levels: the speech bubble showing, beside its speaker. It pauses the board until it is tapped (or Enter or
+            Space pressed on it), one line at a time; taps elsewhere do nothing, and its own tap never reaches the board. */}
+        {speaking && spots && line && (
           // While a story scene is due first (the forecourt's, C1-08B), the bubble is laid out but hidden, so the camera can
           // still frame it; it appears (its own entrance replayed) once the scene has been read.
-          <div className={`bubble-anchor${storyPaused ? ' is-waiting' : ''}`}
-            style={{ gridRow: `${spots.alisha.row + 1} / span 1`, gridColumn: `${spots.alisha.col + 1} / span 1` }}>
-            <button key={storyPaused ? 'waiting' : 'shown'} ref={bubbleRef} type="button" className="speech-bubble" data-bubble
+          <div className={`bubble-anchor is-${line.who}${storyPaused ? ' is-waiting' : ''}`}
+            style={{ gridRow: `${spots[line.who].row + 1} / span 1`, gridColumn: `${spots[line.who].col + 1} / span 1` }}>
+            <button key={`${storyPaused ? 'waiting' : 'shown'}-${state.talkLine}`} ref={bubbleRef} type="button" className="speech-bubble"
+              data-bubble data-speaker={line.who}
               onPointerDown={(e) => e.stopPropagation()}
               onClick={(e) => {
                 // A pointer's tap may be followed by a stray click on what was under the bubble; a key press has none.
                 if (e.detail > 0) suppressClick();
                 dispatch({ type: 'dismissBubble' });
               }}>
-              <span className="sr-only">Alisha says: </span>
-              <span className="bubble-text">{ALISHA_LINE}</span>
+              <span className="sr-only">{NAMES[line.who]} says: </span>
+              <span className="bubble-text">{line.text}</span>
               <span className="bubble-prompt">Tap to continue</span>
             </button>
           </div>

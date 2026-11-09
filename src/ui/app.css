@@ -556,6 +556,14 @@ body {
   cursor: pointer; touch-action: manipulation;
 }
 .copy-status { grid-column: 1 / -1; margin: 0; }
+/* Play: Load puzzle code, below Start puzzle. The field's 1rem text keeps Safari from zooming in on focus. */
+.load-code {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 6px 8px;
+  padding-top: 12px; border-top: 2px solid rgb(107 74 47 / 0.25);
+}
+.load-code label { grid-column: 1 / -1; font-weight: 700; }
+.load-code .puzzle-id { font-size: 1rem; }
+.load-code .menu-error, .load-code .load-note { grid-column: 1 / -1; margin: 0; }
 
 /* Pages outside a game: Home, Play settings, Release notes */
 .app.is-page { grid-template-areas: "page" "footer"; }
@@ -620,6 +628,19 @@ body {
 .level-choice.is-story { margin-bottom: 10px; }
 .level-choice.is-story .level-number { padding: 2px; }
 .level-choice.is-story .level-next { background: var(--bark); color: var(--parchment); }
+/* Development preview: Chapter 1, then the original levels folded away under Previous levels. */
+.level-section { display: grid; gap: 10px; }
+.level-section + .level-section { margin-top: 16px; }
+.level-section-title {
+  margin: 0; padding: 4px 6px; font-size: 1.2rem; font-weight: 700; color: var(--gold);
+  text-shadow: 0 1px 3px rgb(0 0 0 / 0.9);
+}
+.previous-levels > summary { min-height: 44px; display: flex; align-items: center; cursor: pointer; touch-action: manipulation; }
+.previous-levels > summary:focus-visible { outline: 4px solid var(--gold); outline-offset: 2px; border-radius: 8px; }
+/* As a flex box the summary loses its disclosure marker; this arrow shows it opens, and turns once open. */
+.previous-levels > summary::before { content: '▸'; margin-right: 8px; transition: transform 0.15s; }
+.previous-levels[open] > summary::before { transform: rotate(90deg); }
+.previous-levels[open] > summary { margin-bottom: 10px; }
 .menu-card { display: grid; gap: 12px; padding: 14px 16px; }
 .menu-card h2 { margin: 0; font-size: 1.4rem; color: var(--bark-dark); }
 .menu-error { color: var(--berry); font-weight: 700; }
@@ -988,19 +1009,33 @@ body {
    Picking something up (an item, or Alisha) outlines the tiles faintly. Marked tiles, gates and focus stay as elsewhere. */
 /* The spread reaches 2px past the gap's middle, so the rounded corners leave no specks where four tiles meet; while
    outlined, it stops at the middle, so no tile's spread covers its neighbour's outline. */
-.board.is-entrance .cell {
+.board:is(.is-entrance, .is-palace) .cell {
   border-color: transparent; border-radius: 2px;
   background: var(--earth); box-shadow: 0 0 0 calc(var(--gap) / 2 + 2px) var(--earth);
 }
-.board.is-entrance.is-placing .cell { box-shadow: 0 0 0 calc(var(--gap) / 2) var(--earth); }
-.board.is-entrance.is-placing .cell:not(.is-locked) { border: 2px dashed rgb(74 50 32 / 0.32); }
-.board.is-entrance .cell.is-selected { border: 2px solid var(--amber); box-shadow: 0 0 0 4px var(--amber), inset 0 0 0 2px #fff6; }
-.board.is-entrance .cell.is-merge-preview {
+.board:is(.is-entrance, .is-palace).is-placing .cell { box-shadow: 0 0 0 calc(var(--gap) / 2) var(--earth); }
+.board:is(.is-entrance, .is-palace).is-placing .cell:not(.is-locked) { border: 2px dashed rgb(74 50 32 / 0.32); }
+.board:is(.is-entrance, .is-palace) .cell.is-selected { border: 2px solid var(--amber); box-shadow: 0 0 0 4px var(--amber), inset 0 0 0 2px #fff6; }
+.board:is(.is-entrance, .is-palace) .cell.is-merge-preview {
   background: radial-gradient(circle, #ffe9a0 0%, var(--gold) 80%); box-shadow: 0 0 14px 4px rgba(242, 193, 78, 0.9), inset 0 0 0 2px #fff8;
 }
-.board.is-entrance .cell.is-drop-target { border: 3px dashed var(--forest-1); background-color: #cfe3b5; }
-.board.is-entrance .cell.is-drop-target.is-merge-preview { background: radial-gradient(circle, #ffe9a0 0%, var(--gold) 80%); }
-.board.is-entrance .cell.is-drop-blocked { border: 3px dashed var(--berry); }
+.board:is(.is-entrance, .is-palace) .cell.is-drop-target { border: 3px dashed var(--forest-1); background-color: #cfe3b5; }
+.board:is(.is-entrance, .is-palace) .cell.is-drop-target.is-merge-preview { background: radial-gradient(circle, #ffe9a0 0%, var(--gold) 80%); }
+.board:is(.is-entrance, .is-palace) .cell.is-drop-blocked { border: 3px dashed var(--berry); }
+/* Chapter 1 inside the palace (the rescue, Beyond the gate): the same joined floors in pale marble, between crystal walls. */
+.board.is-palace { --earth: #ebe5f0; }
+.board.is-palace .terrain, .board.is-palace .path {
+  background:
+    linear-gradient(135deg, transparent 0 46%, rgb(201 238 242 / 0.35) 47% 53%, transparent 54%),
+    linear-gradient(45deg, transparent 0 46%, rgb(185 166 220 / 0.3) 47% 53%, transparent 54%),
+    #3b3156;
+}
+/* The rescue's crystal partition, shut across the passage to Alisha's plate room while she is trapped. */
+.passage.is-partition { background: #3b3156; box-shadow: inset 0 0 0 2px #9fd6e0, 0 0 12px 3px rgb(159 214 224 / 0.6); }
+.passage.is-partition::before { content: none; }
+.passage.is-partition svg { position: relative; display: block; width: 100%; height: 100%; }
+/* A story picture still to come (its delivery copy not made yet): a labelled card in its place. */
+.comic-placeholder { position: absolute; inset: 0; display: grid; place-items: center; background: #e3e8df; color: #29332d; font-size: 1.4rem; font-weight: 700; }
 .board.is-paused .cell { cursor: default; }
 .level-number svg { display: block; width: 100%; height: 100%; }
 

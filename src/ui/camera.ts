@@ -9,14 +9,15 @@ import type { Point } from './navigation';
  * - `region`: a region the action opened is brought into view;
  * - `palace` (levels with tasks): the action opened the sealed region (the Crystal Palace), so the view goes to its gate
  *   while its symbols glow and it opens, then to the region.
- * - `entrance` (party levels): Alisha stood on her plate, so the view keeps it and the opening palace entrance in sight.
+ * - `entrance` (party levels): Alisha stood on her plate, so the view keeps it (and the opening palace entrance, if any)
+ *   in sight.
  * An action that opens several regions together (level 9's branches) moves nothing, so there is never more than one cue.
  */
 export type Cue =
   | { readonly kind: 'start' }
   | { readonly kind: 'region'; readonly region: number }
   | { readonly kind: 'palace'; readonly region: number; readonly gate: Pos }
-  | { readonly kind: 'entrance'; readonly plate: Pos; readonly door: Pos };
+  | { readonly kind: 'entrance'; readonly plate: Pos; readonly door: Pos | null };
 
 export function viewCue(state: UiState): Cue | null {
   const a = state.lastAction;
@@ -24,7 +25,14 @@ export function viewCue(state: UiState): Cue | null {
   if (!a || !regions) return null;
   if (a.kind === 'retry') return { kind: 'start' };
   const { party, goal } = state.session.level;
-  if (a.kind === 'stand' && party && goal.kind === 'treasure') return { kind: 'entrance', plate: goal.at, door: party.door };
+  if (a.kind === 'stand' && party && goal.kind === 'treasure' && !a.progress) return { kind: 'entrance', plate: goal.at, door: party.door ?? null };
+  // A trap (the palace rescue): Alisha stays in view on her plate as the partition closes; the rooms it opened together
+  // are announced without moving the view, as for level 9's branches.
+  if (a.kind === 'stand' && a.progress) {
+    const t = a.progress.tasks[0];
+    const at = state.session.level.tasks?.[t]?.alisha;
+    return at ? { kind: 'entrance', plate: at, door: null } : null;
+  }
   const sealed = tasks ? sealedRegion(regions) : -1;
   const gate = sealed !== -1 ? (regions[sealed].unlock as TaskUnlock).passage : undefined;
   if (gate && 'progress' in a && a.progress?.regions.includes(sealed)) return { kind: 'palace', region: sealed, gate };

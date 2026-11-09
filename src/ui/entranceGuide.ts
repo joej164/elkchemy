@@ -2,8 +2,8 @@ import { availableTasks, type TaskUnlock } from '../regions';
 import { bubbleOpen, plateRevealed, storyDue, type UiState } from './controller';
 import { statusMessage, taskNeed } from './messages';
 
-/** What Alisha says, in her speech bubble, once her plate is revealed. */
-export const ALISHA_LINE = 'I can stand on that plate.';
+/** What Alisha says, in her speech bubble, once her plate is revealed (the entrance's talk). */
+export { ALISHA_LINE } from '../entrance';
 
 /**
  * The palace entrance prototype's banner: the room steps as in other levels with tasks (statusMessage), except that the
@@ -13,6 +13,7 @@ export const ALISHA_LINE = 'I can stand on that plate.';
 export function entranceGuide(state: UiState): string {
   const { session } = state;
   if (state.status === 'won') return 'The palace entrance is open!';
+  if (state.status === 'lost') return statusMessage(state, false);
   // The forecourt's story scene (C1-08B) comes before Alisha speaks.
   if (plateRevealed(state) && storyDue(state) !== null) return 'The way north is clear.';
   if (bubbleOpen(state)) return 'Alisha has something to say. Tap her speech bubble to continue.';

@@ -1,9 +1,12 @@
-import type { ReactNode } from 'react';
+import { useId, useState, type FormEvent, type ReactNode } from 'react';
 import landscapeArt from '../assets/art/alisha-elk-play-landscape-v4.webp';
 import portraitArt from '../assets/art/alisha-elk-play-portrait-v1.webp';
 import { SceneArt } from './SceneArt';
 import { MAX_TIER } from '../board';
-import { GOAL_COUNTS, TARGET_TIERS, TREASURE_TIERS, type PuzzleConfig, type PuzzleMode } from '../generator';
+import {
+  generatePuzzle, GENERATOR_VERSIONS, GOAL_COUNTS, parsePuzzleId, TARGET_TIERS, TREASURE_TIERS, type GeneratedPuzzle, type PuzzleConfig,
+  type PuzzleMode,
+} from '../generator';
 
 const MODES: readonly (readonly [PuzzleMode, string])[] = [
   ['goals', 'Merge to goals'], ['one', 'Merge down to one'], ['treasure', 'Merge to treasure'],
@@ -20,6 +23,30 @@ const tiersFor = (mode: PuzzleMode) => (mode === 'treasure' ? TREASURE_TIERS : T
 export function switchMode(config: PuzzleConfig, mode: PuzzleMode): PuzzleConfig {
   const tiers = tiersFor(mode);
   return { ...config, mode, tier: tiers.includes(config.tier) ? config.tier : tiers[0] };
+}
+
+/**
+ * Load puzzle code: the exact starting board of a puzzle ID (see parsePuzzleId), rebuilt by the generator version it
+ * names, or the reason it can't be. Surrounding whitespace and letter case don't matter. Nothing but the start is
+ * restored: a code holds no moves.
+ */
+export function loadPuzzle(code: string): { readonly puzzle: GeneratedPuzzle } | { readonly error: string } {
+  const text = code.trim();
+  if (!text) return { error: 'Type or paste a puzzle code first.' };
+  const parsed = parsePuzzleId(text);
+  if (!parsed) {
+    const version = /^v(\d+)-/i.exec(text);
+    return {
+      error: version && !GENERATOR_VERSIONS.includes(Number(version[1]))
+        ? `That code is from a version of the puzzle maker this game can't load (v${Number(version[1])}).`
+        : "That isn't a puzzle code this game can load. Check it and try again.",
+    };
+  }
+  try {
+    return { puzzle: generatePuzzle(parsed.config, parsed.seed, parsed.version) };
+  } catch {
+    return { error: "Couldn't rebuild that puzzle. Check the code and try again." };
+  }
 }
 
 function Choice<T extends string | number>({ name, legend, options, value, onChange }: {
@@ -40,15 +67,26 @@ function Choice<T extends string | number>({ name, legend, options, value, onCha
   );
 }
 
-/** Play screen: choose a generated puzzle's mode and settings. */
-export function PlaySetup({ config, onConfig, onStart, onHome, error, musicControl }: {
+/**
+ * Play screen: choose a generated puzzle's mode and settings, or load a puzzle code (`onLoad`, given the text as typed;
+ * `loadError` says why the last one couldn't be loaded).
+ */
+export function PlaySetup({ config, onConfig, onStart, onLoad, onHome, error, loadError, musicControl }: {
   config: PuzzleConfig;
   onConfig: (config: PuzzleConfig) => void;
   onStart: () => void;
+  onLoad?: (code: string) => void;
   onHome: () => void;
   error?: string;
+  loadError?: string;
   musicControl: ReactNode;
 }) {
+  const [code, setCode] = useState('');
+  const codeId = useId();
+  const load = (e: FormEvent) => {
+    e.preventDefault();
+    onLoad?.(code);
+  };
   return (
     <div className="page scene-page play-setup">
       {/* Web copies of artwork/play/alisha-elk-play-*.png (see src/assets/art/README.md). */}
@@ -75,6 +113,18 @@ export function PlaySetup({ config, onConfig, onStart, onHome, error, musicContr
         </div>
         <button type="button" className="btn" data-action="start-puzzle" onClick={onStart}>Start puzzle</button>
         {error && <p className="menu-error" role="alert">{error}</p>}
+        {onLoad && (
+          <form className="load-code" onSubmit={load} aria-label="Load a puzzle code">
+            <label htmlFor={codeId}>Puzzle code</label>
+            <p className="menu-note load-note" id={`${codeId}-note`}>Paste a puzzle&rsquo;s ID to play it again from the start.</p>
+            <input id={codeId} className="puzzle-id" data-load-code type="text" value={code} placeholder="e.g. v4-goals-t3-g1-1x9k3"
+              spellCheck={false} autoComplete="off" autoCapitalize="none" autoCorrect="off" enterKeyHint="go"
+              aria-invalid={loadError ? true : undefined} aria-describedby={`${codeId}-note${loadError ? ` ${codeId}-error` : ''}`}
+              onChange={(e) => setCode(e.target.value)} />
+            <button type="submit" className="btn" data-action="load-puzzle">Load</button>
+            {loadError && <p id={`${codeId}-error`} className="menu-error" role="alert">{loadError}</p>}
+          </form>
+        )}
       </section>
     </div>
   );

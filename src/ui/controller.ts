@@ -1,9 +1,9 @@
 import type { Item, Pos, Tier } from '../board';
 import { inRegion, isFixed, isOpen, nextLocked, regionAt, roomOf, unlockReady } from '../regions';
 import {
-  applyDrop, canDrop, chooseSupplyCell, closedContainerAt, collect, containerShown, craftedItem, goalOpenableAt, isCellOpen, openChest,
-  openContainer, openGoal, placeSupplyRandom, previewDrop, releaseCells, retry, standOnPlate, startSession, treasureRevealed, undo, unlock,
-  type LevelDefinition, type SessionState,
+  alishaPlate, applyDrop, canDrop, chooseSupplyCell, closedContainerAt, collect, containerShown, craftedItem, goalOpenableAt, isCellOpen,
+  openChest, openContainer, openGoal, placeSupplyRandom, plateGoal, previewDrop, releaseCells, retry, standOnPlate, startSession,
+  treasureRevealed, undo, unlock, type LevelDefinition, type SessionState, type Talk, type TalkLine,
 } from '../session';
 import { evaluateStatus, type GameStatus } from '../status';
 
@@ -20,11 +20,13 @@ export interface Progress { readonly tasks: readonly number[]; readonly regions:
  * `revealed` (container levels): the covered container the action uncovered. `unpack`: a container opened, its batch at
  * `cells`. `openGoal`: the made goal item opened (the attic's Picture Book), which wins.
  * `craft`: a recipe's chest crafted, or, with an item recipe (the attic), `made` crafted at `at`.
- * `stand` (the palace entrance prototype): Alisha stood on her plate, opening the palace entrance, which wins.
+ * `stand` (party levels): Alisha stood on her plate: a goal plate, which wins (the palace entrance opens), or a task's,
+ * whose `progress` says what it did (the palace rescue's trap).
  */
 export type LastAction =
   | { readonly kind: 'move' | 'swap'; readonly opened?: number; readonly progress?: Progress; readonly revealed?: number }
-  | { readonly kind: 'undo' | 'retry' | 'collect' | 'open' | 'openGoal' | 'stand' }
+  | { readonly kind: 'undo' | 'retry' | 'collect' | 'open' | 'openGoal' }
+  | { readonly kind: 'stand'; readonly progress?: Progress }
   | { readonly kind: 'craft'; readonly made?: Item; readonly at?: Pos }
   | { readonly kind: 'unpack'; readonly container: number; readonly cells: readonly Pos[] }
   | { readonly kind: 'place'; readonly at: Pos; readonly item: Item }
@@ -49,9 +51,10 @@ export function openedRegion(a: LastAction | null): number | null {
 
 /**
  * `alishaSelected` (party levels): Alisha is picked up (tapped), to be put on her plate by a tap on it. Any action, or an
- * item picked up, puts her down. `bubbleDismissed` (party levels): her speech bubble has been tapped away; Retry
- * brings it back with the rest of the level. `storySeen` (party levels): the story scenes shown in this attempt, by id;
- * Retry clears it, so each is shown again when its move is made again.
+ * item picked up, puts her down. `talkHeard` (party levels): the on-board talks tapped through in this attempt, by id, and
+ * `talkLine` the line showing of the one due (see talkDue); Retry brings back all but those due from the start.
+ * `storySeen` (party levels): the story scenes shown in this attempt, by id; Retry clears it, so each is shown again when
+ * its move is made again.
  */
 export interface UiState {
   readonly session: SessionState;
@@ -61,7 +64,8 @@ export interface UiState {
   readonly actionSeq: number;
   readonly musicArea: 'woodland' | 'palace';
   readonly alishaSelected: boolean;
-  readonly bubbleDismissed: boolean;
+  readonly talkHeard: readonly string[];
+  readonly talkLine: number;
   readonly storySeen: readonly string[];
 }
 
@@ -79,6 +83,7 @@ export type UiAction =
   | { readonly type: 'placeAlisha'; readonly to: Pos }
   | { readonly type: 'dismissBubble' }
   | { readonly type: 'finishStory' };
+// `dismissBubble` moves the talk showing on by a line, and after its last line ends it.
 
 const inBounds = (s: SessionState, p: Pos): boolean =>
   Number.isInteger(p.row) && Number.isInteger(p.col) &&
@@ -91,7 +96,7 @@ const isOver = (state: UiState): boolean => state.status !== 'playing';
 function withSession(prev: UiState, session: SessionState, lastAction: LastAction): UiState {
   return {
     session, status: evaluateStatus(session), selected: null, lastAction, actionSeq: prev.actionSeq + 1, musicArea: prev.musicArea,
-    alishaSelected: false, bubbleDismissed: prev.bubbleDismissed, storySeen: prev.storySeen,
+    alishaSelected: false, talkHeard: prev.talkHeard, talkLine: prev.talkLine, storySeen: prev.storySeen,
   };
 }
 
@@ -99,7 +104,7 @@ export function initUi(level: LevelDefinition): UiState {
   const session = startSession(level);
   return {
     session, status: evaluateStatus(session), selected: null, lastAction: null, actionSeq: 0, musicArea: 'woodland',
-    alishaSelected: false, bubbleDismissed: false, storySeen: [],
+    alishaSelected: false, talkHeard: [], talkLine: 0, storySeen: [],
   };
 }
 
@@ -113,22 +118,37 @@ export function storyDue(state: UiState): string | null {
   return session.level.party?.story?.find((s) => session.done.includes(s.task) && !storySeen.includes(s.id))?.id ?? null;
 }
 
-/** Party levels: Alisha's plate is revealed (with its room), so she can speak and then stand on it. */
+/** Party levels with a goal plate (see plateGoal): it is revealed (with its room), so she can speak and then stand on it. */
 export function plateRevealed(state: UiState): boolean {
-  return !!state.session.level.party && treasureRevealed(state.session);
+  return !!state.session.level.party && plateGoal(state.session.level) && treasureRevealed(state.session);
 }
 
 /**
- * Party levels: Alisha's speech bubble is showing: from the move that reveals her plate until it is tapped away (never
- * once she has stood on it). While it shows, the board is paused: only the bubble itself, Retry and leaving do anything.
+ * Party levels: the on-board talk due now: the first not yet heard in this attempt whose task is done (or that is due from
+ * the start), never once a goal plate has been stood on. A story scene due comes first (see reduceUi).
  */
-export function bubbleOpen(state: UiState): boolean {
-  return plateRevealed(state) && !state.bubbleDismissed && !state.session.collected;
+export function talkDue(state: UiState): Talk | null {
+  const { session, talkHeard } = state;
+  if (session.collected) return null;
+  return session.level.party?.talk?.find((t) => (t.after === undefined || session.done.includes(t.after)) && !talkHeard.includes(t.id)) ?? null;
 }
 
-/** Party levels: Alisha can be picked up and put on her plate: it is revealed, her bubble dismissed, the game on. */
+/** Party levels: the line showing in a speech bubble now, beside its speaker, or null. */
+export function talkShown(state: UiState): TalkLine | null {
+  return talkDue(state)?.lines[state.talkLine] ?? null;
+}
+
+/**
+ * Party levels: a speech bubble is showing (see talkDue). While it shows, the board is paused: only the bubble itself,
+ * Retry and leaving do anything.
+ */
+export function bubbleOpen(state: UiState): boolean {
+  return talkShown(state) !== null;
+}
+
+/** Party levels: Alisha can be picked up and put on her plate: she has one (see alishaPlate), nobody is talking, the game on. */
 export function canMoveAlisha(state: UiState): boolean {
-  return plateRevealed(state) && state.bubbleDismissed && state.status === 'playing';
+  return alishaPlate(state.session) !== null && !bubbleOpen(state) && storyDue(state) === null && state.status === 'playing';
 }
 
 export function nextSupplyItem(state: UiState): Item | null {
@@ -260,12 +280,16 @@ function doDrop(state: UiState, from: Pos, to: Pos): UiState {
   return withSession(state, next, next.unlocked > session.unlocked ? { ...lastAction, opened: next.unlocked } : lastAction);
 }
 
-/** Party levels: Alisha dropped on `to` (dragged, or tapped there once picked up). Only her revealed plate takes her. */
+/** Party levels: Alisha dropped on `to` (dragged, or tapped there once picked up). Only her plate takes her. */
 function placeAlisha(state: UiState, to: Pos): UiState {
   if (!canMoveAlisha(state)) return state;
-  const next = standOnPlate(state.session, to);
-  if (next === state.session) return state.alishaSelected ? { ...state, alishaSelected: false } : state;
-  return withSession(state, next, { kind: 'stand' });
+  const { session } = state;
+  const next = standOnPlate(session, to);
+  if (next === session) return state.alishaSelected ? { ...state, alishaSelected: false } : state;
+  if (next.done.length === session.done.length) return withSession(state, next, { kind: 'stand' });
+  const regions = session.level.regions!;
+  const opened = regions.flatMap((_, i) => (isOpen(next, i) && !isOpen(session, i) ? [i] : []));
+  return withSession(state, next, { kind: 'stand', progress: { tasks: next.done.slice(session.done.length), regions: opened } });
 }
 
 export function reduceUi(state: UiState, action: UiAction): UiState {
@@ -279,8 +303,12 @@ export function reduceUi(state: UiState, action: UiAction): UiState {
   switch (action.type) {
     case 'drop':
       return doDrop(state, action.from, action.to);
-    case 'dismissBubble':
-      return bubbleOpen(state) ? { ...state, bubbleDismissed: true } : state;
+    case 'dismissBubble': {
+      const talk = talkDue(state);
+      if (!talk) return state;
+      return state.talkLine + 1 < talk.lines.length ? { ...state, talkLine: state.talkLine + 1 }
+        : { ...state, talkHeard: [...state.talkHeard, talk.id], talkLine: 0 };
+    }
     case 'finishStory':
       return state;
     case 'selectAlisha':
@@ -339,8 +367,12 @@ export function reduceUi(state: UiState, action: UiAction): UiState {
     }
     case 'undo':
       return canUndo(state) ? withSession(state, undo(state.session), { kind: 'undo' }) : state;
-    case 'retry':
-      return withSession({ ...state, musicArea: 'woodland', bubbleDismissed: false, storySeen: [] }, retry(state.session), { kind: 'retry' });
+    case 'retry': {
+      // Talk due from the start, once heard, isn't repeated (as an opening comic isn't); the rest comes again.
+      const talk = state.session.level.party?.talk ?? [];
+      const talkHeard = state.talkHeard.filter((id) => talk.some((t) => t.id === id && t.after === undefined));
+      return withSession({ ...state, musicArea: 'woodland', talkHeard, talkLine: 0, storySeen: [] }, retry(state.session), { kind: 'retry' });
+    }
     case 'clearSelection':
       return state.selected === null && !state.alishaSelected ? state : { ...state, selected: null, alishaSelected: false };
   }
