@@ -4,13 +4,15 @@ Each entry records what changed, how it was verified, and known limitations. **U
 
 Earlier published builds are not backfilled here. The previous build, `20261018-195510`, has five handcrafted levels and optional looping music; its verification is recorded in TODO.md under Current baseline and Audio.
 
-## Unreleased — Chapter 1 in the development preview; Load puzzle code (October 28, 2026)
+## dev-20261109-052747 — Chapter 1 and Load puzzle code (November 8, 2026)
 
-Implemented by Claude (Opus) from the owner's brief of October 28, 2026. Owner authorized commit and development deployment on November 8; release verification and deployment record follow below. Production root remains build `20261021-024248`. Chapter 1 is development-preview only; Load puzzle code is in both builds. Player-facing description: README → Chapter 1 and → Generated puzzles (Load puzzle code).
+Implemented by Claude (Opus) from the owner's brief of October 28, 2026. Owner authorized commit and development deployment on November 8; committed as `e5dcf25` and deployed to `/dev/`. Production root remains build `20261021-024248`; Load puzzle code is compiled in both builds but currently published only at `/dev/`. Player-facing description: README → Chapter 1 and → Generated puzzles (Load puzzle code).
 
 ### Release decision (November 8, 2026)
 
 Owner deferred the known speech-bubble keyboard focus regression for the iPad playtest and authorized commit and deployment to `/dev/`. No game code changed during this release pass. Rechecked: 768 tests, TypeScript, diff check, development build `dev-20261109-052747` (UTC build ID), hosting preparation, and live production identity (36 files, build `20261021-024248`) all pass. Push was not requested.
+
+Firebase Hosting version `5bf1e000d1f0e904`, released November 8 at 9:29 p.m. PST (`2026-11-09T05:29:09.277Z`). Post-deploy: live production identity passes again (all 36 root files byte-identical). Playwright MCP at 820 × 1180 confirms the dev build ID, all five Chapter 1 entries, Meet Fiona's C1-01 opening, and loading `v4-goals-t5-g2-1nk1q8e` with one Crystal 5 and one Elk 5 goal. Physical iPad playtest follows; keyboard regression remains deferred. Removed one trailing blank line flagged by the staged diff check; no behavior changes.
 
 ### Owner decisions (October 28, 2026)
 
