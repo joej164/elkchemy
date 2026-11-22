@@ -3,7 +3,7 @@ import { inRegion, isFixed, isOpen, nextLocked, regionAt, roomOf, unlockReady } 
 import {
   alishaPlate, applyDrop, canDrop, chooseSupplyCell, closedContainerAt, collect, containerShown, craftedItem, goalOpenableAt, isCellOpen,
   openChest, openContainer, openGoal, placeSupplyRandom, plateGoal, previewDrop, releaseCells, retry, standOnPlate, startSession,
-  treasureRevealed, undo, unlock, type LevelDefinition, type SessionState, type Talk, type TalkLine,
+  trapped, treasureRevealed, undo, unlock, type LevelDefinition, type SessionState, type Talk, type TalkLine,
 } from '../session';
 import { evaluateStatus, type GameStatus } from '../status';
 
@@ -108,14 +108,86 @@ export function initUi(level: LevelDefinition): UiState {
   };
 }
 
+/** Party levels: the first story scene whose task is done and that this attempt hasn't shown yet. */
+function pendingStory(state: UiState) {
+  const { session, storySeen } = state;
+  return session.level.party?.story?.find((s) => session.done.includes(s.task) && !storySeen.includes(s.id));
+}
+
 /**
- * Party levels: the story scene due now (its id), from the move that completes its task until it has been read: the first
- * not yet shown in this attempt. While one is due the board is paused, as for the speech bubble: only reading it to the
- * end (`finishStory`), Retry and leaving do anything. It is never a move: the session, Undo and actionSeq stay as they are.
+ * Party levels: the story scene due now (its id), from the move that completes its task (or, if it names a talk, from
+ * when that talk has been heard) until it has been read: the first not yet shown in this attempt. While one is due the
+ * board is paused, as for the speech bubble: only reading it to the end (`finishStory`), Retry and leaving do anything.
+ * It is never a move: the session, Undo and actionSeq stay as they are.
  */
 export function storyDue(state: UiState): string | null {
-  const { session, storySeen } = state;
-  return session.level.party?.story?.find((s) => session.done.includes(s.task) && !storySeen.includes(s.id))?.id ?? null;
+  const s = pendingStory(state);
+  return s && (s.talk === undefined || state.talkHeard.includes(s.talk)) ? s.id : null;
+}
+
+/**
+ * Party levels: the story scene still to come for a move already made (its id): due, or waiting for its talk to be heard
+ * first. Meanwhile what that move opened stays under fog (see storyHeld).
+ */
+export function storyPending(state: UiState): string | null {
+  return pendingStory(state)?.id ?? null;
+}
+
+/**
+ * The palace rescue: Alisha's partition as the board shows it. 'shut' while she is trapped, and still while the talk
+ * after her release is being said (Fiona asking whether it is opening); 'opening' from then until the release's story
+ * scene has been read: it opens, and she steps out beside Fiona; otherwise null (no partition).
+ */
+export function partitionShown(state: UiState): 'shut' | 'opening' | null {
+  const { session } = state;
+  const trap = session.level.party?.trap;
+  if (!trap) return null;
+  if (trapped(session)) return 'shut';
+  if (!session.done.includes(trap.release)) return null;
+  if (talkDue(state)?.after === trap.release) return 'shut';
+  return pendingStory(state)?.task === trap.release ? 'opening' : null;
+}
+
+/**
+ * Party levels: the regions the story scene still to come holds back (see storyPending): those its task opened. Until it
+ * has been read they are under fog (their shape, nothing in them) and not named or announced, so the scene shows them
+ * first; the session has them open throughout.
+ */
+export function storyHeld(state: UiState): readonly number[] {
+  const s = pendingStory(state);
+  return s ? openedBy(state.session, s.task) : [];
+}
+
+/**
+ * A workshop (the palace rescue's bird room): what counts as progress on its recipe, as a key that changes with it: the room
+ * opening, its materials (the recipe's ingredient families) merging (their pieces by tier), the chest built, then opened.
+ * Moving or swapping pieces changes nothing. Empty for other levels.
+ */
+export function workshopProgress(state: UiState): string {
+  const { session } = state;
+  const { recipe, workshop } = session.level;
+  if (!recipe || workshop === undefined) return '';
+  const materials = new Set(recipe.ingredients.map((i) => i.item.family));
+  const pieces = session.board.flat().flatMap((c) => (c && materials.has(c.family) ? [`${c.family}${c.tier}`] : [])).sort();
+  return [isOpen(session, workshop), pieces.join(','), !!session.chest, session.opened].join('|');
+}
+
+/**
+ * Party levels: the regions just released by reading the last action's story scene (those storyHeld held back): the fog
+ * lifts off them and their opening is announced. Empty once anything else happens.
+ */
+export function storyLifted(state: UiState): readonly number[] {
+  const a = state.lastAction;
+  const progress = a && 'progress' in a ? a.progress : undefined;
+  if (!progress || storyPending(state) !== null) return [];
+  const read = state.session.level.party?.story?.filter((s) => state.storySeen.includes(s.id) && progress.tasks.includes(s.task)) ?? [];
+  return read.flatMap((s) => openedBy(state.session, s.task));
+}
+
+/** The open regions that `task` opens. */
+function openedBy(session: SessionState, task: number): number[] {
+  return (session.level.regions ?? []).flatMap((r, i) =>
+    (r.unlock && 'tasks' in r.unlock && r.unlock.tasks.includes(task) && isOpen(session, i) ? [i] : []));
 }
 
 /** Party levels with a goal plate (see plateGoal): it is revealed (with its room), so she can speak and then stand on it. */

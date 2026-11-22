@@ -4,81 +4,15 @@ import junctionArt from '../assets/art/chapter-one-08a-terrace-junction-v2.webp'
 import forecourtArt from '../assets/art/chapter-one-08b-forecourt-revealed-v1.webp';
 import entryArt from '../assets/art/chapter-one-09-palace-entry-v1.webp';
 import interiorArt from '../assets/art/chapter-one-10-palace-interior-v1.webp';
+import { characterPicture } from './BoardArt';
 import type { ComicPanel, ComicScene } from './Comic';
 
-// The palace entrance prototype's board stand-ins: temporary, code-native drawings, not final artwork. Alisha and Fiona are
-// board sprites, kept apart from merge items (and unlike the elk item's front-on head): young Alisha upright, with her
-// glasses, curly hair, elk ears and leafy antlers; Fiona a golden elk seen side-on. Their names are HTML labels.
+// Board sprites, kept apart from merge items: Alisha and Fiona use their chibi board art (src/ui/BoardArt.tsx; Fiona without
+// leaves on her antlers, at the owner's request); the dog, the palace entrance and the plate remain temporary code-native
+// drawings. Their names are HTML labels.
 
 const DARK = '#233a2b';
 const S = { stroke: DARK, strokeWidth: 2, strokeLinejoin: 'round' as const, strokeLinecap: 'round' as const };
-
-/** Young Alisha, on 100 × 100. */
-function alisha(): ReactNode {
-  return (
-    <g data-sprite="alisha">
-      {/* Leafy antlers: two branching stems, each with leaves. */}
-      {[1, -1].map((s) => (
-        <g key={s}>
-          <path d={`M${50 + s * 8} 26 Q${50 + s * 14} 14 ${50 + s * 24} 6 M${50 + s * 13} 16 L${50 + s * 6} 6`} fill="none" stroke="#6b4a2f"
-            strokeWidth={3.5} strokeLinecap="round" />
-          <ellipse cx={50 + s * 26} cy="7" rx="6" ry="3.2" transform={`rotate(${s * -30} ${50 + s * 26} 7)`} fill="#5d9a3f" {...S} strokeWidth={1.5} />
-          <ellipse cx={50 + s * 5} cy="5" rx="5" ry="2.8" transform={`rotate(${s * 60} ${50 + s * 5} 5)`} fill="#7bb555" {...S} strokeWidth={1.5} />
-          <ellipse cx={50 + s * 19} cy="14" rx="4.5" ry="2.5" transform={`rotate(${s * 20} ${50 + s * 19} 14)`} fill="#7bb555" {...S} strokeWidth={1.5} />
-        </g>
-      ))}
-      {/* Elk ears, leaf-shaped, standing out from the hair. */}
-      <ellipse cx="27" cy="34" rx="9" ry="4.5" transform="rotate(-28 27 34)" fill="#b8834f" {...S} />
-      <ellipse cx="73" cy="34" rx="9" ry="4.5" transform="rotate(28 73 34)" fill="#b8834f" {...S} />
-      {/* Body: a green tunic with a disc-golf bag strap. */}
-      <path d="M32 96 Q32 68 50 64 Q68 68 68 96 Z" fill="#3f7f6a" {...S} />
-      <path d="M40 67 L62 94" stroke="#a5463b" strokeWidth={4} strokeLinecap="round" />
-      {/* Curly hair behind and around the face. */}
-      {[[34, 30], [40, 23], [50, 20], [60, 23], [66, 30], [68, 40], [32, 40], [34, 50], [66, 50]].map(([x, y]) => (
-        <circle key={`${x},${y}`} cx={x} cy={y} r="7.5" fill="#5a3420" {...S} strokeWidth={1.5} />
-      ))}
-      <circle cx="50" cy="42" r="15" fill="#f1c9a5" {...S} />
-      {[[42, 29], [50, 27], [58, 29]].map(([x, y]) => <circle key={x} cx={x} cy={y} r="5" fill="#5a3420" />)}
-      {/* Glasses and a smile. */}
-      <g fill="#fff8" stroke={DARK} strokeWidth={2}>
-        <circle cx="44" cy="42" r="5.2" />
-        <circle cx="56" cy="42" r="5.2" />
-      </g>
-      <path d="M49.2 42 H50.8" stroke={DARK} strokeWidth={2} />
-      <circle cx="44" cy="42.5" r="1.6" fill={DARK} />
-      <circle cx="56" cy="42.5" r="1.6" fill={DARK} />
-      <path d="M45 50 Q50 54 55 50" fill="none" stroke={DARK} strokeWidth={2} strokeLinecap="round" />
-    </g>
-  );
-}
-
-/** Fiona, a golden elk side-on, facing left, on 100 × 100. */
-function fiona(): ReactNode {
-  return (
-    <g data-sprite="fiona">
-      {/* Antlers, wide and pale. */}
-      <g fill="none" stroke="#e6d3a3" strokeWidth={4} strokeLinecap="round">
-        <path d="M30 26 Q34 12 46 4 M37 15 L32 4 M42 8 L52 6" />
-        <path d="M24 26 Q18 12 8 8 M18 15 L10 18" />
-      </g>
-      <g fill="none" stroke={DARK} strokeWidth={1.5} strokeLinecap="round" opacity="0.6">
-        <path d="M30 26 Q34 12 46 4" />
-        <path d="M24 26 Q18 12 8 8" />
-      </g>
-      {/* Legs, body, tail. */}
-      {[40, 48, 70, 78].map((x) => <rect key={x} x={x} y="62" width="6" height="32" rx="3" fill="#8a5a34" {...S} strokeWidth={1.5} />)}
-      <ellipse cx="60" cy="60" rx="28" ry="15" fill="#c99a5b" {...S} />
-      <path d="M86 52 Q94 50 92 60" fill="#8a5a34" {...S} strokeWidth={1.5} />
-      {/* Neck and head, with a dark muzzle, an ear and an eye. */}
-      <path d="M44 56 Q34 44 30 30 L42 26 Q46 40 54 50 Z" fill="#c99a5b" {...S} />
-      <ellipse cx="24" cy="32" rx="13" ry="8" transform="rotate(-12 24 32)" fill="#c99a5b" {...S} />
-      <ellipse cx="13" cy="35" rx="5" ry="4" fill="#4a3020" />
-      <ellipse cx="34" cy="24" rx="6" ry="3" transform="rotate(-35 34 24)" fill="#8a5a34" {...S} strokeWidth={1.5} />
-      <circle cx="23" cy="29" r="2" fill={DARK} />
-      <path d="M48 62 Q60 70 74 62" fill="none" stroke="#f4ecd8" strokeWidth={2} opacity="0.5" />
-    </g>
-  );
-}
 
 /** Beyond the gate's dog, a placeholder: a scruffy brown dog side-on, facing left, on 100 × 100. */
 function dog(): ReactNode {
@@ -101,14 +35,14 @@ export function DogArt() {
   return <svg viewBox="0 0 100 100" aria-hidden="true" focusable="false">{dog()}</svg>;
 }
 
-/** Young Alisha as a board sprite. Decorative (callers name her). */
+/** Young Alisha as a board sprite: her chibi board art, standing on the bottom edge. Decorative (callers name her). */
 export function AlishaArt() {
-  return <svg viewBox="0 0 100 100" aria-hidden="true" focusable="false">{alisha()}</svg>;
+  return <svg viewBox="0 0 100 100" overflow="visible" aria-hidden="true" focusable="false">{characterPicture('alisha')}</svg>;
 }
 
-/** Fiona as a board sprite. Decorative (callers name her). */
+/** Fiona as a board sprite: her chibi board art, without leaves on her antlers. Decorative (callers name her). */
 export function FionaArt() {
-  return <svg viewBox="0 0 100 100" aria-hidden="true" focusable="false">{fiona()}</svg>;
+  return <svg viewBox="0 0 100 100" overflow="visible" aria-hidden="true" focusable="false">{characterPicture('fiona')}</svg>;
 }
 
 /**

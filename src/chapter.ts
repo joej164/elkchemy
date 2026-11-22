@@ -33,6 +33,13 @@ const t0: Item = { family: 'tool', tier: 0 };
 const t1: Item = { family: 'tool', tier: 1 };
 const t2: Item = { family: 'tool', tier: 2 };
 const t3: Item = { family: 'tool', tier: 3 };
+// The palace rescue's chest materials (planks and their hardware), merged in its workshop.
+const k0: Item = { family: 'planks', tier: 0 };
+const k1: Item = { family: 'planks', tier: 1 };
+const k2: Item = { family: 'planks', tier: 2 };
+const h0: Item = { family: 'hardware', tier: 0 };
+const h1: Item = { family: 'hardware', tier: 1 };
+const h2: Item = { family: 'hardware', tier: 2 };
 
 function boardOf(rows: number, cols: number, items: readonly [number, number, Item][]): Cell[][] {
   const board: Cell[][] = Array.from({ length: rows }, () => Array.from({ length: cols }, (): Cell => null));
@@ -126,7 +133,9 @@ export const [
 ] = [0, 1, 2, 3, 4, 5, 6, 7];
 
 // The storyboard's on-board dialogue (docs/story/chapter-one-review.html): the visitor route at the start, C1-10A's lines
-// when the plate room is revealed (Alisha's says what to do), and C1-10B's once the partition has closed behind her.
+// when the plate room is revealed (Alisha's says what to do), C1-10B's once the partition has closed behind her, and
+// Fiona's question on the move that releases her, while the partition is still shown shut (it opens once she has asked;
+// then C1-11).
 export const RESCUE_TALK: readonly Talk[] = [
   {
     id: 'visitor-route',
@@ -151,12 +160,16 @@ export const RESCUE_TALK: readonly Talk[] = [
   {
     id: 'C1-10B', after: TRAP_TASK,
     lines: [
-      { who: 'alisha', text: 'That part’s new.' },
+      { who: 'alisha', text: 'Whoa! What happened?' },
       { who: 'fiona', text: 'Can you step off?' },
-      { who: 'alisha', text: 'Apparently it stays shut, too.' },
+      { who: 'alisha', text: 'I did. It’s still closed.' },
       { who: 'fiona', text: 'There must be a release out here.' },
-      { who: 'alisha', text: 'I’ll see what I can find on this side.' },
+      { who: 'alisha', text: 'I’ll look on this side.' },
     ],
+  },
+  {
+    id: 'release', after: RELEASE_TASK,
+    lines: [{ who: 'fiona', text: 'I think I found the door release. Is it opening?' }],
   },
 ];
 
@@ -167,10 +180,10 @@ export const RESCUE_TALK: readonly Talk[] = [
 //    1   ~  ~  ~  ~  ~  s1 .  c1 c1 ~  ~  ~  ~  ~       its tiles reveal $, the message room door
 //    2   ~  ~  ~  ~  ~ [s2 s1 . [c2 ~  ~  c1 c1 c3     East archive's concealed part (rows 2-3, cols 11-13), linked at (4,11)
 //    3   ~  ~  ~  ~  ~  ~  |  a  f  ~  ~  .  c1 c2     a f: Alisha and Fiona once she is free
-//    4  [s4 .  e2 .  ~ [c3 . [s3[c2 ~  ~  .  ~  ~     West workshop (rows 4-7, cols 0-3): Crystal 3 + Elk 3 craft the Crystal
-//    5   c1 c1 .  e1 ~  c1 c1 .  s2 ~  e1 .  . [e2      chest (3 Song 3); Song 4 [s4] lights its note
-//    6   c2 .  e2 e1 ~  c2 .  s2 s2 ~  e1 c1 .  .     Crystal chamber (rows 4-7, cols 5-8, sealed by both symbols): [c3]
-//    7   c1 c1 c1 e1 ~  c1 c1 c1 c2 ~  e1 c1 c3[c4      [s3] and [c2] release Alisha; East archive (rows 5-7, cols 10-13):
+//    4  [s4 .  h2 .  ~ [c3 . [s3[c2 ~  ~  .  ~  ~     West workshop (rows 4-7, cols 0-3): Planks 3 (k) + Chest hardware 3 (h)
+//    5   k1 k1 .  h1 ~  c1 c1 .  s2 ~  e1 .  . [e2      build the Bird chest (3 Song 3); Song 4 [s4] lights its note
+//    6   k2 .  h2 h1 ~  c2 .  s2 s2 ~  e1 c1 .  .     Crystal chamber (rows 4-7, cols 5-8, sealed by both symbols): [c3]
+//    7   k1 k1 k1 h1 ~  c1 c1 c1 c2 ~  e1 c1 c3[c4      [s3] and [c2] release Alisha; East archive (rows 5-7, cols 10-13):
 //    8   ~  ~  |  ~  ~  ~  |  ~  ~  ~  ~  |  ~  ~       [e2] reveals its concealed part, Crystal 4 [c4] lights its crystal
 //    9   ~  ~  =  s1 s1 .  .  s2 .  s1 =  =  ~  ~
 //   10   ~  ~  ~  .  s1 . [s4 .  s2 s1 ~  ~  ~  ~     Gallery (rows 9-11, cols 3-9): Song 4 [s4] reveals the plate room
@@ -182,13 +195,13 @@ export const RESCUE_TALK: readonly Talk[] = [
 //   16   ~  ~  ~  ~  a  f  ~  ~  ~  ~  ~  ~  ~  ~     Alisha and Fiona at the start
 // Standing Alisha on @ opens the West workshop and East archive together and closes the partition behind her (a
 // checkpoint); she stays there, talking, until the Crystal chamber's marked tiles release her and open the antechamber.
-// Decisions: the gallery's Song 1 and Song 2 each need a five-merge; the workshop's crystals a five-merge (and its two
-// ingredients exactly tier 3); the archive's crystals a five-merge once its concealed part is found; the chamber's
+// Decisions: the gallery's Song 1 and Song 2 each need a five-merge; the workshop's planks a five-merge (and its two
+// ingredients, planks and hardware, exactly tier 3); the archive's crystals a five-merge once its concealed part is found; the chamber's
 // crystals a five-merge, keeping one Crystal 2 back. Winning lines: tests/chapter.test.tsx (LINES.rescue).
 const RESCUE_AREAS: [number, number, Item][] = [
   [14, 3, c0], [15, 3, c0], [15, 4, c0], [14, 5, s0], [14, 6, s0], [15, 5, s0],                              // Entry hall
   [9, 3, s0], [9, 4, s0], [10, 4, s0], [9, 9, s0], [10, 9, s0], [9, 7, s1], [10, 8, s1], [11, 7, s1], [11, 3, s2], // Gallery
-  [5, 0, c0], [5, 1, c0], [7, 0, c0], [7, 1, c0], [7, 2, c0], [6, 0, c1], [5, 3, e0], [6, 3, e0], [7, 3, e0], [4, 2, e1], [6, 2, e1], // West workshop
+  [5, 0, k0], [5, 1, k0], [7, 0, k0], [7, 1, k0], [7, 2, k0], [6, 0, k1], [5, 3, h0], [6, 3, h0], [7, 3, h0], [4, 2, h1], [6, 2, h1], // West workshop
   [5, 10, e0], [6, 10, e0], [7, 10, e0], [6, 11, c0], [7, 11, c0], [7, 12, c2],                              // East archive
   [2, 11, c0], [2, 12, c0], [3, 12, c0], [3, 13, c1], [2, 13, c2],                                           // its concealed part
   [5, 5, c0], [5, 6, c0], [7, 5, c0], [7, 6, c0], [7, 7, c0], [6, 5, c1], [7, 8, c1], [5, 8, s1], [6, 7, s1], [6, 8, s1], // Crystal chamber
@@ -239,8 +252,9 @@ export const RESCUE_LEVEL: LevelDefinition = {
     { in: RESCUE_ANTE, plates: [{ row: 2, col: 5, item: s1 }, { row: 2, col: 8, item: c1 }] },                      // 7: reveals the door
   ],
   recipe: {
-    id: 'crystal', name: 'Crystal chest', container: 'chest',
-    ingredients: [{ item: c2, count: 1 }, { item: e2, count: 1 }], contents: { item: s2, count: 3 },
+    // The bird room's chest: built from the workshop's planks and hardware; the birds inside make its Song 4.
+    id: 'bird', name: 'Bird chest', container: 'chest',
+    ingredients: [{ item: k2, count: 1 }, { item: h2, count: 1 }], contents: { item: s2, count: 3 },
   },
   workshop: RESCUE_WORKSHOP,
   goal: { kind: 'treasure', at: { row: 0, col: 6 }, prize: 'door', task: ANTE_TASK },
@@ -249,8 +263,9 @@ export const RESCUE_LEVEL: LevelDefinition = {
     waiting: { alisha: { row: 12, col: 9 }, fiona: { row: 12, col: 10 } },
     trap: { task: TRAP_TASK, release: RELEASE_TASK, fiona: { row: 12, col: 10 }, free: { alisha: { row: 3, col: 7 }, fiona: { row: 3, col: 8 } } },
     talk: RESCUE_TALK,
-    // The reunion (C1-11), on the move that releases her. C1-10 comes before play, as the level's opening.
-    story: [{ id: 'C1-11', task: RELEASE_TASK }],
+    // The reunion (C1-11), once Fiona has asked about the release (the move that releases her) and the partition has
+    // opened. C1-10 comes before play, as the level's opening.
+    story: [{ id: 'C1-11', task: RELEASE_TASK, talk: 'release' }],
   },
 };
 

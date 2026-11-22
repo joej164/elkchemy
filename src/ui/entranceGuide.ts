@@ -1,6 +1,6 @@
 import { availableTasks, type TaskUnlock } from '../regions';
 import { bubbleOpen, plateRevealed, storyDue, type UiState } from './controller';
-import { statusMessage, taskNeed } from './messages';
+import { statusMessage, taskNeed, workshopHint } from './messages';
 
 /** What Alisha says, in her speech bubble, once her plate is revealed (the entrance's talk). */
 export { ALISHA_LINE } from '../entrance';
@@ -45,10 +45,22 @@ export function afterEntranceOpening(state: UiState, ready: () => void, ms = ENT
 
 /**
  * How long a story scene waits after the move that makes it due, the board paused, so the board first shows what that
- * move did: both terraces glowing open (C1-08A), or the forecourt revealed and framed with Alisha's bubble (C1-08B). The
- * same under reduced motion, where the board shows it at once: the pause is for seeing it, not for animation.
+ * move did (the item on its marked tile, now fixed; Alisha on her plate) while the discovery cue plays (see actionEffect).
+ * The regions it opened stay as they were until the scene has been read (see storyHeld); then they open on the board. The
+ * same under reduced motion: the pause is for seeing the move, not for animation.
  */
 export const STORY_DELAY_MS = 1500;
+
+/**
+ * A level whose win leads straight into its ending (Beyond the gate: Alisha stepping onto her plate beside the dog): once
+ * the last action won, calls `done` after `ms`, the same pause as before a story scene. A timer, as above. Returns the
+ * cancel, for the next action (Retry) or leaving, after which it never calls `done`; undefined unless just won.
+ */
+export function afterWinScene(state: UiState, done: () => void, ms = STORY_DELAY_MS): (() => void) | undefined {
+  if (state.status !== 'won') return undefined;
+  const timer = setTimeout(done, ms);
+  return () => clearTimeout(timer);
+}
 
 /**
  * While a story scene is due (storyDue), calls `ready` after `ms`, for the scene to be shown then. A timer, as for the
@@ -57,6 +69,23 @@ export const STORY_DELAY_MS = 1500;
  */
 export function afterStoryDue(state: UiState, ready: () => void, ms = STORY_DELAY_MS): (() => void) | undefined {
   if (storyDue(state) === null) return undefined;
+  const timer = setTimeout(ready, ms);
+  return () => clearTimeout(timer);
+}
+
+/**
+ * How long the player may go without progress on a workshop's recipe (see workshopProgress) before its hint shows (see
+ * workshopHint): long enough to try things, short enough to help before giving up.
+ */
+export const RECIPE_HINT_MS = 30_000;
+
+/**
+ * While a workshop's hint could apply (see workshopHint), calls `ready` after `ms` without progress, for the hint to be
+ * shown then. A timer, as above. Returns the cancel, for progress, Retry, a pause for talk or a scene, or leaving, after
+ * which it never calls `ready`; undefined when no hint applies.
+ */
+export function afterRecipeIdle(state: UiState, ready: () => void, ms = RECIPE_HINT_MS): (() => void) | undefined {
+  if (workshopHint(state) === null) return undefined;
   const timer = setTimeout(ready, ms);
   return () => clearTimeout(timer);
 }

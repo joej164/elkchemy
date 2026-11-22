@@ -12,7 +12,7 @@ import {
   type LevelDefinition, type SessionState,
 } from '../src/session';
 import { evaluateStatus, strandedRoom } from '../src/status';
-import { App, describeAction, Game } from '../src/ui/App';
+import { announcement, App, describeAction, Game } from '../src/ui/App';
 import { Board } from '../src/ui/Board';
 import { viewCue } from '../src/ui/camera';
 import { actionEffect } from '../src/ui/audioEvents';
@@ -266,19 +266,30 @@ describe('Palace entrance prototype: the reveal and Alisha\'s speech bubble', ()
     expect(describeAction(s.lastAction, 'Level', ENTRANCE_LEVEL.goal, regions, tasks)).toBe(
       'Merged 3 into 1 item: Grove, tier 3 of 5. The way north is clear: Palace forecourt, with the palace entrance and a pressure plate.');
     expect(viewCue(s)).toEqual({ kind: 'region', region: FORECOURT });
+    // Until the forecourt's scene (C1-08B) has been read, it is under fog: its shape, but no cells, wall, entrance, plate
+    // or bubble, and Alisha and Fiona where they were; the move is announced without it. Only the move's own result shows
+    // (Grove 3 fixed on its tile).
     const html = board(s);
-    expect(html).toContain('aria-label="The palace entrance, closed"');
-    expect(html).toContain('aria-label="Row 2, column 6, Palace forecourt: Alisha&#x27;s pressure plate"');
-    expect(html).toMatch(/<button type="button" class="speech-bubble" data-bubble="true" data-speaker="alisha"><span class="sr-only">Alisha says: <\/span><span class="bubble-text">I can stand on that plate\.<\/span><span class="bubble-prompt">Tap to continue<\/span><\/button>/);
-    expect(ALISHA_LINE).toBe('I can stand on that plate.');
-    // The bubble is anchored on Alisha's spot: laid out but hidden until the forecourt's scene (C1-08B) has been read.
-    const anchor = `style="grid-row:${party.waiting.alisha.row + 1} / span 1;grid-column:${party.waiting.alisha.col + 1} / span 1"`;
-    expect(html).toContain(`class="bubble-anchor is-alisha is-waiting" ${anchor}`);
+    expect(html).not.toMatch(SPOILER);
+    expect(html).toContain(`<div class="region is-fog" data-fog="${FORECOURT}" aria-hidden="true"`);
+    expect(announcement(s, 'Level')).toBe('Merged 3 into 1 item: Grove, tier 3 of 5.');
     expect(html).toContain('class="board is-entrance is-paused"');
+    expect(html).toContain('aria-label="Row 5, column 6, Upper approach, pressure plate for Grove, tier 3 of 5, fixed: Grove, tier 3 of 5"');
+    expect(html.match(/data-spot="(alisha|fiona)"/g)).toHaveLength(2);
     expect(entranceGuide(s)).toBe('The way north is clear.');
+    const at = (q: Pos) => `style="grid-row:${q.row + 1} / span 1;grid-column:${q.col + 1} / span 1"`;
+    // Read: the forecourt, the entrance and the plate appear, Alisha and Fiona beside them, and her bubble.
     const read_ = read(s);
-    expect(board(read_)).toContain(`class="bubble-anchor is-alisha" ${anchor}`);
-    expect(board(read_)).toContain('class="board is-entrance is-paused"');                // the bubble still pauses it
+    const shown = board(read_);
+    expect(shown).toContain('aria-label="The palace entrance, closed"');
+    expect(shown).toContain('aria-label="Row 2, column 6, Palace forecourt: Alisha&#x27;s pressure plate"');
+    expect(shown).toMatch(/<button type="button" class="speech-bubble" data-bubble="true" data-speaker="alisha"><span class="sr-only">Alisha says: <\/span><span class="bubble-text">I can stand on that plate\.<\/span><span class="bubble-prompt">Tap to continue<\/span><\/button>/);
+    expect(ALISHA_LINE).toBe('I can stand on that plate.');
+    expect(shown).toContain(`class="bubble-anchor is-alisha" ${at(party.waiting.alisha)}`);
+    expect(shown).toContain('class="board is-entrance is-paused"');                       // the bubble still pauses it
+    expect(shown).not.toContain('data-fog=');
+    expect(shown).toContain(`<div class="region is-fog is-lifting" data-fog-lifting="${FORECOURT}" aria-hidden="true"`);
+    expect(announcement(read_, 'Level')).toBe('The way north is clear: Palace forecourt, with the palace entrance and a pressure plate.');
     expect(entranceGuide(read_)).toBe('Alisha has something to say. Tap her speech bubble to continue.');
   });
 
@@ -471,6 +482,32 @@ describe('Palace entrance prototype: story scenes', () => {
     expect([isOpen(s.session, WEST), isOpen(s.session, EAST), isOpen(s.session, UPPER), plateRevealed(s)]).toEqual([true, true, false, false]);
     expect(board(s)).not.toMatch(SPOILER);
     expect(board(s)).toContain('class="board is-entrance is-paused"');
+    // Until it has been read, both terraces are under fog: their shape, no cells or items, gates drawn and labelled shut,
+    // nothing glowing, and the move announced without them. The move's own result shows, with the discovery cue.
+    const fog = (u: UiState, i: number) => board(u).includes(`<div class="region is-fog" data-fog="${i}" aria-hidden="true"`);
+    const lifting = (u: UiState, i: number) => board(u).includes(`<div class="region is-fog is-lifting" data-fog-lifting="${i}" aria-hidden="true"`);
+    const terraceCells = (u: UiState) => board(u).match(/aria-label="Row \d+, column \d+, (West|East) terrace/g)?.length ?? 0;
+    expect([fog(s, WEST), fog(s, EAST), terraceCells(s), board(s).includes('data-fx="unlock"')]).toEqual([true, true, 0, false]);
+    const gate = (u: UiState, i: number) => board(u).match(new RegExp(`<div class="(passage[^"]*)" data-passage="${i}"[^>]*aria-label="([^"]*)"`))!;
+    for (const [i, name] of [[WEST, 'West'], [EAST, 'East']] as const) {
+      expect([gate(s, i)[1].includes('is-open'), gate(s, i)[2]], name).toEqual([false, `Rune gate to ${name} terrace, closed`]);
+    }
+    expect(board(s)).toContain('Forked path, pressure plate for Song, tier 3 of 5, fixed');
+    expect(announcement(s, 'Level')).toBe('Merged 3 into 1 item: Song, tier 3 of 5.');
+    expect(actionEffect(s)).toBe('discovery');
+    // Read: the fog lifts off both, which open, glowing (the East terrace, a room with a joined part, is outlined cell by
+    // cell, each glowing), their gates open, and their opening is announced then.
+    const r = read(s);
+    expect([fog(r, WEST), fog(r, EAST), lifting(r, WEST), lifting(r, EAST), terraceCells(r)]).toEqual([false, false, true, true, 24]);
+    expect(board(r)).toMatch(new RegExp(`data-region="${WEST}"[^>]*><span data-fx="unlock"`));
+    expect(board(r)).toMatch(/aria-label="Row \d+, column \d+, East terrace[^"]*"[^>]*>(?:(?!<\/button>).)*<span data-fx="unlock"/);
+    for (const [i, name] of [[WEST, 'West'], [EAST, 'East']] as const) {
+      expect([gate(r, i)[1].includes('is-open'), gate(r, i)[2]], name).toEqual([true, `Rune gate to ${name} terrace, open`]);
+    }
+    expect(announcement(r, 'Level')).toBe('The rune gates to West terrace and East terrace opened.');
+    // The next move: the fog is gone for good, and the move is announced as usual.
+    const next = run(r, ...drops(FINISH_WEST.slice(0, 1)));
+    expect([lifting(next, WEST), lifting(next, EAST), announcement(next, 'Level')]).toEqual([false, false, 'Moved an item.']);
   });
 
   it('pauses the board while due: nothing but reading it, Retry and putting things down does anything; reading is not a move', () => {
@@ -515,6 +552,7 @@ describe('Palace entrance prototype: story scenes', () => {
     expect([storyDue(r), bubbleOpen(r), r.session, r.actionSeq]).toEqual([null, true, s.session, s.actionSeq]);
     const ready = run(r, { type: 'dismissBubble' });
     expect([bubbleOpen(ready), canMoveAlisha(ready)]).toEqual([false, true]);
+    expect(actionEffect(s)).toBe('discovery');
     const won = run(ready, { type: 'placeAlisha', to: PLATE });
     expect([won.status, storyDue(won), won.storySeen]).toEqual(['won', null, ['C1-08A', 'C1-08B']]);
   });

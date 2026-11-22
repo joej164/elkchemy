@@ -121,3 +121,19 @@ c5303ea2f4ca49ceaedfb44a9225c7eca68655149e37183779117722d56f189c  19-crossing-dr
 603bd87234f5138350703525dfd531cd8630f7e83eac09a265eb413bb07fb4a7  21-course-reveal-draft-v3.png
 ed5627eaacd33b10b44e73b7b2fb01865d7e90a26fb7d2c88a31fbde48dc6601  21-linked-gates-draft-v1.png
 ```
+
+Added November 22, 2026: the two owner-approved beats' pictures, copied byte for byte from `artwork/story/chapter-one/delivery-drafts/` (made there from the matching PNG drafts in Chromium canvas at WebP quality 0.80, 960 × 720; see `artwork/board/README.md`). C1-12A holds three moments in one picture, revealed one per tap (`moments` in `src/ui/chapterStory.tsx`, cut at its panel gutters, 229 and 467 of 720 px).
+
+| File | Source | Feedback code | Bytes |
+| --- | --- | --- | ---: |
+| chapter-one-12a-growing-restless-v1.webp | 12a-growing-restless-draft-v1.png | C1-12A | 145040 |
+| chapter-one-15a-cookie-call-v1.webp | 15a-cookie-call-draft-v1.png | C1-15A | 185804 |
+
+```text
+1c5585e0298805947b4bc81d3b75da7ffcc825784a2eec348cee8eef58d9f765  12a-growing-restless-draft-v1.png
+2860121bd9206ca9090a694ff6da5f54bfa04707a1f99269d958f03102b3a3ef  15a-cookie-call-draft-v1.png
+```
+
+## Board art (`src/assets/board/`)
+
+The 33 board pictures (merge items by family and tier, Alisha, and Fiona without leaves), copied byte for byte from `artwork/board/webp/` (method, tier mapping and checks: `artwork/board/README.md`; masters in `artwork/board/drafts/`). The leafy Fiona draft is not used. `src/ui/BoardArt.tsx` maps them to items and sprites and crops each family to the union of its pictures' opaque pixels, so tiers keep their relative sizes.

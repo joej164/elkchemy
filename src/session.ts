@@ -72,10 +72,12 @@ export interface Party {
   readonly door?: Pos;
   /**
    * Story scenes shown during play, each once per attempt, by its storyboard code (`id`): due on the move that completes
-   * task `task` (see storyDue in src/ui/controller.ts). In task order.
+   * task `task` (see storyDue in src/ui/controller.ts), or, with `talk`, once that on-board talk (after the same task)
+   * has been heard (the palace rescue's release: Fiona asks whether it is opening, then the partition opens). In task
+   * order.
    */
-  readonly story?: readonly { readonly id: string; readonly task: number }[];
-  /** On-board dialogue, in order of their tasks; a story scene due on the same task comes first. */
+  readonly story?: readonly { readonly id: string; readonly task: number; readonly talk?: string }[];
+  /** On-board dialogue, in order of their tasks; a story scene due on the same task comes first, unless it names the talk. */
   readonly talk?: readonly Talk[];
   readonly trap?: { readonly task: number; readonly release: number; readonly fiona: Pos; readonly free: Spots };
   readonly dog?: readonly { readonly at: Pos; readonly after?: number }[];
@@ -194,7 +196,8 @@ export function plateGoal(level: LevelDefinition): boolean {
 /**
  * Party levels go with tasks, and a plate goal (see plateGoal) with a party. Every spot, the door and the dog's spots
  * are scenery cells (outside every region, link and route); the spots shown together, and the door, are distinct. A trap
- * names Alisha's task and a release; story scenes and talk name tasks; only Alisha and Fiona talk.
+ * names Alisha's task and a release; story scenes and talk name tasks (a scene after a talk, that talk, after its task); only
+ * Alisha and Fiona talk.
  */
 function validateParty(level: LevelDefinition): void {
   const { party, regions, board } = level;
@@ -213,6 +216,7 @@ function validateParty(level: LevelDefinition): void {
   if (trap && door && same(trap.fiona, door)) fail();
   const task = (t: number | undefined) => t === undefined || !!tasks[t];
   if (party.story?.some((s) => !task(s.task)) || party.dog?.some((d) => !task(d.after))) fail();
+  if (party.story?.some((s) => s.talk !== undefined && !party.talk?.some((t) => t.id === s.talk && t.after === s.task))) fail();
   if (party.talk?.some((t) => !task(t.after) || t.lines.length === 0 || t.lines.some((l) => l.who !== 'alisha' && l.who !== 'fiona'))) fail();
   if (trap && (!tasks[trap.task]?.alisha || !task(trap.release) || trap.release === trap.task)) fail();
   if (tasks.some((t) => t.alisha) !== !!trap || (plateGoal(level) && trap)) fail();

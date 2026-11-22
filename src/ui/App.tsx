@@ -12,7 +12,7 @@ import { Comic, ComicOverlay, type ComicScene } from './Comic';
 import { CLOSING_PANELS, memoryMusicOn, OPENING_PANELS } from './atticStory';
 import { afterOpening, BookOpening } from './BookOpening';
 import { atticGuide } from './atticGuide';
-import { afterEntranceOpening, afterStoryDue, ENTRANCE_OPENING_MS } from './entranceGuide';
+import { afterEntranceOpening, afterRecipeIdle, afterStoryDue, afterWinScene, ENTRANCE_OPENING_MS } from './entranceGuide';
 import { CHAPTER_ONE } from './chapterOne';
 import { HelpButton } from './HelpButton';
 import { Home } from './Home';
@@ -28,7 +28,7 @@ import { ChestArt, DustSheetArt, ItemArt, itemLabel, itemName, PrizeArt } from '
 import { UpdateControl } from './UpdateControl';
 import {
   batchText, branchPlates, isConcealed, isLargeBoard, itemCount, objectiveText, PAN_HINT, plateItems, prizeText, progressText, statusMessage,
-  taskNeed, unlockNeed,
+  taskNeed, unlockNeed, workshopHint,
 } from './messages';
 import { useMusic } from './useMusic';
 import { JOURNEY_MUSIC, PALACE_MUSIC, PUZZLE_MUSIC, WOODLAND_MUSIC } from '../music';
@@ -36,7 +36,7 @@ import { useEffects } from './useEffects';
 import { actionEffect, palaceOpeningPending } from './audioEvents';
 import type { EffectCue } from '../effects';
 import {
-  canPlaceSupply, canUndo, canUnlock, initUi, nextSupplyItem, openedRegion, reduceUi, storyDue, supplyRemaining,
+  canPlaceSupply, canUndo, canUnlock, initUi, nextSupplyItem, openedRegion, partitionShown, reduceUi, storyDue, storyHeld, storyLifted, supplyRemaining, workshopProgress,
   type LastAction, type UiState,
 } from './controller';
 
@@ -91,6 +91,29 @@ export function describeAction(
     case 'merge':
       return `Merged ${a.consumed} into ${plural(a.consumed === 3 ? 1 : 2)}: ${itemLabel(a.result as Item)}.${gate}${reveal}`;
   }
+}
+
+/**
+ * What the live region says after the last action (describeAction), as the board shows it: the regions held back under
+ * fog for the story scene it made due (see storyHeld) are left out, so they are neither named nor said to open until the
+ * scene has been read; then their opening is said on its own (see storyLifted). The palace rescue's partition is said to
+ * open when the board shows it opening (see partitionShown).
+ */
+export function announcement(state: UiState, noun: string): string {
+  const { goal, regions, tasks, recipe, containers, party } = state.session.level;
+  const lifted = storyLifted(state);
+  if (lifted.length > 0) return progressText([], lifted, goal, regions!, tasks!).trim();
+  // The palace rescue: once Fiona has asked about the release, the partition opens and Alisha steps out, said on its own.
+  if (partitionShown(state) === 'opening') return 'The crystal partition opened: Alisha is free.';
+  const held = storyHeld(state);
+  let a = state.lastAction;
+  if (a && held.length > 0 && 'progress' in a && a.progress) {
+    const opened = 'opened' in a && a.opened !== undefined && !held.includes(a.opened) ? a.opened : undefined;
+    a = { ...a, opened, progress: { ...a.progress, regions: a.progress.regions.filter((i) => !held.includes(i)) } } as LastAction;
+  }
+  // A release with no talk or scene before it opens the partition at once.
+  const released = !!party?.trap && partitionShown(state) === null && !!a && 'progress' in a && !!a.progress?.tasks.includes(party.trap.release);
+  return `${describeAction(a, noun, goal, regions, tasks, recipe, containers)}${released ? ' The crystal partition opened: Alisha is free.' : ''}`;
 }
 
 type Screen =
@@ -259,7 +282,7 @@ export function App({ levels = LEVELS }: { levels?: readonly Level[] }) {
         <Game key={run} onMusicAreaChange={setMusicArea} playEffect={effects.play} stopEffects={effects.stop} definition={chapter.definition}
           musicControl={musicControl} onHome={toHome} label={`Chapter 1 · ${screen.level + 1} of ${CHAPTER_ONE.length} · ${chapter.name}`}
           scene={chapter.scene} guide={chapter.guide} story={chapter.story && { title: chapter.name, scenes: chapter.story }}
-          winLabel={chapter.winLabel}
+          winLabel={chapter.winLabel} sceneOnWin={chapter.sceneOnWin}
           onWin={() => {
             setChapterNext(screen.level + 1 < CHAPTER_ONE.length ? screen.level + 1 : 0);
             if (chapter.closing) show({ ...screen, phase: 'closing' }); else afterChapter(screen.level);
@@ -282,8 +305,9 @@ export function App({ levels = LEVELS }: { levels?: readonly Level[] }) {
  * Levels with tasks: until the first gate opens, what opens it (as for other room levels); then a checklist of the rooms
  * the sealed region needs, each with its symbol (lit once done) and what it asks for now, and the sealed region itself.
  * A level with no sealed region (Beyond the gate: one room after another) shows what opens the next gate throughout.
+ * `held`: regions held back for a story scene due (see storyHeld), shown as still closed.
  */
-export function TaskPanel({ session }: { session: SessionState }) {
+export function TaskPanel({ session, held = [] }: { session: SessionState; held?: readonly number[] }) {
   const regions = session.level.regions!;
   const tasks = session.level.tasks!;
   const sealed = sealedRegion(regions);
@@ -324,7 +348,7 @@ export function TaskPanel({ session }: { session: SessionState }) {
       <ul className="checklist" aria-label={`Progress to ${regions[sealed].name}`}>
         {needs.map((t) => {
           const done = session.done.includes(t);
-          const reachable = isOpen(session, tasks[t].in);
+          const reachable = isOpen(session, tasks[t].in) && !held.includes(tasks[t].in);
           const plates = branchPlates(session, t);
           return (
             <li key={t} className={done ? 'is-done' : undefined} data-task={t}>
@@ -423,6 +447,11 @@ interface GameProps {
    * the paused game once due (after STORY_DELAY_MS), one line at a time; reading it to the end returns to the board.
    */
   story?: { readonly title: string; readonly scenes: Readonly<Record<string, ComicScene>> };
+  /**
+   * Party levels whose win leads straight into the ending (Beyond the gate): once won, `onWin` follows by itself after the
+   * same pause as before a story scene (STORY_DELAY_MS), with the discovery cue, and no button is offered.
+   */
+  sceneOnWin?: boolean;
 }
 
 /**
@@ -501,7 +530,7 @@ export function CraftSign({ craft, state }: { craft: ItemRecipe; state: UiState 
 
 export function Game({
   definition, label, musicControl, onHome, winLabel, onWin, puzzleId, onNewPuzzle, onMusicAreaChange, playEffect, stopEffects, scene, guide,
-  story,
+  story, sceneOnWin = false,
 }: GameProps) {
   const [state, dispatch] = useReducer(reduceUi, definition, initUi);
   const handled = useRef(0);
@@ -510,6 +539,9 @@ export function Game({
   winRef.current = onWin;
   // Cancelled by the next action (Retry) and by leaving (Home), so it never moves on afterwards.
   useEffect(() => afterOpening(state, () => winRef.current?.()), [state.actionSeq]);
+  // A win that leads straight into the ending (Beyond the gate) moves on by itself once the board has shown it; cancelled
+  // the same way.
+  useEffect(() => (sceneOnWin ? afterWinScene(state, () => winRef.current?.()) : undefined), [state.actionSeq]);
   // Party levels: Enter the palace is offered once the entrance has opened on the board (at once under reduced motion);
   // the wait is cancelled the same way.
   const [entered, setEntered] = useState(-1);
@@ -527,6 +559,17 @@ export function Game({
     return afterStoryDue(state, () => setStoryReady(seq));
   }, [state.actionSeq, due]);
   const storyScene = due !== null && storyReady === state.actionSeq ? story?.scenes[due] : undefined;
+  // The regions held back for it, under fog and not named until it has been read (see storyHeld).
+  const held = storyHeld(state);
+  // A workshop's recipe hint (the bird room): shown once the player has gone RECIPE_HINT_MS without progress on the recipe
+  // (see workshopProgress), and until the next progress or Retry (which start the wait again) or leaving. It hides while
+  // the board is paused for talk or a scene, and comes back after unless there was progress.
+  const recipeKey = workshopProgress(state);
+  const workshopTip = workshopHint(state);
+  const [hintFor, setHintFor] = useState<string | null>(null);
+  useEffect(() => setHintFor(null), [recipeKey]);
+  useEffect(() => afterRecipeIdle(state, () => setHintFor(recipeKey)), [recipeKey, workshopTip !== null]);
+  const recipeHint = workshopTip !== null && hintFor === recipeKey ? workshopTip : null;
   useEffect(() => { onMusicAreaChange?.(state.musicArea); }, [state.musicArea, onMusicAreaChange]);
   useEffect(() => () => stopEffects?.(), [stopEffects]);
   useEffect(() => {
@@ -534,7 +577,7 @@ export function Game({
     handled.current = state.actionSeq;
     if (state.lastAction?.kind === 'undo' || state.lastAction?.kind === 'retry') stopEffects?.();
     if (!palaceOpeningPending(state)) {
-      const cue = actionEffect(state);
+      const cue = actionEffect(state, sceneOnWin);
       if (cue) playEffect?.(cue);
     }
   }, [state.actionSeq, playEffect, stopEffects]);
@@ -561,9 +604,10 @@ export function Game({
   const over = state.status !== 'playing';
   // Measured by Board once laid out (and on resize); until then, guessed from the board's size.
   const [pannable, setPannable] = useState(() => isLargeBoard(definition.board));
-  const guided = guide?.(state);
+  // The workshop's hint, once due, takes the banner's place (the next step for its recipe), so nothing moves on screen.
+  const guided = recipeHint ?? guide?.(state);
   const message = guided === undefined ? statusMessage(state, pannable)
-    : pannable && state.status === 'playing' ? `${guided} ${PAN_HINT}` : guided;
+    : pannable && state.status === 'playing' && !recipeHint ? `${guided} ${PAN_HINT}` : guided;
   // Nothing is saved, so leaving mid-attempt discards it: ask once a move has been made.
   const leave = (go?: () => void) => {
     if (!go) return;
@@ -595,8 +639,9 @@ export function Game({
             {musicControl}
             <HelpButton goal={goal} largeBoard={pannable} puzzle={puzzle} regions={regions} tasks={tasks} recipe={recipe} containers={!!containers}
               workshop={workshop !== undefined ? regions![workshop].name : undefined}
-              craft={craft} unlocked={tasks ? (i: number) => isOpen(state.session, i) : state.session.unlocked}
-              party={party ? (alishaPlate(state.session) || state.session.collected || state.session.done.some((t) => tasks![t].alisha) ? 'plate' : 'hidden') : undefined} />
+              craft={craft} unlocked={tasks ? (i: number) => isOpen(state.session, i) && !held.includes(i) : state.session.unlocked}
+              party={party ? ((alishaPlate(state.session) && held.length === 0) || state.session.collected || state.session.done.some((t) => tasks![t].alisha)
+                ? 'plate' : 'hidden') : undefined} />
           </div>
         </div>
         <p className="level-label">{label}</p>
@@ -628,7 +673,7 @@ export function Game({
           </p>
         </div>
         )}
-        {regions && tasks && <TaskPanel session={state.session} />}
+        {regions && tasks && <TaskPanel session={state.session} held={held} />}
         {/* The palace rescue: the workshop's recipe, while its room is open and its chest still to open. */}
         {recipe && workshop !== undefined && isOpen(state.session, workshop) && !state.session.opened && <RecipeSign recipe={recipe} state={state} />}
         {containers && <ContainerPanel session={state.session} />}
@@ -668,18 +713,17 @@ export function Game({
         scene={scene} />
       {state.lastAction?.kind === 'openGoal' && <BookOpening />}
 
-      <div className={`banner is-${state.status}`} data-status={state.status}>
+      <div className={`banner is-${state.status}${recipeHint ? ' is-hint' : ''}`} data-status={state.status}>
         {state.status === 'won' && <span className="banner-icon" aria-hidden="true">★</span>}
         {state.status === 'lost' && <span className="banner-icon" aria-hidden="true">✖</span>}
         <span>{message}</span>
       </div>
 
       <div className="sr-only" aria-live="polite" role="status">
-        {describeAction(state.lastAction, puzzle ? 'Puzzle' : 'Level', goal, regions, tasks, recipe, containers)}
-        {/* The palace rescue: the move that releases Alisha opens her partition too. */}
-        {party?.trap && state.lastAction && 'progress' in state.lastAction && state.lastAction.progress?.tasks.includes(party.trap.release)
-          ? ' The crystal partition opened: Alisha is free.' : ''} {over ? message : ''}
+        {announcement(state, puzzle ? 'Puzzle' : 'Level')} {over ? message : ''}
       </div>
+      {/* The workshop's hint, said once when it comes (the banner itself isn't announced). */}
+      {workshop !== undefined && <div className="sr-only" aria-live="polite" role="status" data-recipe-hint>{recipeHint ?? ''}</div>}
 
       {storyScene && (
         <ComicOverlay key={due} title={story!.title} label={storyScene.label} panels={storyScene.panels}
@@ -697,10 +741,13 @@ export function Game({
           // Undo, Retry and Home stay on an iPad's screen.
           tasks ? (
             <div className="row">
-              {/* The palace entrance: offered once its doors have opened on the board; it stays in place, disabled, until then. */}
-              <button type="button" className="btn btn-next" data-action="next-level"
-                disabled={!!party?.door && state.lastAction?.kind === 'stand' && entered !== state.actionSeq}
-                onClick={onWin}>{winLabel}</button>
+              {/* The palace entrance: offered once its doors have opened on the board; it stays in place, disabled, until then.
+                  None where the win leads straight into the ending. */}
+              {!sceneOnWin && (
+                <button type="button" className="btn btn-next" data-action="next-level"
+                  disabled={!!party?.door && state.lastAction?.kind === 'stand' && entered !== state.actionSeq}
+                  onClick={onWin}>{winLabel}</button>
+              )}
               {homeButton}
             </div>
           ) : (
@@ -729,13 +776,14 @@ export function Game({
           </button>
         )}
         {!puzzle && !containers && definition.supply.length + (regions?.length ?? 0) > 0 && (hint || !tasks) && <p className="hint" id="supply-hint">{hint}</p>}
-        <div className="row">
+        <div className={`row${workshop !== undefined && state.status === 'playing' ? ' has-workshop-home' : ''}`}>
           <button type="button" className="btn" data-action="undo" disabled={!canUndo(state)}
             onClick={() => dispatch({ type: 'undo' })}>Undo</button>
           <button type="button" className="btn" data-action="retry"
             onClick={() => dispatch({ type: 'retry' })}>Retry</button>
+          {workshop !== undefined && state.status === 'playing' && homeButton}
         </div>
-        {!(tasks && state.status === 'won') && homeButton}
+        {!(tasks && state.status === 'won') && !(workshop !== undefined && state.status === 'playing') && homeButton}
         {puzzle && <PuzzleId id={puzzleId} />}
       </section>
     </>

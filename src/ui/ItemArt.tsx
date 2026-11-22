@@ -2,9 +2,11 @@ import type { ReactNode } from 'react';
 import { MAX_TIER, type Item, type Family } from '../board';
 import type { Prize } from '../session';
 import { DogArt, PalaceDoorArt } from './StoryArt';
+import { itemPicture, pictureBookCover } from './BoardArt';
 
 export const FAMILY_NAMES: Record<Family, string> = {
   grove: 'Grove', song: 'Song', crystal: 'Crystal', elk: 'Elk', photo: 'Photos', book: 'Book', wood: 'Wood', tool: 'Tools',
+  planks: 'Planks', hardware: 'Chest hardware',
 };
 
 /** Per-tier display names for families that have them (tiers past the list use its last name). */
@@ -27,89 +29,12 @@ export function itemLabel(item: Item): string {
 const DARK = '#233a2b';
 const S = { stroke: DARK, strokeWidth: 2, strokeLinejoin: 'round' as const, strokeLinecap: 'round' as const };
 
-function grove(t: number): ReactNode {
-  if (t === 0) {
-    return (
-      <>
-        <path d="M50 74 V50" {...S} stroke="#6b4a2f" strokeWidth={4} fill="none" />
-        <ellipse cx="38" cy="46" rx="14" ry="8" transform="rotate(-30 38 46)" fill="#4f8a3c" {...S} />
-        <ellipse cx="62" cy="38" rx="14" ry="8" transform="rotate(30 62 38)" fill="#2f5e2a" {...S} />
-      </>
-    );
-  }
-  const r = [0, 22, 27, 29][t];
-  return (
-    <>
-      {t === 3 && <circle cx="50" cy="40" r="38" fill="#f4ecd8" opacity="0.7" />}
-      <rect x="44" y="50" width="12" height="26" fill="#6b4a2f" {...S} />
-      <circle cx="50" cy="40" r={r} fill="#4f8a3c" {...S} />
-      {t >= 2 && <circle cx="34" cy="48" r="15" fill="#2f5e2a" {...S} />}
-      {t >= 2 && <circle cx="66" cy="48" r="15" fill="#2f5e2a" {...S} />}
-      {t >= 2 && <circle cx="50" cy="34" r="18" fill="#4f8a3c" />}
-      {t === 3 && [[40, 30], [60, 36], [48, 48], [32, 46], [66, 50]].map(([x, y]) => (
-        <circle key={x} cx={x} cy={y} r="4" fill="#f2c6d0" {...S} strokeWidth={1.5} />
-      ))}
-    </>
-  );
-}
-
 function note(x: number, y: number, key: number): ReactNode {
   return (
     <g key={key}>
       <path d={`M${x + 5} ${y} V${y - 18} l8 3`} fill="none" {...S} />
       <ellipse cx={x} cy={y} rx="6" ry="4.5" fill="#233a2b" />
     </g>
-  );
-}
-
-function song(t: number): ReactNode {
-  const notes = [[78, 40], [86, 26], [72, 22]].slice(0, t);
-  return (
-    <>
-      {t === 3 && <path d="M28 30 l-4 -10 l8 4 l2 -10 l4 10" fill="#d9744a" {...S} />}
-      <path d="M20 56 L6 48 L8 62 Z" fill="#2f5e2a" {...S} />
-      <ellipse cx="38" cy="54" rx="22" ry="16" fill="#4a7fa8" {...S} />
-      <path d="M26 58 Q38 74 54 56 Q42 66 26 58Z" fill="#d9744a" {...S} strokeWidth={1.5} />
-      <circle cx="54" cy="38" r="11" fill="#4a7fa8" {...S} />
-      <path d="M64 36 L74 40 L64 43 Z" fill="#e6d3a3" {...S} strokeWidth={1.5} />
-      <circle cx="56" cy="36" r="2" fill={DARK} />
-      <path d="M26 50 Q38 40 48 54 Q36 60 26 50Z" fill="#2f5e2a" opacity="0.6" />
-      {notes.map(([x, y], i) => note(x, y, i))}
-    </>
-  );
-}
-
-function gem(cx: number, base: number, w: number, h: number, key: number, fill = '#7b5ea7'): ReactNode {
-  const top = base - h, mid = base - h * 0.62, l = cx - w / 2, r = cx + w / 2;
-  return (
-    <g key={key}>
-      <path d={`M${cx} ${top} L${r} ${mid} L${cx + w * 0.35} ${base} L${cx - w * 0.35} ${base} L${l} ${mid} Z`} fill={fill} {...S} />
-      <path d={`M${cx} ${top} L${cx - w * 0.18} ${mid} L${l} ${mid} Z`} fill="#d8ccef" />
-      <path d={`M${cx} ${top} L${cx + w * 0.18} ${mid} L${cx} ${base} L${cx - w * 0.18} ${mid} Z`} fill="#5fb3b3" opacity="0.8" />
-    </g>
-  );
-}
-
-function crystal(t: number): ReactNode {
-  if (t === 0) {
-    return (
-      <path d="M50 22 L68 40 L50 72 L32 40 Z" fill="#7b5ea7" {...S} />
-    );
-  }
-  const spark = (x: number, y: number) => (
-    <path key={`${x}${y}`} d={`M${x} ${y - 7} L${x + 2} ${y - 2} L${x + 7} ${y} L${x + 2} ${y + 2} L${x} ${y + 7} L${x - 2} ${y + 2} L${x - 7} ${y} L${x - 2} ${y - 2} Z`} fill="#f4ecd8" {...S} strokeWidth={1.5} />
-  );
-  return (
-    <>
-      {t === 1 && gem(50, 74, 36, 52, 0)}
-      {t >= 2 && gem(28, 74, 24, 34, 1, '#5fb3b3')}
-      {t >= 2 && gem(72, 74, 24, 38, 2, '#5fb3b3')}
-      {t >= 2 && gem(50, 74, 34, 58, 3)}
-      {t === 3 && gem(38, 74, 18, 40, 4, '#7b5ea7')}
-      {t === 3 && gem(62, 74, 18, 44, 5, '#7b5ea7')}
-      {t === 3 && spark(82, 22)}
-      {t === 3 && spark(16, 30)}
-    </>
   );
 }
 
@@ -126,6 +51,7 @@ function antler(sign: 1 | -1, tines: number): ReactNode {
   );
 }
 
+/** A cartoon elk's head (`t` extra tines, 0–3), for the Picture Book's photos of Fiona; the board uses its painted art. */
 function elk(t: number): ReactNode {
   const tines = t; // 0..3 extra tines
   const outline = (s: 1 | -1) => (
@@ -152,274 +78,10 @@ function elk(t: number): ReactNode {
   );
 }
 
-/** A white-bordered snapshot (tiny hill and sun) centred on cx,cy, turned by `rot`. */
-function snapshot(cx: number, cy: number, rot: number, sky: string, hill: string): ReactNode {
-  return (
-    <g transform={`rotate(${rot} ${cx} ${cy})`}>
-      <rect x={cx - 15} y={cy - 13} width="30" height="26" rx="1.5" fill="#fffaf0" {...S} />
-      <rect x={cx - 12} y={cy - 10} width="24" height="17" fill={sky} stroke={DARK} strokeWidth={1} />
-      <path d={`M${cx - 12} ${cy + 7} Q${cx - 3} ${cy - 3} ${cx + 12} ${cy + 3} V${cy + 7} Z`} fill={hill} />
-      <circle cx={cx + 6} cy={cy - 5} r="2.5" fill="#f2c14e" />
-    </g>
-  );
-}
-
-function photo(t: number): ReactNode {
-  if (t === 0) {
-    return (
-      <>
-        {snapshot(38, 56, -14, '#9fd0e8', '#4f8a3c')}
-        {snapshot(60, 50, 10, '#f3c98b', '#8a5a34')}
-        {snapshot(48, 38, -4, '#b9d9ef', '#2f5e2a')}
-      </>
-    );
-  }
-  if (t === 1) {
-    return (
-      <>
-        <rect x="22" y="30" width="56" height="44" rx="2" transform="rotate(-6 50 52)" fill="#fffaf0" {...S} />
-        <rect x="22" y="30" width="56" height="44" rx="2" transform="rotate(4 50 52)" fill="#f3e6c8" {...S} />
-        <rect x="24" y="28" width="52" height="44" rx="2" fill="#fffaf0" {...S} />
-        <rect x="29" y="33" width="42" height="26" fill="#9fd0e8" stroke={DARK} strokeWidth={1} />
-        <path d="M29 59 Q42 42 71 54 V59 Z" fill="#4f8a3c" />
-        <circle cx="62" cy="40" r="3.5" fill="#f2c14e" />
-        <rect x="44" y="26" width="9" height="48" fill="#b8324a" {...S} />
-        <path d="M48 50 Q34 36 33 48 Q34 58 48 50 Z M48 50 Q62 36 63 48 Q62 58 48 50 Z" fill="#d9475f" {...S} />
-        <circle cx="48" cy="50" r="4" fill="#b8324a" {...S} />
-        <path d="M46 54 L40 68 M50 54 L57 67" fill="none" {...S} stroke="#b8324a" strokeWidth={3.5} />
-      </>
-    );
-  }
-  // Scrapbook pages: two loose cream sheets fanned apart (no cover or spine), each with a photo mounted in photo corners.
-  return (
-    <>
-      <g transform="rotate(-10 34 44)">
-        <rect x="14" y="16" width="40" height="56" rx="1.5" fill="#f3e6c8" {...S} />
-        {mounted(19, 22, 30, 22, '#f3c98b', '#8a5a34')}
-        <path d="M20 54 H46 M20 61 H38" fill="none" stroke="#b8a079" strokeWidth={2.5} strokeLinecap="round" />
-      </g>
-      <g transform="rotate(9 64 44)">
-        <rect x="44" y="16" width="40" height="56" rx="1.5" fill="#fffaf0" {...S} />
-        {mounted(49, 22, 30, 22, '#9fd0e8', '#4f8a3c')}
-        <path d="M55 57 C52 53 47 56 50 60 L55 65 L60 60 C63 56 58 53 55 57 Z" fill="#d9475f" {...S} strokeWidth={1.2} />
-        <path d="M65 56 H79 M65 63 H75" fill="none" stroke="#b8a079" strokeWidth={2.5} strokeLinecap="round" />
-      </g>
-    </>
-  );
-}
-
-/** A photo mounted on a scrapbook page, w × h at x, y (a tiny hill and sun), held by four dark photo corners. */
-function mounted(x: number, y: number, w: number, h: number, sky: string, hill: string): ReactNode {
-  return (
-    <>
-      <rect x={x} y={y} width={w} height={h} fill={sky} stroke={DARK} strokeWidth={1} />
-      <path d={`M${x} ${y + h} Q${x + w * 0.35} ${y + h * 0.35} ${x + w} ${y + h * 0.7} V${y + h} Z`} fill={hill} />
-      <circle cx={x + w * 0.75} cy={y + h * 0.3} r="3" fill="#f2c14e" />
-      {[[x, y, 1, 1], [x + w, y, -1, 1], [x, y + h, 1, -1], [x + w, y + h, -1, -1]].map(([cx, cy, dx, dy]) => (
-        <path key={`${cx},${cy}`} d={`M${cx - dx} ${cy - dy} h${dx * 8} L${cx - dx} ${cy + dy * 7} Z`} fill="#6b4a2f" />
-      ))}
-    </>
-  );
-}
-
-/** One book seen from its spine, `w` wide at x, y: the cover, its page edge at the right end and a gold title band. */
-function spine(x: number, y: number, w: number, fill: string): ReactNode {
-  return (
-    <g key={y}>
-      <rect x={x} y={y} width={w} height="15" rx="2" fill="#f3e6c8" {...S} />
-      <rect x={x} y={y} width={w - 8} height="15" rx="2" fill={fill} {...S} />
-      <path d={`M${x + 6} ${y + 7.5} H${x + w - 18}`} stroke="#e8b84a" strokeWidth={2} strokeLinecap="round" />
-    </g>
-  );
-}
-
-// Books (the attic): old book, book stack (three tied with twine and a bow), blank book (an empty photo window on its
-// cover), then the Picture Book.
-function book(t: number): ReactNode {
-  if (t === 1) {
-    return (
-      <>
-        {spine(16, 60, 66, '#4a7a8a')}
-        {spine(22, 45, 58, '#b8324a')}
-        {spine(18, 30, 62, '#4f8a3c')}
-        <path d="M48 28 V75" stroke="#8a5a34" strokeWidth={3} />
-        <path d="M48 28 Q36 16 38 27 Q42 32 48 28 Q60 16 58 27 Q54 32 48 28 Z" fill="#d9475f" {...S} strokeWidth={1.5} />
-      </>
-    );
-  }
-  if (t === 2) {
-    return (
-      <>
-        <path d="M24 20 L80 20 L80 78 L24 78 Z" fill="#f3e6c8" {...S} />
-        <path d="M76.5 23 V75 M79 23 V75" stroke="#c9b48a" strokeWidth={1} />
-        <rect x="16" y="14" width="58" height="60" rx="4" fill="#3d6b4f" {...S} />
-        <rect x="16" y="14" width="10" height="60" rx="3" fill="#2f5e2a" {...S} />
-        <rect x="34" y="25" width="30" height="24" rx="1.5" fill="#fffaf0" {...S} strokeWidth={1.5} />
-        {[[34, 25, 1, 1], [64, 25, -1, 1], [34, 49, 1, -1], [64, 49, -1, -1]].map(([x, y, dx, dy]) => (
-          <path key={`${x},${y}`} d={`M${x} ${y} h${dx * 6} L${x} ${y + dy * 6} Z`} fill="#e8b84a" />
-        ))}
-        <path d="M38 59 H60" stroke="#e8b84a" strokeWidth={2.5} strokeLinecap="round" />
-      </>
-    );
-  }
-  if (t < 3) {
-    return (
-      <>
-        <path d="M30 24 L74 20 L76 70 L30 76 Z" fill="#f3e6c8" {...S} />
-        <path d="M34 26 L72 23 M34 31 L72 28" fill="none" stroke="#c9b48a" strokeWidth={1} />
-        <path d="M24 22 L70 18 L72 64 L24 72 Z" fill="#4a7a8a" {...S} />
-        <path d="M24 22 L32 21 L32 71 L24 72 Z" fill="#37606e" {...S} />
-        <rect x="40" y="30" width="22" height="16" rx="2" transform="rotate(-4 51 38)" fill="#d8c79c" {...S} strokeWidth={1.5} />
-        <path d="M44 38 H58" transform="rotate(-4 51 38)" fill="none" stroke="#8a6a3a" strokeWidth={1.5} strokeLinecap="round" />
-        <path d="M60 71 L60 80 L64 77 L68 79 L67 66" fill="#b8324a" {...S} strokeWidth={1.5} />
-      </>
-    );
-  }
-  return (
-    <>
-      <circle cx="50" cy="46" r="40" fill="#fff0c2" opacity="0.7" stroke="#f2c14e" strokeWidth="2" />
-      <path d="M22 18 L80 18 L80 76 L22 76 Z" fill="#f3e6c8" {...S} />
-      {pictureBookCover()}
-    </>
-  );
-}
-
-// Chapter 1's woodland cleanup (placeholder art, pending owner review): fallen wood and the tool shed's tools.
-
-/** A log seen from its cut end at cx,cy, radius r: bark ring, pale wood and growth rings. */
-function logEnd(cx: number, cy: number, r: number): ReactNode {
-  return (
-    <g key={`${cx},${cy}`}>
-      <circle cx={cx} cy={cy} r={r} fill="#8a5a34" {...S} />
-      <circle cx={cx} cy={cy} r={r * 0.74} fill="#e3c08a" stroke="#b98d55" strokeWidth={1.2} />
-      <circle cx={cx} cy={cy} r={r * 0.42} fill="none" stroke="#b98d55" strokeWidth={1.2} />
-    </g>
-  );
-}
-
-function wood(t: number): ReactNode {
-  if (t === 0) {
-    // Two fallen branches, crossed, with twigs and a couple of dry leaves.
-    return (
-      <>
-        <path d="M14 70 L84 36 M34 60 L30 44 M62 47 L70 32" fill="none" stroke="#6b4a2f" strokeWidth={6} strokeLinecap="round" />
-        <path d="M18 34 L80 72 M44 50 L52 36 M66 64 L78 58" fill="none" stroke="#8a5a34" strokeWidth={5} strokeLinecap="round" />
-        <ellipse cx="72" cy="30" rx="6" ry="3.2" transform="rotate(-30 72 30)" fill="#c9952b" {...S} strokeWidth={1.5} />
-        <ellipse cx="28" cy="42" rx="5" ry="2.8" transform="rotate(40 28 42)" fill="#b8834f" {...S} strokeWidth={1.5} />
-      </>
-    );
-  }
-  if (t === 1) {
-    // A bundle of sticks tied with twine.
-    return (
-      <>
-        {[-12, -6, 0, 6, 12].map((d, i) => (
-          <path key={d} d={`M${22 + i * 2} ${66 + d * 0.4} L${80 - i * 2} ${30 + d}`} stroke={i % 2 ? '#8a5a34' : '#6b4a2f'} strokeWidth={5.5}
-            strokeLinecap="round" />
-        ))}
-        <path d="M46 34 Q52 50 50 66 M54 30 Q60 46 58 62" fill="none" stroke="#e6d3a3" strokeWidth={3.5} />
-      </>
-    );
-  }
-  if (t === 2) {
-    // Three trimmed logs, side by side, their cut ends toward us.
-    return (
-      <>
-        <rect x="16" y="48" width="52" height="22" rx="10" fill="#8a5a34" {...S} />
-        {logEnd(68, 59, 11)}
-        <rect x="26" y="26" width="52" height="22" rx="10" fill="#7a4e2c" {...S} />
-        {logEnd(78, 37, 11)}
-      </>
-    );
-  }
-  // Stacked logs: a neat pile of six cut ends.
-  return (
-    <>
-      {[[30, 66], [50, 66], [70, 66], [40, 48], [60, 48], [50, 30]].map(([x, y]) => logEnd(x, y, 10.5))}
-    </>
-  );
-}
-
-/** A small hammer with its head at x,y, turned by `rot`. */
-function hammer(x: number, y: number, rot: number): ReactNode {
-  return (
-    <g transform={`rotate(${rot} ${x} ${y})`}>
-      <rect x={x - 2.5} y={y} width="5" height="34" rx="2" fill="#b8834f" {...S} strokeWidth={1.5} />
-      <rect x={x - 10} y={y - 6} width="20" height="9" rx="2" fill="#7d8b94" {...S} strokeWidth={1.5} />
-    </g>
-  );
-}
-
-/** A small wrench from x,y, turned by `rot`. */
-function wrench(x: number, y: number, rot: number): ReactNode {
-  return (
-    <g transform={`rotate(${rot} ${x} ${y})`}>
-      <rect x={x - 2.5} y={y + 4} width="5" height="30" rx="2.5" fill="#9fb1bb" {...S} strokeWidth={1.5} />
-      <path d={`M${x - 8} ${y - 6} Q${x} ${y + 12} ${x + 8} ${y - 6} L${x + 4} ${y - 6} L${x + 3} ${y} L${x - 3} ${y} L${x - 4} ${y - 6} Z`}
-        fill="#9fb1bb" {...S} strokeWidth={1.5} />
-    </g>
-  );
-}
-
-function tool(t: number): ReactNode {
-  if (t === 0) return <>{hammer(36, 30, -30)}{wrench(64, 30, 25)}</>;
-  if (t === 1) {
-    // Tools tied together with a leather strap.
-    return (
-      <>
-        {hammer(42, 22, -8)}{wrench(58, 24, 8)}{hammer(50, 20, 0)}
-        <rect x="30" y="46" width="40" height="8" rx="3" fill="#a5463b" {...S} strokeWidth={1.5} />
-      </>
-    );
-  }
-  if (t === 2) {
-    // A sorted set: a tool tray with each tool in its slot.
-    return (
-      <>
-        <path d="M14 44 H86 L80 76 H20 Z" fill="#a5463b" {...S} />
-        <rect x="22" y="30" width="56" height="16" rx="3" fill="#7a2f28" {...S} />
-        {hammer(34, 20, 0)}{wrench(50, 16, 0)}{hammer(66, 20, 0)}
-        <path d="M14 44 H86" stroke={DARK} strokeWidth={2} />
-      </>
-    );
-  }
-  // A tool chest: a red metal box with drawers and a carrying handle.
-  return (
-    <>
-      <path d="M36 24 Q36 14 50 14 Q64 14 64 24" fill="none" stroke="#7d8b94" strokeWidth={5} strokeLinecap="round" />
-      <rect x="16" y="24" width="68" height="54" rx="5" fill="#c0392b" {...S} />
-      {[38, 52, 66].map((y) => <path key={y} d={`M16 ${y} H84`} stroke={DARK} strokeWidth={2} />)}
-      {[31, 45, 59, 72].map((y) => <rect key={y} x="44" y={y - 2} width="12" height="4" rx="2" fill="#e6d3a3" {...S} strokeWidth={1} />)}
-    </>
-  );
-}
-
-/** The Picture Book's front cover (spine, gold frame and corners, leaf, antlers and clasp), on 16–78 × 14–76. */
-function pictureBookCover(): ReactNode {
-  return (
-    <>
-      <rect x="16" y="14" width="62" height="62" rx="4" fill="#7a2338" {...S} />
-      <rect x="16" y="14" width="10" height="62" rx="3" fill="#5c1a2a" {...S} />
-      <rect x="32" y="20" width="39" height="50" rx="2" fill="none" stroke="#e8b84a" strokeWidth={2} />
-      {[[16, 14, 1, 1], [78, 14, -1, 1], [16, 76, 1, -1], [78, 76, -1, -1]].map(([x, y, dx, dy]) => (
-        <path key={`${x},${y}`} d={`M${x + dx * 10} ${y} L${x} ${y} L${x} ${y + dy * 10} Z`} fill="#f2c14e" {...S} strokeWidth={1.5} />
-      ))}
-      <path d="M51 56 Q41 46 51 34 Q61 46 51 56 Z" fill="#4f8a3c" {...S} strokeWidth={1.5} />
-      <path d="M51 56 V36" fill="none" stroke={DARK} strokeWidth={1} />
-      <g fill="none" stroke="#f2c14e" strokeWidth={2.5} strokeLinecap="round">
-        <path d="M45 33 Q38 30 38 24 M41 30 L36 29" />
-        <path d="M57 33 Q64 30 64 24 M61 30 L66 29" />
-      </g>
-      <rect x="72" y="38" width="10" height="16" rx="2" fill="#f2c14e" {...S} />
-      <circle cx="77" cy="46" r="2" fill={DARK} />
-    </>
-  );
-}
-
-/** The Picture Book's front cover alone, filling its box (the clasp and strokes overflow it). Decorative. */
+/** The Picture Book alone, as the board draws it (book-tier-4 of the board art), filling its box. Decorative. */
 export function PictureBookCoverArt() {
   return (
-    <svg viewBox="16 14 62 62" width="100%" height="100%" overflow="visible" aria-hidden="true" focusable="false">
+    <svg viewBox="0 0 100 100" width="100%" height="100%" overflow="visible" aria-hidden="true" focusable="false">
       {pictureBookCover()}
     </svg>
   );
@@ -427,7 +89,7 @@ export function PictureBookCoverArt() {
 
 type Snap = 'woodland' | 'fiona' | 'keepsake';
 
-/** A print's picture, on 100 × 80: a sunny woodland, Fiona (the elk as drawn on the board) or keepsakes (a disc, music). */
+/** A print's picture, on 100 × 80: a sunny woodland, Fiona (a small drawn elk) or keepsakes (a disc, music). */
 function scene(kind: Snap): ReactNode {
   if (kind === 'woodland') {
     return (
@@ -497,8 +159,6 @@ export function BookPageArt({ page }: { page: number }) {
     </svg>
   );
 }
-
-const ART: Record<Family, (t: number) => ReactNode> = { grove, song, crystal, elk, photo, book, wood, tool };
 
 /** A flying disc seen at an angle: its rim and flight plate. */
 function disc(cx: number, cy: number, tilt: number, fill: string): ReactNode {
@@ -731,11 +391,12 @@ export function PrizeArt({ prize = 'backpack', open }: { prize?: Prize; open: bo
   return prize === 'clarinet' ? <ClarinetCaseArt open={open} /> : <BackpackArt open={open} />;
 }
 
-// The top tier (five pips): the family's four-pip drawing on a gold radiance.
+// The top tier (five pips): the family's tier-4 picture on a gold radiance, enlarged around its centre so its rays and
+// glow still show around the painted pictures, which fill more of the tile than the old drawings did.
 const RAYS = Array.from({ length: 12 }, (_, i) => i * 30);
 function radiance(): ReactNode {
   return (
-    <g data-radiance="">
+    <g data-radiance="" transform="translate(50 44) scale(1.3) translate(-50 -44)">
       {RAYS.map((a) => (
         <path key={a} d="M50 2 L55 14 L45 14 Z" fill="#f2c14e" stroke="#c9952b" strokeWidth="1" transform={`rotate(${a} 50 44)`} />
       ))}
@@ -746,9 +407,9 @@ function radiance(): ReactNode {
 
 export function ItemArt({ item, className }: { item: Item; className?: string }) {
   return (
-    <svg viewBox="0 0 100 100" width="100%" height="100%" aria-hidden="true" focusable="false" className={className}>
+    <svg viewBox="0 0 100 100" width="100%" height="100%" overflow="visible" aria-hidden="true" focusable="false" className={className}>
       {item.tier === MAX_TIER && radiance()}
-      {ART[item.family](Math.min(item.tier, 3))}
+      {itemPicture(item.family, item.tier)}
       {Array.from({ length: item.tier + 1 }, (_, i) => (
         <circle key={i} data-pip="" cx={50 + (i - item.tier / 2) * 13} cy="90" r="4.5" fill="#e8b84a" stroke={DARK} strokeWidth="2" />
       ))}

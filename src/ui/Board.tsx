@@ -7,7 +7,7 @@ import {
   isFixed, isOpen, regionAt, roomOf, routeFrom, routeOf, sealedRegion, type GateSymbol, type PlateUnlock, type Region, type TaskUnlock,
 } from '../regions';
 import {
-  alishaPlate, closedContainerAt, containerShown, craftedItem, dogSpot, goalOpenableAt, isCellOpen, partySpots, plateGoal, trapped,
+  alishaPlate, closedContainerAt, containerShown, craftedItem, dogSpot, goalOpenableAt, isCellOpen, partySpots, plateGoal,
   type Container,
 } from '../session';
 import { ChestArt, DustSheetArt, ItemArt, itemLabel, KeepsakeBoxArt, PrizeArt, ShoeboxArt } from './ItemArt';
@@ -18,7 +18,7 @@ import { batchGroups, batchText, prizeText, unlockNeed } from './messages';
 import { centerScroll, centreSpan, exceedsThreshold, moveFocus, panScroll, revealSpan, type Point } from './navigation';
 import {
   bubbleOpen, canDropAt, canMoveAlisha, canPickUp, canUnlock, goalCells, mergeSources, mergeTargets, openedRegion,
-  plateRevealed, previewCells, storyDue, talkShown, treasureShown, type UiAction, type UiState,
+  partitionShown, plateRevealed, previewCells, storyDue, storyHeld, storyLifted, storyPending, talkShown, treasureShown, type UiAction, type UiState,
 } from './controller';
 
 // A click arriving this soon after a drag is the browser's follow-up click, not a tap.
@@ -208,10 +208,11 @@ const NAMES = { alisha: 'Alisha', fiona: 'Fiona', dog: 'Dog' } as const;
 
 /**
  * A party level's character on her spot: Alisha as a button while she can be moved (tap to pick her up, or drag her),
- * otherwise, like Fiona (and Beyond the gate's dog), a labelled picture. Never a cell: no item ever goes here.
+ * otherwise, like Fiona (and Beyond the gate's dog), a labelled picture. Never a cell: no item ever goes here. `stepping`:
+ * Alisha stepping out of the palace rescue's plate room as its partition opens.
  */
-function Character({ who, movable = false, selected = false, ready = false, lifted = false, buttonRef, onClick, onKeyDown }: {
-  who: 'alisha' | 'fiona' | 'dog'; movable?: boolean; selected?: boolean; ready?: boolean; lifted?: boolean;
+function Character({ who, movable = false, selected = false, ready = false, lifted = false, stepping = false, buttonRef, onClick, onKeyDown }: {
+  who: 'alisha' | 'fiona' | 'dog'; movable?: boolean; selected?: boolean; ready?: boolean; lifted?: boolean; stepping?: boolean;
   buttonRef?: (el: HTMLButtonElement | null) => void; onClick?: (e: MouseEvent<HTMLButtonElement>) => void; onKeyDown?: () => void;
 }) {
   const name = NAMES[who];
@@ -221,7 +222,7 @@ function Character({ who, movable = false, selected = false, ready = false, lift
       <span className="character-name" aria-hidden="true">{name}</span>
     </>
   );
-  const cls = `character is-${who}${ready ? ' is-ready' : ''}${lifted ? ' is-lifted' : ''}`;
+  const cls = `character is-${who}${ready ? ' is-ready' : ''}${lifted ? ' is-lifted' : ''}${stepping ? ' is-stepping' : ''}`;
   const label = who === 'fiona' ? 'Fiona, an elk' : who === 'dog' ? 'A dog, a little way off' : name;
   if (!movable) return <span className={cls} role="img" aria-label={label}>{body}</span>;
   return (
@@ -260,18 +261,32 @@ export function Board({ state, dispatch, onOverflowChange, onPalaceOpening, onPr
   // Party levels: where Alisha and Fiona stand, her plates (a goal plate, or a task's: shown once their room is open,
   // pressed once she has stood there), her destination now, and the palace entrance beside the last room.
   const { party, goal } = state.session.level;
-  const spots = partySpots(state.session);
+  // A story scene due holds back the regions its move opened (see storyHeld): under fog, their shape showing but nothing in
+  // them, until it has been read; then the fog lifts off them (`lifted`). Held with the palace entrance's forecourt: its
+  // wall, entrance and plate, and Alisha and Fiona's move up beside it.
+  const heldBack = storyHeld(state);
+  const lifted = storyLifted(state);
+  const plateHeld = plateGoal(state.session.level) && goal.kind === 'treasure' && heldBack.includes(regionAt(regions!, goal.at));
+  // The palace rescue's partition as shown (see partitionShown): shut while she is trapped and while Fiona asks whether it is
+  // opening, Alisha still on her plate behind it; then opening, as she steps out beside Fiona, until the reunion scene.
+  const trap = party?.trap;
+  const release = partitionShown(state);
+  const spots = plateHeld ? party!.start
+    : release === 'shut' && trap ? { alisha: tasks![trap.task].alisha!, fiona: trap.fiona }
+    : release === 'opening' && party?.waiting ? party.waiting
+    : partySpots(state.session);
   const destination = alishaPlate(state.session);
-  const plateShown = plateRevealed(state);
+  const plateShown = plateRevealed(state) && !plateHeld;
   const alishaPlates = !party ? [] : [
     ...(plateGoal(state.session.level) && goal.kind === 'treasure' ? [{ at: goal.at, shown: plateShown, pressed: state.session.collected }] : []),
-    ...(tasks ?? []).flatMap((t, i) => (t.alisha ? [{ at: t.alisha, shown: isOpen(state.session, t.in), pressed: state.session.done.includes(i) }] : [])),
+    ...(tasks ?? []).flatMap((t, i) => (t.alisha
+      ? [{ at: t.alisha, shown: isOpen(state.session, t.in) && !heldBack.includes(t.in), pressed: state.session.done.includes(i) }] : [])),
   ];
   const line = talkShown(state);
   const speaking = bubbleOpen(state);
-  const shut = trapped(state.session);
+  const shut = release === 'shut';
   // The palace rescue's partition: the passage of the room Alisha is shut in.
-  const partition = shut ? (regions![tasks![party!.trap!.task].in].unlock as TaskUnlock).passage : undefined;
+  const partition = release && trap ? (regions![tasks![trap.task].in].unlock as TaskUnlock).passage : undefined;
   const dog = dogSpot(state.session);
   const movable = canMoveAlisha(state);
   const bubbleRef = useRef<HTMLButtonElement>(null);
@@ -284,13 +299,14 @@ export function Board({ state, dispatch, onOverflowChange, onPalaceOpening, onPr
   const sealed = regions && tasks ? sealedRegion(regions) : -1;
   const phase = show?.seq === state.actionSeq ? show.phase : null;
   const held = phase === 'travel' || phase === 'glow';
-  // Drawn open: an open region, except the palace while the view travels to its gate and its symbols glow.
-  const shownOpen = (i: number) => isOpen(state.session, i) && !(held && i === sealed);
-  // Room levels: terrain is not a cell, and neither is a hidden region until it opens.
+  // Drawn open: an open region, except the palace while the view travels to its gate and its symbols glow, and a region
+  // held back for the story scene due.
+  const shownOpen = (i: number) => isOpen(state.session, i) && !(held && i === sealed) && !heldBack.includes(i);
+  // Room levels: terrain is not a cell, and neither is a hidden region until it opens, nor a region under fog.
   const isCell = (p: Pos) => {
     if (!regions) return true;
     const i = regionAt(regions, p);
-    return i !== -1 && !(regions[i].hidden && !shownOpen(i));
+    return i !== -1 && !(regions[i].hidden && !shownOpen(i)) && !heldBack.includes(i);
   };
   // Room levels start on the first open cell, so a locked room (the palace in a corner) never takes the first tab stop.
   const firstCell = (): Pos => {
@@ -463,9 +479,23 @@ export function Board({ state, dispatch, onOverflowChange, onPalaceOpening, onPr
   // palace opening pans to its gate, shows it open, then pans on to the palace (see viewCue). Pans ease over a moment;
   // under reduced motion they jump.
   const unlocked = openedRegion(state.lastAction);
+  // A story scene still to come for the last move (see storyPending): the view waits for it.
+  const sceneToCome = storyPending(state) !== null;
+  // The speech bubble showing, brought fully into view with its speaker (on a small screen, its room may not fit around it).
+  const bubbleShot = (): Shot => ({
+    pan: () => {
+      const b = elementBox(bubbleRef.current);
+      const who = line && spots ? spots[line.who] : spots?.alisha;
+      const a = who && boxOf(who, who);
+      return b && a ? reveal(view.read(), {
+        left: Math.min(a.left, b.left), top: Math.min(a.top, b.top), right: Math.max(a.right, b.right), bottom: Math.max(a.bottom, b.bottom),
+      }) : null;
+    },
+  });
   // Regions glowing as they open: all those a task opened together, or the one opened (the palace once its gate opens).
   const progress = state.lastAction && 'progress' in state.lastAction ? state.lastAction.progress : undefined;
-  const glowing = new Set((progress ? progress.regions : unlocked !== null ? [unlocked] : []).filter((i) => !(held && i === sealed)));
+  const glowing = new Set((progress ? progress.regions : unlocked !== null ? [unlocked] : [])
+    .filter((i) => !(held && i === sealed) && !heldBack.includes(i)));
   // A gate that had focus disappears when its region opens; focus then moves to that region's first cell.
   const focusOpened = useRef<number | null>(null);
   useLayoutEffect(() => {
@@ -484,7 +514,17 @@ export function Board({ state, dispatch, onOverflowChange, onPalaceOpening, onPr
       if (cell?.matches(':focus-visible')) keep = { row, col };
     }
     focusOpened.current = null;
-    const cue = viewCue(state);
+    // The palace rescue's release: Fiona asks whether the partition is opening, so the view takes in Alisha's room, its
+    // partition and Fiona, then her bubble.
+    if (sceneToCome && shut && trap && regions && spots) {
+      const room = regions[tasks![trap.task].in];
+      const frame: Shot = { pan: () => { const b = withCells(room, [trap.fiona, partition!]); return b && (fits(b) ? centre(b) : reveal(view.read(), b)); } };
+      camera.current = direct([frame, bubbleShot()], view, frames, prefersReducedMotion(), () => { presentationCancelRef.current?.(); });
+      return;
+    }
+    // A story scene still to come keeps the view on the move that made it due; once it has been read, the view does what
+    // that move's opening would have done (the regions it held back come into view).
+    const cue = sceneToCome ? null : viewCue(state);
     if (!cue || !regions) return;
     const instant = cue.kind === 'start' || prefersReducedMotion();
     const seq = state.actionSeq;
@@ -523,21 +563,10 @@ export function Board({ state, dispatch, onOverflowChange, onPalaceOpening, onPr
           return b && (cell ? reveal(centre(b), cell) : centre(b));
         },
       }];
-      if (meeting) {
-        shots.push({
-          pan: () => {
-            const b = elementBox(bubbleRef.current);
-            const who = line ? spots[line.who] : spots.alisha;
-            const a = boxOf(who, who);
-            return b && a && reveal(view.read(), {
-              left: Math.min(a.left, b.left), top: Math.min(a.top, b.top), right: Math.max(a.right, b.right), bottom: Math.max(a.bottom, b.bottom),
-            });
-          },
-        });
-      }
+      if (meeting) shots.push(bubbleShot());
     }
     camera.current = direct(shots, view, frames, instant, () => { presentationCancelRef.current?.(); setShow(null); });
-  }, [state.actionSeq]);
+  }, [state.actionSeq, storyPaused, sceneToCome]);
 
   const preview = useMemo(() => {
     if (drag) {
@@ -682,7 +711,7 @@ export function Board({ state, dispatch, onOverflowChange, onPalaceOpening, onPr
   // Room levels: a room with a joined part is outlined edge by edge around its open cells, so it reads as one shape;
   // other regions keep their rectangular outline. A notch fills the gap corner inside a bend, where two edges meet.
   const shaped = (i: number) => !!regions && regions.some((r, j) => r.joins !== undefined && roomOf(regions, j) === roomOf(regions, i));
-  const opened = regions?.map((_, i) => (isOpen(state.session, i) ? 'o' : '-')).join('');
+  const opened = regions?.map((_, i) => (isOpen(state.session, i) && !heldBack.includes(i) ? 'o' : '-')).join('');
   const edges = useMemo(() => {
     const out: { row: number; col: number; sides: string[]; notches: string[] }[] = [];
     if (!regions) return out;
@@ -774,6 +803,8 @@ export function Board({ state, dispatch, onOverflowChange, onPalaceOpening, onPr
             // A hidden region's cells, its link included, are plain forest until it opens: no tile, item, label or focus.
             // The link's foliage differs faintly, the only clue.
             if (region && !isCell(pos)) {
+              // A region under fog (see heldBack): blank ground under the fog, nothing on it.
+              if (heldBack.includes(ri)) return <div key={`${r}-${c}`} className="fogged" aria-hidden="true" />;
               // A hidden building is sealed instead: blank floor under its locked shade, with nothing on it.
               if (region.building) return <div key={`${r}-${c}`} className="sealed" aria-hidden="true" />;
               const clue = !!region.link && same(region.link, pos);
@@ -798,7 +829,7 @@ export function Board({ state, dispatch, onOverflowChange, onPalaceOpening, onPr
               if (who) {
                 return (
                   <div key={`${r}-${c}`} className="terrain has-character" data-spot={who}>
-                    <Character who={who} movable={who === 'alisha' && movable} selected={state.alishaSelected}
+                    <Character who={who} movable={who === 'alisha' && movable} selected={state.alishaSelected} stepping={who === 'alisha' && release === 'opening'}
                       ready={who === 'alisha' && movable && !aiming} lifted={who === 'alisha' && !!drag?.alisha}
                       buttonRef={(el) => { alishaRef.current = el; }} onClick={pickAlisha}
                       onKeyDown={() => { suppressClickUntil.current = 0; }} />
@@ -817,11 +848,14 @@ export function Board({ state, dispatch, onOverflowChange, onPalaceOpening, onPr
               }
               const gate = route.region;
               const sides = routeSides(pos, gate);
-              // The palace rescue: while Alisha is trapped, a crystal partition stands across her room's passage.
+              // The palace rescue: while Alisha is trapped, a crystal partition stands across her room's passage; once Fiona has
+              // asked about the release it opens (lifting away) as Alisha steps out, until the reunion scene.
               if (partition && same(partition, pos)) {
                 return (
-                  <div key={`${r}-${c}`} className={`passage is-partition${sides.includes('l') || sides.includes('r') ? ' is-across' : ''}`}
-                    data-partition role="img" aria-label="A crystal partition, closed, with Alisha behind it">
+                  <div key={`${r}-${c}`} className={`passage is-partition${sides.includes('l') || sides.includes('r') ? ' is-across' : ''}${
+                    shut ? '' : ' is-opening'}`}
+                    data-partition={shut ? 'shut' : 'opening'} role="img"
+                    aria-label={shut ? 'A crystal partition, closed, with Alisha behind it' : 'A crystal partition, open: Alisha has stepped out'}>
                     <PartitionArt />
                   </div>
                 );
@@ -833,8 +867,7 @@ export function Board({ state, dispatch, onOverflowChange, onPalaceOpening, onPr
                   </div>
                 );
               }
-              // Labelled as it is; drawn closed while the palace opening has yet to reach it.
-              const open = isOpen(state.session, gate);
+              // Labelled as drawn: closed while the palace opening has yet to reach it, or while its region is under fog.
               const drawnOpen = shownOpen(gate);
               const stage = gate === sealed ? phase : null;
               const across = sides.includes('l') || sides.includes('r');
@@ -846,13 +879,13 @@ export function Board({ state, dispatch, onOverflowChange, onPalaceOpening, onPr
                 <div key={`${r}-${c}`}
                   className={`passage${across ? ' is-across' : ''}${drawnOpen ? ' is-open' : ''}${needs.length ? ' is-sealed' : ''}${
                     stage === 'glow' ? ' is-glowing' : stage === 'opening' ? ' is-opening' : ''}`}
-                  data-passage={gate} role="img" aria-label={`Rune gate to ${regions[gate].name}, ${open ? 'open' : 'closed'}${symbols}`}>
+                  data-passage={gate} role="img" aria-label={`Rune gate to ${regions[gate].name}, ${drawnOpen ? 'open' : 'closed'}${symbols}`}>
                   <RuneGate open={drawnOpen} opening={stage === 'opening'} />
                   {needs.length > 0 && <GateSymbols symbols={needs.map((t) => tasks![t].symbol!)} lit={lit} />}
                 </div>
               );
             }
-            const locked = !isCellOpen(state.session, pos);
+            const locked = !isCellOpen(state.session, pos) || heldBack.includes(ri);
             const plate = plates.get(`${r},${c}`);
             const fixed = !!plate && isFixed(state.session, pos);
             const treasure = !plateGoal(state.session.level) && goal.kind === 'treasure' && same(goal.at, pos) && treasureShown(state);
@@ -993,6 +1026,14 @@ export function Board({ state, dispatch, onOverflowChange, onPalaceOpening, onPr
             );
           }),
         )}
+        {/* Chapter 1's woodland and palace boards: each tile's floor (grass, or marble), its cell and half the gaps around it,
+            the texture lined up across the board so a room reads as one patch of ground. After the cells (which Board
+            finds by their index), drawn under them all (see .floor). */}
+        {(scene === 'entrance' || scene === 'palace') && board.flatMap((rowCells, r) => rowCells.map((_, c) => (
+          isCell({ row: r, col: c }) && (!regions || regionAt(regions, { row: r, col: c }) !== -1) ? (
+            <div key={`floor-${r}-${c}`} className="floor" aria-hidden="true"
+              style={{ gridRow: `${r + 1} / span 1`, gridColumn: `${c + 1} / span 1`, '--r': r, '--c': c } as CSSProperties} />
+          ) : null)))}
         {/* Region outlines over the gaps (never taking input). A locked region is shaded, with a wooden gate carrying
             its sign: tapping or pressing the gate asks the session to unlock that region, which it does only when it
             is next and its item is made. A drag across a gate pans like locked ground and never unlocks. */}
@@ -1003,6 +1044,13 @@ export function Board({ state, dispatch, onOverflowChange, onPalaceOpening, onPr
           </div>
         ))}
         {regions?.map((r, i) => {
+          // A region under fog: its shape, misted over, with nothing to read or tap.
+          if (heldBack.includes(i)) {
+            return (
+              <div key={r.name} className="region is-fog" data-fog={i} aria-hidden="true"
+                style={{ gridRow: `${r.row + 1} / span ${r.rows}`, gridColumn: `${r.col + 1} / span ${r.cols}` }} />
+            );
+          }
           const locked = !shownOpen(i);
           // Once open, a room with a joined part is outlined edge by edge above instead (until then it is a locked room
           // like any other); a hidden region shows nothing at all until it opens, except a hidden building, kept sealed.
@@ -1038,14 +1086,20 @@ export function Board({ state, dispatch, onOverflowChange, onPalaceOpening, onPr
             </div>
           );
         })}
+        {/* The fog lifting off the regions a story scene held back, once it has been read (it stays, faded out, until the
+            next action). */}
+        {regions && lifted.map((i) => (
+          <div key={`lift-${seq}-${i}`} className="region is-fog is-lifting" data-fog-lifting={i} aria-hidden="true"
+            style={{ gridRow: `${regions[i].row + 1} / span ${regions[i].rows}`, gridColumn: `${regions[i].col + 1} / span ${regions[i].cols}` }} />
+        ))}
         {/* Party levels: the speech bubble showing, beside its speaker. It pauses the board until it is tapped (or Enter or
             Space pressed on it), one line at a time; taps elsewhere do nothing, and its own tap never reaches the board. */}
-        {speaking && spots && line && (
-          // While a story scene is due first (the forecourt's, C1-08B), the bubble is laid out but hidden, so the camera can
-          // still frame it; it appears (its own entrance replayed) once the scene has been read.
-          <div className={`bubble-anchor is-${line.who}${storyPaused ? ' is-waiting' : ''}`}
+        {speaking && spots && line && !storyPaused && (
+          // A story scene due first (the forecourt's, C1-08B) comes before it: it appears once that has been read, and the
+          // camera frames it then.
+          <div className={`bubble-anchor is-${line.who}`}
             style={{ gridRow: `${spots[line.who].row + 1} / span 1`, gridColumn: `${spots[line.who].col + 1} / span 1` }}>
-            <button key={`${storyPaused ? 'waiting' : 'shown'}-${state.talkLine}`} ref={bubbleRef} type="button" className="speech-bubble"
+            <button key={state.talkLine} ref={bubbleRef} type="button" className="speech-bubble"
               data-bubble data-speaker={line.who}
               onPointerDown={(e) => e.stopPropagation()}
               onClick={(e) => {

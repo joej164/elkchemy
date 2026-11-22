@@ -3,12 +3,31 @@ import type { ReactElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { BookPageArt, ItemArt, itemLabel, PictureBookCoverArt, PrizeArt, ShoeboxArt, KeepsakeBoxArt, DustSheetArt } from '../src/ui/ItemArt';
 import { AtticWindowArt, AtticLampArt, StackedBoxesArt, ShelfArt } from '../src/ui/AtticArt';
+import { AlishaArt, FionaArt } from '../src/ui/StoryArt';
 import type { Family, Item, Tier } from '../src/board';
 
 const families: Family[] = ['grove', 'song', 'crystal', 'elk'];
 const tiers: Tier[] = [0, 1, 2, 3, 4];
 const all: Item[] = families.flatMap((family) => tiers.map((tier) => ({ family, tier })));
 const html = (item: Item, className?: string) => renderToStaticMarkup(<ItemArt item={item} className={className} />);
+/** The board picture an item (or sprite) draws: its one <image>, from the app's own bundled board art, and its name. */
+const picture = (m: string) => {
+  expect(m.match(/<image /g), m).toHaveLength(1);
+  expect(m).not.toMatch(/https?:|url\(|<text|<img/);
+  const href = m.match(/<image href="([^"]+)"/)![1];
+  const name = m.match(/data-art="([^"]+)"/)![1];
+  expect(href).toMatch(new RegExp(`/assets/board/${name}\\.webp$`));
+  return name;
+};
+// The tier mapping of artwork/board/README.md: tiers 0–2 the first three pictures, tiers 3 and 4 the fourth (photos: the third).
+const numbered = (family: Family, ns: readonly number[]) => ns.map((n) => `${family}-tier-${n}-v1`);
+const PICTURES: Record<Family, readonly string[]> = {
+  grove: ['grove-sprout-v1', 'grove-tree-v1', 'grove-full-tree-v1', 'grove-flowering-tree-v1', 'grove-flowering-tree-v1'],
+  song: numbered('song', [1, 2, 3, 4, 4]), crystal: numbered('crystal', [1, 2, 3, 4, 4]), elk: numbered('elk', [1, 2, 3, 4, 4]),
+  wood: numbered('wood', [1, 2, 3, 4, 4]), book: numbered('book', [1, 2, 3, 4, 4]), tool: numbered('tool', [1, 2, 3, 4, 4]),
+  photo: numbered('photo', [1, 2, 3, 3, 3]),
+  planks: Array(5).fill('chest-planks-v1'), hardware: Array(5).fill('chest-hardware-v1'),
+};
 
 describe('itemLabel', () => {
   it('uses 1-based tiers and display names', () => {
@@ -21,17 +40,32 @@ describe('itemLabel', () => {
 });
 
 describe('ItemArt', () => {
-  it.each(all)('renders a safe single svg for $family tier $tier', (item) => {
+  it.each(all)('draws $family tier $tier as its board picture in a decorative 100 × 100 svg', (item) => {
     const m = html(item);
-    expect(m.startsWith('<svg')).toBe(true);
-    expect(m.match(/<svg/g)).toHaveLength(1);
-    expect(m).toContain('viewBox="0 0 100 100"');
-    expect(m).toContain('aria-hidden="true"');
-    for (const bad of ['<image', '<text', 'http', 'href=', 'url(']) expect(m).not.toContain(bad);
+    expect(m).toMatch(/^<svg viewBox="0 0 100 100"[^>]*aria-hidden="true"/);
+    expect(picture(m)).toBe(PICTURES[item.family][item.tier]);
+  });
+
+  it('maps every family\'s tiers to its board pictures, as artwork/board/README.md lists them', () => {
+    const families_: Family[] = ['grove', 'song', 'crystal', 'elk', 'wood', 'tool', 'book', 'photo', 'planks', 'hardware'];
+    for (const family of families_) {
+      expect(tiers.map((tier) => picture(html({ family, tier }))), family).toEqual(PICTURES[family]);
+    }
   });
 
   it.each(all)('shows tier+1 pips for $family tier $tier', (item) => {
     expect(html(item).match(/data-pip/g)).toHaveLength(item.tier + 1);
+  });
+
+  it('draws the chest materials, one picture each, smaller at lower tiers so a merge visibly grows them', () => {
+    for (const family of ['planks', 'hardware'] as const) {
+      const width = (tier: Tier) => Number(html({ family, tier }).match(/<svg x="[^"]*" y="[^"]*" width="([^"]+)"/)![1]);
+      expect(width(0)).toBeLessThan(width(1));
+      expect(width(1)).toBeLessThan(width(2));
+      expect(width(2)).toBe(width(3));
+    }
+    expect(itemLabel({ family: 'planks', tier: 2 })).toBe('Planks, tier 3 of 5');
+    expect(itemLabel({ family: 'hardware', tier: 2 })).toBe('Chest hardware, tier 3 of 5');
   });
 
   it('gives all 20 items distinct markup', () => {
@@ -79,7 +113,6 @@ describe('PrizeArt', () => {
 describe('attic items', () => {
   const atticFamilies: Family[] = ['photo', 'book'];
   const atticAll: Item[] = atticFamilies.flatMap((family) => tiers.map((tier) => ({ family, tier })));
-  const bad = ['<image', '<text', 'http', 'href=', 'url('];
 
   it('names every photo and book tier, with the last name as fallback', () => {
     const names = (family: Family) => tiers.map((tier) => itemLabel({ family, tier }));
@@ -93,12 +126,10 @@ describe('attic items', () => {
     ]);
   });
 
-  it.each(atticAll)('renders a safe svg with tier+1 pips for $family tier $tier', (item) => {
+  it.each(atticAll)('draws $family tier $tier as its board picture with tier+1 pips', (item) => {
     const m = html(item);
-    expect(m.match(/<svg/g)).toHaveLength(1);
-    expect(m).toContain('viewBox="0 0 100 100"');
-    expect(m).toContain('aria-hidden="true"');
-    for (const b of bad) expect(m).not.toContain(b);
+    expect(m).toMatch(/^<svg viewBox="0 0 100 100"[^>]*aria-hidden="true"/);
+    expect(picture(m)).toBe(PICTURES[item.family][item.tier]);
     expect(m.match(/data-pip/g)).toHaveLength(item.tier + 1);
   });
 
@@ -107,25 +138,25 @@ describe('attic items', () => {
     expect(new Set([0, 1, 2, 3].map((tier) => html({ family: 'book', tier: tier as Tier }))).size).toBe(4);
   });
 
-  it('draws the scrapbook pages as two loose sheets of mounted photos, unlike any book', () => {
-    const pages = html({ family: 'photo', tier: 2 });
-    expect(pages.match(/<rect[^>]*width="40" height="56"/g)).toHaveLength(2); // two portrait sheets
-    expect(pages.match(/<path d="M[^"]*" fill="#6b4a2f">/g)).toHaveLength(8); // four photo corners on each
-    expect(pages).not.toMatch(/#7a4a2b|#5e3820/); // nothing left of the old album's cover and spine
-    const art = (item: Item) => html(item).replace(/<circle[^>]*data-pip[^>]*><\/circle>/g, '');
-    expect(art({ family: 'photo', tier: 2 })).not.toEqual(art({ family: 'book', tier: 2 }));
-    expect(art({ family: 'photo', tier: 2 })).not.toMatch(/#3d6b4f|#7a2338/); // the blank book's and Picture Book's covers
-  });
-
-  it('draws each book tier distinctly, the Picture Book with the cover its opening shows on its own', () => {
-    const art = (tier: Tier) => html({ family: 'book', tier }).replace(/<circle[^>]*data-pip[^>]*><\/circle>/g, '');
-    expect(art(0)).toContain('#4a7a8a'); // the old book's blue-grey cover
-    expect(art(1).match(/<rect[^>]*height="15"/g)).toHaveLength(6); // three spines, each with its page edge
-    expect(art(2)).toContain('#3d6b4f'); // the blank book's green cover, an empty photo window on it
-    expect(art(3)).toContain('#7a2338');
+  it('draws the scrapbook pages as photos, unlike any book, and the Picture Book as its opening shows it', () => {
+    expect(picture(html({ family: 'photo', tier: 2 }))).toBe('photo-tier-3-v1');
+    expect(picture(html({ family: 'book', tier: 2 }))).toBe('book-tier-3-v1');
+    // The book opening's cover is the same picture as the Picture Book the player taps (book tier 3, the fourth picture).
     const cover = renderToStaticMarkup(<PictureBookCoverArt />);
-    expect(cover).toContain('viewBox="16 14 62 62"');
-    expect(html({ family: 'book', tier: 3 })).toContain(cover.slice(cover.indexOf('>') + 1, cover.lastIndexOf('</svg>')));
+    expect(cover).toMatch(/^<svg viewBox="0 0 100 100"[^>]*aria-hidden="true"/);
+    expect(picture(cover)).toBe(picture(html({ family: 'book', tier: 3 })));
+  });
+});
+
+describe('board sprites', () => {
+  it('draws Alisha and Fiona as their chibi board art, Fiona the leafless version, decorative (callers name them)', () => {
+    const alisha = renderToStaticMarkup(<AlishaArt />);
+    const fiona = renderToStaticMarkup(<FionaArt />);
+    for (const m of [alisha, fiona]) expect(m).toMatch(/^<svg viewBox="0 0 100 100" overflow="visible" aria-hidden="true" focusable="false">/);
+    expect([picture(alisha), picture(fiona)]).toEqual(['alisha-chibi-v1', 'fiona-chibi-leafless-v1']);
+    // Standing on the bottom edge of their box.
+    expect(alisha).toContain('preserveAspectRatio="xMidYMax meet"');
+    expect(fiona).toContain('preserveAspectRatio="xMidYMax meet"');
   });
 });
 

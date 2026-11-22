@@ -491,6 +491,7 @@ body {
 /* Controls */
 .controls { width: 100%; max-width: 720px; display: grid; gap: 8px; }
 .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.row.has-workshop-home { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .btn {
   appearance: none;
   min-height: 56px;
@@ -1005,15 +1006,29 @@ body {
 }
 
 /* The palace entrance prototype. Its rooms keep the woodland look, but a room's tiles join into one patch of ground
-   while idle: no tile edges, the floor colour filling the gaps between them (a spread shadow half the gap wide).
-   Picking something up (an item, or Alisha) outlines the tiles faintly. Marked tiles, gates and focus stay as elsewhere. */
+   while idle: no tile edges, the floor (grass in the woodland, marble tiles in the palace; artwork/board/backgrounds/)
+   filling the gaps between them. Each tile's floor (.floor, Board) covers its cell and half the gaps around it, the
+   texture lined up on the board's grid (--pitch, one tile with its gap) so it runs on seamlessly; the palace's marble
+   tiles fall one to a cell, their gold borders in the gaps. Floors lie under everything else on the board (the board is
+   isolated, so they stay above its frame). Picking something up (an item, or Alisha) outlines the tiles faintly. Marked
+   tiles, gates and focus stay as elsewhere. */
+.board:is(.is-entrance, .is-palace) { isolation: isolate; --pitch: calc(var(--tile) + var(--gap)); }
+/* Each texture lies under a light wash (cream over the grass, white over the marble), so the pieces, their tier pips and
+   the marked tiles stand out from it as they did from the plain floors (green Grove items on bright grass, purple
+   crystals on lilac marble, especially). */
+.floor {
+  position: absolute; inset: calc(var(--gap) / -2); z-index: -1; pointer-events: none;
+  background:
+    linear-gradient(rgb(255 252 235 / 0.28), rgb(255 252 235 / 0.28)),
+    url('../assets/board/woodland-floor-v1.webp') calc(var(--c) * var(--pitch) * -1) calc(var(--r) * var(--pitch) * -1) / calc(var(--pitch) * 4);
+}
+.board.is-palace .floor {
+  background-image: linear-gradient(rgb(255 255 255 / 0.3), rgb(255 255 255 / 0.3)), url('../assets/board/palace-floor-v1.webp');
+}
 /* The spread reaches 2px past the gap's middle, so the rounded corners leave no specks where four tiles meet; while
    outlined, it stops at the middle, so no tile's spread covers its neighbour's outline. */
-.board:is(.is-entrance, .is-palace) .cell {
-  border-color: transparent; border-radius: 2px;
-  background: var(--earth); box-shadow: 0 0 0 calc(var(--gap) / 2 + 2px) var(--earth);
-}
-.board:is(.is-entrance, .is-palace).is-placing .cell { box-shadow: 0 0 0 calc(var(--gap) / 2) var(--earth); }
+.board:is(.is-entrance, .is-palace) .cell { border-color: transparent; border-radius: 2px; background: transparent; box-shadow: none; }
+.board:is(.is-entrance, .is-palace) .cell.has-treasure { background: radial-gradient(circle, #fff3c4, rgb(255 243 196 / 0) 70%); }
 .board:is(.is-entrance, .is-palace).is-placing .cell:not(.is-locked) { border: 2px dashed rgb(74 50 32 / 0.32); }
 .board:is(.is-entrance, .is-palace) .cell.is-selected { border: 2px solid var(--amber); box-shadow: 0 0 0 4px var(--amber), inset 0 0 0 2px #fff6; }
 .board:is(.is-entrance, .is-palace) .cell.is-merge-preview {
@@ -1034,6 +1049,13 @@ body {
 .passage.is-partition { background: #3b3156; box-shadow: inset 0 0 0 2px #9fd6e0, 0 0 12px 3px rgb(159 214 224 / 0.6); }
 .passage.is-partition::before { content: none; }
 .passage.is-partition svg { position: relative; display: block; width: 100%; height: 100%; }
+/* Once Fiona has asked about the release, the partition lifts away as Alisha steps out beside her (both after a moment, so
+   the bubble's tap is seen first); under reduced motion it is simply gone and she simply there. */
+.passage.is-partition.is-opening { box-shadow: none; transition: box-shadow 600ms; }
+.passage.is-partition.is-opening svg { animation: partition-open 700ms 150ms ease-in both; }
+@keyframes partition-open { to { opacity: 0; transform: translateY(-40%) scaleY(0.4); } }
+.character.is-stepping { animation: alisha-step-out 500ms 450ms ease-out both; }
+@keyframes alisha-step-out { from { transform: translate(-30%, 45%); opacity: 0; } to { transform: none; opacity: 1; } }
 /* A story picture still to come (its delivery copy not made yet): a labelled card in its place. */
 .comic-placeholder { position: absolute; inset: 0; display: grid; place-items: center; background: #e3e8df; color: #29332d; font-size: 1.4rem; font-weight: 700; }
 .board.is-paused .cell { cursor: default; }
@@ -1063,7 +1085,7 @@ button.character {
 
 /* Alisha's plate: a round stone for her, not a marked tile for an item. It glows once she can move, glows harder as her
    target while she is picked up, and sinks under her once she stands on it. */
-.board .cell.is-character-plate { background: radial-gradient(circle, #efe4c8, var(--earth) 72%); }
+.board .cell.is-character-plate { background: radial-gradient(circle, #efe4c8 40%, rgb(239 228 200 / 0) 72%); }
 .cell.is-character-plate .plate-art { inset: 5px; }
 .board .cell.is-character-plate.is-ready { z-index: 1; box-shadow: 0 0 0 3px var(--gold), 0 0 14px 4px rgb(242 193 78 / 0.7); }
 .board .cell.is-character-plate.is-alisha-target {
@@ -1087,7 +1109,6 @@ button.character {
 
 /* Alisha's speech bubble, beside her (its tail at her), over the board: it alone takes input until tapped. */
 .bubble-anchor { position: absolute; inset: 0; z-index: 8; pointer-events: none; }
-.bubble-anchor.is-waiting { visibility: hidden; }
 .speech-bubble {
   pointer-events: auto; position: absolute; left: -6px; bottom: calc(100% + 12px);
   width: max-content; max-width: min(290px, calc(var(--board-size) - 40px)); margin: 0;
@@ -1107,6 +1128,39 @@ button.character {
   .character.is-ready, .board .cell.is-character-plate.is-alisha-target { animation: none; }
   .cell.is-character-plate.is-pressed .plate-art, .cell.is-character-plate .plate-alisha, .speech-bubble { animation: none; }
   .terrain.is-door svg.is-opening .door-leaf { animation: none; }
+  .passage.is-partition.is-opening svg { animation: none; opacity: 0; }
+  .character.is-stepping { animation: none; }
+}
+
+/* Chapter 1: a region a story scene holds back (newly found, or newly opened) is under fog until the scene has been
+   read: its shape shows, misted over, with blank ground and nothing on it beneath. Then the fog lifts (drifting up and
+   thinning as the view comes to it); under reduced motion it neither drifts nor lifts, it is simply gone. */
+.fogged { border-radius: 6px; background: #b8c3c6; }
+.region.is-fog {
+  z-index: 3; overflow: hidden;
+  border: 3px dashed rgb(244 236 216 / 0.7);
+  background:
+    radial-gradient(ellipse 55% 45% at 22% 28%, rgb(255 255 255 / 0.9), transparent 70%),
+    radial-gradient(ellipse 50% 45% at 78% 72%, rgb(246 249 250 / 0.85), transparent 70%),
+    radial-gradient(ellipse 45% 35% at 62% 18%, rgb(252 253 253 / 0.75), transparent 70%),
+    linear-gradient(rgb(214 222 225 / 0.97), rgb(190 201 205 / 0.97));
+}
+.region.is-fog::before {
+  content: ""; position: absolute; inset: -25%;
+  background:
+    radial-gradient(ellipse 30% 22% at 30% 60%, rgb(255 255 255 / 0.7), transparent 70%),
+    radial-gradient(ellipse 26% 20% at 70% 35%, rgb(255 255 255 / 0.6), transparent 70%);
+  animation: fog-drift 7s ease-in-out infinite alternate;
+}
+.region.is-fog.is-lifting { animation: fog-lift 1100ms 300ms ease-out both; }
+@keyframes fog-drift { from { transform: translateX(-8%); } to { transform: translateX(8%); } }
+@keyframes fog-lift {
+  from { opacity: 1; }
+  to { opacity: 0; transform: translateY(-14%) scale(1.08); filter: blur(8px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .region.is-fog::before { animation: none; }
+  .region.is-fog.is-lifting { animation: none; opacity: 0; }
 }
 
 /* The development preview (npm run build:dev, served at /dev/) says so in a strip above every screen. It is part of the

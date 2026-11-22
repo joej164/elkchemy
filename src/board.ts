@@ -2,7 +2,8 @@
 // blank book), which combine into the Picture Book. Chapter 1's woodland cleanup adds fallen wood (branches → gathered
 // bundles → trimmed logs → stacked logs) and tools (loose tools → bundled tools → sorted tool sets → tool chest).
 // Generated puzzles and the original levels use only the four woodland families.
-export type Family = 'grove' | 'song' | 'crystal' | 'elk' | 'photo' | 'book' | 'wood' | 'tool';
+// 'planks' and 'hardware': the palace rescue's chest-building materials, merged in its workshop.
+export type Family = 'grove' | 'song' | 'crystal' | 'elk' | 'photo' | 'book' | 'wood' | 'tool' | 'planks' | 'hardware';
 // Five tiers, shown as 1–5 of 5 (pips under the art). Handcrafted levels use the first four; generated puzzles may
 // target the fifth. The top tier never merges.
 export type Tier = 0 | 1 | 2 | 3 | 4;

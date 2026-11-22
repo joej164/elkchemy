@@ -484,8 +484,10 @@ describe('The Attic: opening the Picture Book', () => {
     expect(m.match(/class="book-opening-page"/g)).toHaveLength(3);
     expect(m.match(/class="book-opening-page is-back"/g)).toHaveLength(3);
     expect([...m.matchAll(/data-page="(\d)"/g)].map((x) => Number(x[1])).sort()).toEqual([0, 1, 2, 3, 4, 5, 6]);
-    expect(m).toContain('viewBox="16 14 62 62"');
-    expect(m).not.toMatch(/<img|<text|<image|href=/);
+    // The cover is the Picture Book's board picture (as on the board); the pages are drawn.
+    expect(m).toContain('data-art="book-tier-4-v1"');
+    expect(m.match(/<image /g)).toHaveLength(1);
+    expect(m).not.toMatch(/<img|<text|https?:/);
     // The leaves come before the cover, which lies over them (in depth too: CSS --z).
     expect(m.indexOf('book-opening-leaf')).toBeLessThan(m.indexOf('book-opening-cover'));
   });

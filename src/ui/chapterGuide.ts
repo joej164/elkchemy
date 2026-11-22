@@ -1,7 +1,7 @@
 import type { Tier } from '../board';
 import { itemTasks } from '../regions';
 import { trapped } from '../session';
-import { canMoveAlisha, talkShown, type UiState } from './controller';
+import { canMoveAlisha, partitionShown, talkShown, type UiState } from './controller';
 import { itemLabel } from './ItemArt';
 import { statusMessage, taskNeed } from './messages';
 
@@ -29,6 +29,9 @@ export function chapterGuide(phrases: Readonly<Record<number, string>> = {}): (s
     const talk = talkPrompt(state) ?? alishaPrompt(state);
     if (talk) return talk;
     const { session } = state;
+    // Until the release's scene (C1-11) has been read, what its move opened is under fog (see storyHeld), so the banner
+    // doesn't send the player there yet: once Fiona has asked, it says only what the board shows.
+    if (partitionShown(state) === 'opening') return 'The crystal partition opened: Alisha is free.';
     const tasks = session.level.tasks!;
     const t = itemTasks(session).find((i) => phrases[i] !== undefined);
     if (t !== undefined) return `Put ${taskNeed(session.level.regions!, tasks[t])} ${phrases[t]}.`;

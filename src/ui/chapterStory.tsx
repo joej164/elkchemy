@@ -3,9 +3,11 @@ import type { ComicPanel, ComicScene } from './Comic';
 // Chapter 1's story scenes, one line at a time as in the Attic, over the draft illustrations the storyboard
 // (docs/story/chapter-one-review.html) shows (artwork/story/chapter-one/; delivery copies and provenance:
 // src/assets/art/README.md). Each panel's id is its storyboard code; its lines are that figure's dialogue, word for word,
-// in order. A figure without dialogue shows its own title as the caption (owner decision, October 28, 2026), except
-// C1-13, whose title is Alisha's "Cookie?" (docs/story-review.md). The ending (C1-12 onward) is the storyboard's draft,
-// still awaiting review. The palace entrance's own panels (C1-08 to C1-10) are in StoryArt.tsx.
+// in order (a line with no speaker is narration). A figure without dialogue shows its own title as the caption (owner
+// decision, October 28, 2026), except C1-13, whose title is Alisha's "Cookie?" (docs/story-review.md). The ending (C1-12
+// onward) is the storyboard's draft, still awaiting review, with the owner's approved dialogue of November 22, 2026. A
+// figure whose picture is still to be made shows a labelled placeholder (none at present). The palace entrance's own
+// panels (C1-08 to C1-10) are in StoryArt.tsx.
 
 // Delivery copies, by their source's name without "-draft" (01-forest-throw-draft-v2.png → chapter-one-01-forest-throw-v2
 // .webp). A copy not made yet shows a labelled placeholder instead (tests require every one).
@@ -27,6 +29,7 @@ function panel(id: string, source: string, description: string, lines: ComicPane
 const A = (text: string) => ({ speaker: 'Alisha', text });
 const F = (text: string) => ({ speaker: 'Fiona', text });
 const title = (text: string) => ({ text });
+const narration = (text: string) => ({ text });
 
 /** 1 · Meet Fiona, before play: the throw (C1-01) and the ricochet (C1-02). */
 export const MEET_FIONA_OPENING: readonly ComicPanel[] = [
@@ -85,32 +88,56 @@ export const CLEANUP_CLOSING: readonly ComicPanel[] = [
   ]),
 ];
 
-/** 4 · The Crystal Palace, during play: together again once the partition opens (C1-11). Its opening is C1-10. */
+/**
+ * 4 · The Crystal Palace, during play: together again (C1-11), once Fiona has asked on the board whether the partition is
+ * opening and the board has shown it open, Alisha stepping out. Its opening is C1-10.
+ */
 export const RESCUE_STORY: Readonly<Record<string, ComicScene>> = {
   'C1-11': {
     label: 'Together again',
     panels: [panel('C1-11', '11-palace-reunion-v1', 'The crystal partition stands open, and Alisha steps through to Fiona.', [
-      F('Try it now.'), A('Much better.'), F('Let’s avoid any more pressure plates.'), A('Fine by me. Let’s get that message delivered.'),
+      A('I’m free!'), F('Good. Let’s avoid any more pressure plates.'), A('Agreed. Now, about that message…'),
     ])],
   },
 };
 
-/** 5 · Beyond the gate, before play: the delivery (C1-12), the dog (C1-13) and Fiona following (C1-14). */
+/**
+ * 5 · Beyond the gate, before play: the delivery (C1-12), Alisha waiting and growing restless (C1-12A, three moments, one
+ * per tap), noticing the dog down the hall (C1-13), then following it as Fiona comes out and sees her go (C1-14).
+ */
 export const BEYOND_OPENING: readonly ComicPanel[] = [
   panel('C1-12', '12-message-door-v1', 'Fiona goes into the message room while Alisha waits outside.', [title('The delivery')]),
+  {
+    // One picture of three moments, revealed one per tap (owner request), the panels' gutters at 229 and 467 of 720 px.
+    ...panel('C1-12A', '12a-growing-restless-v1', 'Alisha waits alone outside the closed message-room door, growing restless.',
+      [title('Growing restless')]),
+    moments: [
+      { end: 229.5 / 720, description: 'She stands waiting, her backpack on.' },
+      { end: 467.5 / 720, description: 'She leans against the wall, arms crossed, her backpack set down beside her.' },
+      { end: 1, description: 'She sits on the floor by the door, her chin in her hand.' },
+    ],
+  },
   panel('C1-13', '13-dog-sighting-v2', 'Waiting outside, Alisha sees a familiar-looking dog.', [A('Cookie?')]),
   panel('C1-14', '14-fiona-follows-v2', 'Fiona comes out of the message room and sees Alisha following the dog.', [title('Fiona follows')]),
 ];
 
-/** 5 · Beyond the gate, after the puzzle: the gate ending, C1-15 to C1-21, and the coda C1-22 (drafts, awaiting review). */
+/** 5 · Beyond the gate, after the puzzle: the gate ending, C1-15A to C1-21, and the coda C1-22 (drafts, awaiting review). */
 export const BEYOND_CLOSING: readonly ComicPanel[] = [
-  panel('C1-15', '15-grove-arrival-v1', 'Alisha and Fiona catch up with the dog in a walled palace grove.', [title('Not Cookie')]),
+  panel('C1-15A', '15a-cookie-call-v1', 'Seen from behind, Alisha runs after the dog into a walled palace grove, Fiona beside her; the dog has its back to them.', [
+    A('Cookie! There you—'), narration('The dog turns.'),
+  ]),
+  panel('C1-15', '15-grove-arrival-v1', 'In the walled palace grove, Alisha crouches to greet the dog as Fiona looks on.', [
+    A('Oh. You’re not Cookie.'), F('A friend of yours?'), A('Not this one, apparently.'),
+  ]),
   panel('C1-16', '16-discs-spill-v2',
-    'The dog knocks Alisha off balance and discs scatter from her bag; the orange disc rolls on its edge toward an empty mechanism.',
-    [title('Off balance')]),
+    'The dog knocks Alisha off balance and discs scatter from her bag; the orange disc rolls on its edge toward an empty mechanism.', [
+      A('Whoa!'), F('Are you all right?'), A('I think so. My discs, though…'), narration('The orange disc rolls toward the mechanism.'),
+      A('Oh, come on. Not that way.'),
+    ]),
   panel('C1-17', '17-gate-awakens-v4',
-    'The orange disc clicks into a rune-key socket, and a small opening grows inside the stone arch onto a hilltop, a lake and a basket.',
-    [title('The click')]),
+    'The orange disc clicks into a rune-key socket, and a small opening grows inside the stone arch onto a hilltop, a lake and a basket.', [
+      F('Did your disc just open that?'), A('I definitely didn’t aim for it.'), F('What’s on the other side?'),
+    ]),
   panel('C1-18', '18-course-reveal-v3', 'The opening widens onto a hilltop disc golf course.', [
     A('Wait. Is that Ridgeview?'), F('Yes. Have you been?'), A('No! I’ve wanted to play there for years.'),
     F('Your village is a few hours’ walk from there.'), A('Have you got time for a round?'), F('I’ve delivered my message. I’ve got time.'),

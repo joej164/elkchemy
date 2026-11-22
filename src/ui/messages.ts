@@ -6,7 +6,7 @@ import type { ItemRecipe, Recipe } from '../recipes';
 import { contentCells, craftReady, treasureRevealed, type LevelGoal, type Prize, type SessionState } from '../session';
 import { strandedRoom } from '../status';
 import { FAMILY_NAMES, itemLabel } from './ItemArt';
-import type { UiState } from './controller';
+import { bubbleOpen, storyDue, type UiState } from './controller';
 
 /** Short objective shown in the goal panel. */
 const COUNT_WORDS = ['zero', 'one', 'two', 'three', 'four', 'five', 'six'];
@@ -391,6 +391,27 @@ const contents = (recipe: Recipe) => `three ${itemLabel(recipe.contents.item)}`;
 export function workshopHelp(recipe: Recipe, room: string): string {
   return `In ${room}, merge pieces into ${recipeNeed(recipe)}. ${craftDrop(recipe)} (or tap one, then the other), to craft the ` +
     `${recipe.name}; tap it to open it: ${contents(recipe)} come out there. Opening it can't be undone.`;
+}
+
+/**
+ * A workshop (the palace rescue's bird room): the hint offered once the player has gone a while without progress on its
+ * recipe (see workshopProgress and afterRecipeIdle): the next step, by stage. Null when none applies: no workshop, its room
+ * not open, the chest already opened, the game over, or the board paused for talk or a scene.
+ */
+export function workshopHint(state: UiState): string | null {
+  const { session } = state;
+  const { recipe, workshop, regions } = session.level;
+  if (!recipe || workshop === undefined || state.status !== 'playing' || session.opened || !isOpen(session, workshop)) return null;
+  if (storyDue(state) !== null || bubbleOpen(state)) return null;
+  const room = regions![workshop].name;
+  const [a, b] = recipe.ingredients.map((i) => FAMILY_NAMES[i.item.family]);
+  if (session.chest) {
+    return contentCells(session) ? `Hint: tap the ${recipe.name} to open it.`
+      : `Hint: the ${recipe.name} needs empty cells around it in ${room} to open. Merge pieces to make room.`;
+  }
+  if (craftReady(session)) return `Hint: combine ${a} and ${b} to build the ${recipe.name}.`;
+  const tier = recipe.ingredients[0].item.tier + 1;
+  return `Hint: merge ${a} and ${b} to tier ${tier}. Five make two. Then combine them.`;
 }
 
 /** An item recipe (the attic): how to craft its result, for Help. */
