@@ -113,10 +113,14 @@ describe('HelpButton', () => {
     expect(page).toMatch(/synthesized/);
   });
 
-  it('release notes are player-facing, newest first, with a way home', () => {
-    const notes = renderToStaticMarkup(<ReleaseNotes onHome={() => {}} musicControl={null} />);
-    expect(notes).toContain('data-action="home"');
-    expect(notes.indexOf(RELEASE_NOTES[0].title)).toBeLessThan(notes.indexOf(RELEASE_NOTES[1].title));
+  it('release notes are player-facing, newest first, with a way home, Chapter 1\'s only in the development preview', () => {
+    const notes = (preview?: boolean) => renderToStaticMarkup(<ReleaseNotes onHome={() => {}} musicControl={null} preview={preview} />);
+    const titles = (html: string) => [...html.matchAll(/<h2>([^<]*)<\/h2>/g)].map((m) => m[1]);
+    expect(notes()).toContain('data-action="home"');
+    // The preview lists every note, newest first; the game itself leaves out those about Chapter 1, which it doesn't have.
+    expect(RELEASE_NOTES.filter((r) => r.preview).length).toBeGreaterThan(0);
+    expect(titles(notes(true))).toEqual(RELEASE_NOTES.map((r) => r.title));
+    expect(titles(notes())).toEqual(RELEASE_NOTES.filter((r) => !r.preview).map((r) => r.title));
     const text = RELEASE_NOTES.flatMap((r) => [r.title, r.date, ...r.notes]).join(' ');
     expect(text).not.toMatch(/test|Chromium|Playwright|Codex|Claude|generator|witness|seed|\.ts\b|build \d|verified/i);
   });

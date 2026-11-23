@@ -35,11 +35,6 @@ interface Drag { origin: Pos; x: number; y: number; size: number; hover: Pos | n
 
 const SPARKS = [0, 1, 2, 3, 4, 5];
 const BURST = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
-/**
- * Chapter 1's woodland forest (see .forest): its canopy repeats every this many tiles (with their gaps), each way, so every
- * repeat's edges fall in the gaps between tiles; blocks of that size alternate between the canopy and its variation.
- */
-const FOREST_REPEAT = 4;
 
 const same = (a: Pos | null, b: Pos | null) => !!a && !!b && a.row === b.row && a.col === b.col;
 
@@ -755,6 +750,21 @@ export function Board({ state, dispatch, onOverflowChange, onPalaceOpening, onPr
     }
     return map;
   }, [party, plateShown, regions, routes, cols]);
+  // Chapter 1's room boards: one backdrop around their rooms (see .forest and .halls). The woodland (rooms in the forest): its
+  // regions, or none on other boards.
+  const surround = !!regions && (scene === 'entrance' || scene === 'palace');
+  const woodland = scene === 'entrance' ? regions : undefined;
+  // Where Alisha and Fiona stand beside the rooms (not on a plate): each a clearing, joined on the sides where it meets a
+  // room's ground (a cell with its floor) or the other's clearing, so the two stand on ground that runs on from the room.
+  const standing = woodland && spots ? [spots.alisha, spots.fiona].filter((q) => regionAt(woodland, q) === -1) : [];
+  const clearings = standing.map((at) => ({
+    at,
+    sides: SIDES.filter(([, dr, dc]) => {
+      const n = { row: at.row + dr, col: at.col + dc };
+      const inside = n.row >= 0 && n.col >= 0 && n.row < rows && n.col < cols;
+      return inside && ((regionAt(woodland!, n) !== -1 && isCell(n)) || standing.some((q) => same(q, n)));
+    }).map(([side]) => side),
+  }));
   const prize = prizeText(goal);
   const merge = state.lastAction?.kind === 'merge' ? state.lastAction : null;
   // Container levels: the container the last action uncovered, and the cells an opening filled (or an item recipe's
@@ -796,12 +806,12 @@ export function Board({ state, dispatch, onOverflowChange, onPalaceOpening, onPr
       >
       <div
         ref={boardRef}
-        className={`board${over ? ' is-over' : ''}${drag ? ' is-dragging' : ''}${scene ? ` is-${scene}` : ''}${
+        className={`board${over ? ' is-over' : ''}${drag ? ' is-dragging' : ''}${scene ? ` is-${scene}` : ''}${surround ? ' has-surround' : ''}${
           scene && (drag || state.selected || state.alishaSelected) ? ' is-placing' : ''}${speaking || storyPaused ? ' is-paused' : ''}`}
         role="group"
         aria-label={`Board, ${cols} columns by ${rows} rows`}
         data-board
-        style={{ '--rows': rows, '--cols': cols, '--forest': FOREST_REPEAT } as CSSProperties}
+        style={{ '--rows': rows, '--cols': cols } as CSSProperties}
       >
         {board.map((rowCells, r) =>
           rowCells.map((item, c) => {
@@ -1043,21 +1053,21 @@ export function Board({ state, dispatch, onOverflowChange, onPalaceOpening, onPr
             <div key={`floor-${r}-${c}`} className="floor" aria-hidden="true"
               style={{ gridRow: `${r + 1} / span 1`, gridColumn: `${c + 1} / span 1`, '--r': r, '--c': c } as CSSProperties} />
           ) : null)))}
-        {/* Chapter 1's woodland: the forest between the rooms (under its terrain, paths, gates and Alisha and Fiona's spots,
-            and a hidden region's cells until it opens), lined up across the board in blocks of FOREST_REPEAT tiles that
-            alternate between the canopy and its variation (see .forest). A hidden link's cell shows a glade through the
-            canopy instead, its clue. None under the palace wall and entrance, nor under fog. */}
-        {scene === 'entrance' && regions && board.flatMap((rowCells, r) => rowCells.map((_, c) => {
-          const pos = { row: r, col: c };
-          const ri = regionAt(regions, pos);
-          if ((ri !== -1 && (isCell(pos) || fogged.includes(ri))) || palace.has(`${r},${c}`)) return null;
-          const clue = ri !== -1 && !!regions[ri].link && same(regions[ri].link!, pos);
-          const alt = (Math.floor(r / FOREST_REPEAT) + Math.floor(c / FOREST_REPEAT)) % 2 === 1;
-          return (
-            <div key={`forest-${r}-${c}`} className={`forest${clue ? ' is-clue' : alt ? ' is-alt' : ''}`} aria-hidden="true"
-              style={{ gridRow: `${r + 1} / span 1`, gridColumn: `${c + 1} / span 1`, '--r': r, '--c': c } as CSSProperties} />
-          );
-        }))}
+        {/* Chapter 1's room boards: one backdrop across the whole board, gaps included, under the rooms' floors, the
+            terrain, paths, gates and everything else, so it runs on unbroken between the rooms: the woodland's forest
+            (.forest), the palace's deeper marble halls (.halls). In the woodland a hidden link shows a glade through the
+            forest, its clue, until its part opens (not under fog), and Alisha and Fiona stand in a clearing joined to the
+            ground beside them (see clearings). */}
+        {surround && <div className={woodland ? 'forest' : 'halls'} aria-hidden="true" />}
+        {woodland?.map((r, i) => (r.link && !isCell(r.link) && !fogged.includes(i) ? (
+          <div key={`clue-${i}`} className="forest-clue" aria-hidden="true" data-clue
+            style={{ gridRow: `${r.link.row + 1} / span 1`, gridColumn: `${r.link.col + 1} / span 1` }} />
+        ) : null))}
+        {clearings.map(({ at, sides }) => (
+          <div key={`clearing-${at.row}-${at.col}`} className={['clearing', ...sides.map((side) => `join-${side}`)].join(' ')}
+            aria-hidden="true" data-clearing
+            style={{ gridRow: `${at.row + 1} / span 1`, gridColumn: `${at.col + 1} / span 1`, '--r': at.row, '--c': at.col } as CSSProperties} />
+        ))}
         {/* Region outlines over the gaps (never taking input). A locked region is shaded, with a wooden gate carrying
             its sign: tapping or pressing the gate asks the session to unlock that region, which it does only when it
             is next and its item is made. A drag across a gate pans like locked ground and never unlocks. */}

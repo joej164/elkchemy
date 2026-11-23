@@ -103,14 +103,16 @@ export const RESCUE_STORY: Readonly<Record<string, ComicScene>> = {
 
 /**
  * 5 · Beyond the gate, before play: the delivery (C1-12), Alisha waiting and growing restless (C1-12A, three moments, one
- * per tap), noticing the dog down the hall (C1-13), then following it as Fiona comes out and sees her go (C1-14).
+ * per tap, each with its line), noticing the dog down the hall (C1-13), then following it as Fiona comes out and sees her
+ * go (C1-14).
  */
 export const BEYOND_OPENING: readonly ComicPanel[] = [
   panel('C1-12', '12-message-door-v1', 'Fiona goes into the message room while Alisha waits outside.', [title('The delivery')]),
   {
     // One picture of three moments, revealed one per tap (owner request), the panels' gutters at 229 and 467 of 720 px.
-    ...panel('C1-12A', '12a-growing-restless-v1', 'Alisha waits alone outside the closed message-room door, growing restless.',
-      [title('Growing restless')]),
+    ...panel('C1-12A', '12a-growing-restless-v1', 'Alisha waits alone outside the closed message-room door, growing restless.', [
+      A('Fiona shouldn’t be much longer…'), A('Any minute now.'), A('Okay, maybe more than a minute.'),
+    ]),
     moments: [
       { end: 229.5 / 720, description: 'She stands waiting, her backpack on.' },
       { end: 467.5 / 720, description: 'She leans against the wall, arms crossed, her backpack set down beside her.' },
@@ -118,10 +120,16 @@ export const BEYOND_OPENING: readonly ComicPanel[] = [
     ],
   },
   panel('C1-13', '13-dog-sighting-v2', 'Waiting outside, Alisha sees a familiar-looking dog.', [A('Cookie?')]),
-  panel('C1-14', '14-fiona-follows-v2', 'Fiona comes out of the message room and sees Alisha following the dog.', [title('Fiona follows')]),
+  panel('C1-14', '14-fiona-follows-v2', 'Fiona comes out of the message room and sees Alisha following the dog.', [
+    narration('Fiona steps out just in time to see Alisha hurry after the dog.'),
+  ]),
 ];
 
-/** 5 · Beyond the gate, after the puzzle: the gate ending, C1-15A to C1-21, and the coda C1-22 (drafts, awaiting review). */
+/**
+ * 5 · Beyond the gate, after the puzzle: the gate ending, C1-15A to C1-21, and the coda C1-22 (drafts, awaiting review),
+ * with the owner's approved lines of November 22, 2026 for C1-16, C1-19A, C1-19, C1-20 and C1-21. The dog stays on the
+ * palace side: only Alisha, Fiona and the disc go through the gate, and the disc rolls on ahead of them.
+ */
 export const BEYOND_CLOSING: readonly ComicPanel[] = [
   panel('C1-15A', '15a-cookie-call-v1', 'Seen from behind, Alisha runs after the dog into a walled palace grove, Fiona beside her; the dog has its back to them.', [
     A('Cookie! There you—'), narration('The dog turns.'),
@@ -131,7 +139,8 @@ export const BEYOND_CLOSING: readonly ComicPanel[] = [
   ]),
   panel('C1-16', '16-discs-spill-v2',
     'The dog knocks Alisha off balance and discs scatter from her bag; the orange disc rolls on its edge toward an empty mechanism.', [
-      A('Whoa!'), F('Are you all right?'), A('I think so. My discs, though…'), narration('The orange disc rolls toward the mechanism.'),
+      narration('The dog races off, catching Alisha off balance as it darts past.'), F('Are you all right?'), A('I think so. My discs, though…'),
+      narration('The orange disc rolls toward the mechanism.'),
       A('Oh, come on. Not that way.'),
     ]),
   panel('C1-17', '17-gate-awakens-v4',
@@ -143,14 +152,21 @@ export const BEYOND_CLOSING: readonly ComicPanel[] = [
     F('Your village is a few hours’ walk from there.'), A('Have you got time for a round?'), F('I’ve delivered my message. I’ve got time.'),
   ]),
   panel('C1-19A', '19a-mechanism-trip-v6',
-    'Following Fiona through, Alisha trips against the mechanism, and the orange disc rolls toward the gate; Fiona is already beyond.',
-    [title('An accidental stumble')]),
+    'Following Fiona through, Alisha trips against the mechanism, and the orange disc rolls toward the gate; Fiona is already beyond.', [
+      narration('Alisha pitches forward, arms windmilling as she struggles to regain her balance.'),
+    ]),
   panel('C1-19', '19-crossing-v4',
-    'Alisha steps through after Fiona and picks up the orange disc on the grass, the palace grove still visible through the gate.',
-    [title('Following the disc')]),
-  panel('C1-20', '20-gate-closing-v4',
-    'Seen from behind, Alisha and Fiona face the shrinking opening, a small window back into the palace grove; Alisha holds her disc.',
-    [A('Well… at least I’ve got my favorite disc.')]),
-  panel('C1-21', '21-course-reveal-v3', 'Seen from behind, Alisha and Fiona look out over the disc golf course.', [title('The course ahead')]),
+    'Alisha steps through after Fiona as the orange disc rolls across the grass, the palace grove still visible through the gate.',
+    [A('Please stop rolling before you get us into more trouble!')]),
+  panel('C1-20', '20-gate-closing-v5',
+    'Seen from behind, Alisha and Fiona face the shrinking opening, a small window back into the palace grove.', [
+      narration('Fiona glances back and notices the gate slowly closing behind them.'),
+      F('Oh no… the gate’s almost closed. We’re stuck on this side now!'),
+    ]),
+  panel('C1-21', '21-course-reveal-v3', 'Seen from behind, Alisha and Fiona look out over the disc golf course.', [
+    narration('The gate closed behind them, leaving the palace on the other side.'),
+    narration('Ahead, the unfamiliar path stretched through the trees. Somewhere along it, Alisha’s disc was still rolling.'),
+    A('Well, looks like this is the way to hole one!'), F('Let’s find your disc before it finds any more trouble.'),
+  ]),
   panel('C1-22', '21-linked-gates-v1', 'Distant rune gates glow across the realm.', [title('Elsewhere throughout the realm…')]),
 ];

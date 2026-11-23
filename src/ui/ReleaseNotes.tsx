@@ -2,9 +2,21 @@ import type { ReactNode } from 'react';
 
 // Player-facing release history, newest first. Plain words only: the internal record of changes,
 // verification and limitations is docs/release-notes.md. Check the newest entry's date before deploying.
-export interface ReleaseNote { readonly title: string; readonly date: string; readonly notes: readonly string[] }
+// `preview`: about Chapter 1, so shown only in the development preview, where it can be played (see STORY_PREVIEW).
+export interface ReleaseNote { readonly title: string; readonly date: string; readonly notes: readonly string[]; readonly preview?: boolean }
 
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
+  {
+    title: 'Chapter 1: new scenery, new looks and a new ending',
+    date: 'November 22, 2026',
+    preview: true,
+    notes: [
+      'In Woodland cleanup and the palace entrance, the forest now runs unbroken around the clearings, and Alisha and Fiona wait in a little clearing beside the ground you play on.',
+      'In The Crystal Palace and Beyond the gate, the rooms now sit within the palace’s own lilac marble halls.',
+      'Fiona has fresh leaves on her antlers, and the dog in Beyond the gate has a new look, on the board and beside the goal.',
+      'Beyond the gate has new lines as Alisha waits for Fiona, follows the dog and stumbles through the gate, and Chapter 1 now ends with “To be continued…”.',
+    ],
+  },
   {
     title: 'Scrapbook pages',
     date: 'October 20, 2026',
@@ -176,7 +188,8 @@ export const RELEASE_NOTES: readonly ReleaseNote[] = [
   },
 ];
 
-export function ReleaseNotes({ onHome, musicControl }: { onHome: () => void; musicControl: ReactNode }) {
+/** `preview`: the development preview, which also lists the Chapter 1 notes. */
+export function ReleaseNotes({ onHome, musicControl, preview = false }: { onHome: () => void; musicControl: ReactNode; preview?: boolean }) {
   return (
     <div className="page">
       <header className="title-row">
@@ -184,7 +197,7 @@ export function ReleaseNotes({ onHome, musicControl }: { onHome: () => void; mus
         <div className="title-controls">{musicControl}</div>
       </header>
       <button type="button" className="back-button" data-action="home" onClick={onHome}>‹ Home</button>
-      {RELEASE_NOTES.map((r) => (
+      {RELEASE_NOTES.filter((r) => preview || !r.preview).map((r) => (
         <section key={r.title} className="panel note-card" aria-label={r.title}>
           <h2>{r.title}</h2>
           <p className="note-date">{r.date}</p>

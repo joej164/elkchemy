@@ -93,12 +93,19 @@ export function pictureBookCover(): ReactNode {
 }
 
 /**
- * Alisha and Fiona (leafless) as chibi board sprites, standing on the bottom edge of their 100 × 100 box and rising a little
- * above it (their svg lets them overflow), as they are tall and narrow.
+ * Alisha and Fiona (leaves on her antlers) as chibi board sprites, standing on the bottom edge of their 100 × 100 box and
+ * rising a little above it (their svg lets them overflow), as they are tall and narrow. Crops as the items': opaque pixels
+ * plus 6 px.
  */
 const CHARACTER_BOX: Crop = [-10, -14, 120, 114];
 export function characterPicture(who: 'alisha' | 'fiona'): ReactNode {
   return who === 'alisha'
     ? framed('alisha-chibi-v1', [468, 512], [106, 5, 253, 500], CHARACTER_BOX, 'xMidYMax')
-    : framed('fiona-chibi-leafless-v1', ITEM_SIZE, [149, -5, 194, 349], CHARACTER_BOX, 'xMidYMax');
+    : framed('fiona-leafy-chibi-v1', [383, 512], [47, 5, 291, 501], CHARACTER_BOX, 'xMidYMax');
+}
+
+/** Beyond the gate's dog, a small dog: standing on the bottom edge of its box, kept inside it, shorter than Alisha and Fiona. */
+const DOG_BOX: Crop = [2, 16, 96, 84];
+export function dogPicture(): ReactNode {
+  return framed('dog-chibi-v1', [512, 468], [100, 39, 297, 338], DOG_BOX, 'xMidYMax');
 }

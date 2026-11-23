@@ -240,7 +240,7 @@ export function App({ levels = LEVELS }: { levels?: readonly Level[] }) {
             ? treasureConfig(RECIPES[0].id, TREASURE_TIERS.includes(config.tier) ? config.tier : TREASURE_TIERS[0])
             : { ...config, goals: config.mode === 'one' ? 1 : config.goals })} />
       )}
-      {screen.kind === 'notes' && <ReleaseNotes musicControl={musicControl} onHome={toHome} />}
+      {screen.kind === 'notes' && <ReleaseNotes musicControl={musicControl} onHome={toHome} preview={STORY_PREVIEW} />}
       {screen.kind === 'scores' && <Scores musicControl={musicControl} onHome={toHome} />}
       {screen.kind === 'pick' && (
         <LevelPicker levels={levels} current={index} musicControl={musicControl} onHome={toHome}
@@ -293,7 +293,7 @@ export function App({ levels = LEVELS }: { levels?: readonly Level[] }) {
       {chapter && screen.kind === 'chapter' && screen.phase === 'closing' && chapter.closing && (
         <Comic key={run} title={chapter.name} label="Ending" panels={chapter.closing}
           finish={screen.level + 1 < CHAPTER_ONE.length ? { prompt: 'Tap to continue.', name: 'Continue' }
-            : { prompt: 'Tap to return to Levels.', name: 'Back to Levels' }}
+            : { prompt: 'To be continued…', name: 'Back to Levels' }}
           onFinish={() => afterChapter(screen.level)} onHome={toHome} musicControl={musicControl} />
       )}
       <footer className="app-footer">

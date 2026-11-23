@@ -1030,29 +1030,56 @@ body {
 .board.is-palace .floor {
   background-image: linear-gradient(rgb(255 255 255 / 0.3), rgb(255 255 255 / 0.3)), url('../assets/board/palace-floor-v1.webp');
 }
-/* Chapter 1's woodland: the forest around the rooms is illustrated canopy (artwork/board/backgrounds/), lined up on the
-   board's grid like the floors (.forest, Board), but kept to each tile, so the gaps between tiles still show. The
-   texture's opposite edges don't match, so it repeats every --forest tiles with their gaps (FOREST_REPEAT in Board): each
-   repeat starts on a tile's edge, and its edges meet inside a gap, never across a tile. Blocks of that size alternate
-   between the canopy and its variation (lifted to the canopy's brightness), whose edges also fall in gaps, so the pattern
-   doesn't repeat every few tiles. The terrain, paths and gates above are see-through (paths, gates and characters drawn
-   as before); the palace wall and entrance keep their own look. */
+/* Chapter 1's woodland: one illustrated forest canopy (artwork/board/backgrounds/) across the whole board, frame and gaps
+   included, under everything else on it (.forest, Board), so the woods run on unbroken between the rooms with no tile
+   edges. The canopy's repeat is close enough to seamless at this size (checked in the browser) that its edges don't show
+   as lines; a light shade keeps it calm behind the rooms. The terrain, paths and gates above are see-through (paths, gates
+   and characters drawn as before); the palace wall and entrance keep their own look, joined across their gaps. */
+/* A board narrower or shorter than its window fills it, so its backdrop (the forest, the palace halls) does too (its tiles
+   stay at the top left, as before; the window's scroll size, and so panning and Center board, are unchanged). */
+.board.has-surround { min-width: 100%; min-height: 100%; }
+.forest, .halls { position: absolute; inset: 0; z-index: -2; pointer-events: none; }
 .forest {
-  position: absolute; inset: 0; z-index: -1; pointer-events: none; border-radius: 10px;
-  background: url('../assets/board/forest-canopy-tile-v1.webp')
-    calc(var(--c) * var(--pitch) * -1) calc(var(--r) * var(--pitch) * -1) / calc(var(--pitch) * var(--forest));
-  box-shadow: inset 0 0 0 2px rgb(0 0 0 / 0.25);
-}
-.forest.is-alt { background-image: url('../assets/board/forest-canopy-variation-v1.webp'); filter: brightness(1.18); }
-/* A hidden link's clue (the palace entrance's East terrace): a glimpse of a sunlit glade through the canopy, the hidden-link
-   artwork's lighter, thinner patch fitted to the tile (its trees drawn smaller than the forest's), under a faint warm light. */
-.forest.is-clue {
   background:
-    radial-gradient(circle, rgb(255 240 170 / 0.28), rgb(255 240 170 / 0) 60%),
-    url('../assets/board/forest-hidden-link-v1.webp') calc(var(--tile) * -0.8) calc(var(--tile) * -0.88) / calc(var(--tile) * 2.6);
+    linear-gradient(rgb(14 34 18 / 0.18), rgb(14 34 18 / 0.18)),
+    url('../assets/board/forest-canopy-tile-v1.webp') 0 0 / calc(var(--pitch) * 4);
+}
+/* A hidden link's clue (the palace entrance's East terrace): a glimpse of a sunlit glade through the canopy, the hidden-link
+   artwork's lighter, thinner patch (its trees drawn smaller than the forest's) under a faint warm light, fading into the
+   forest at its edges rather than standing as a square tile. */
+.forest-clue {
+  position: absolute; inset: calc(var(--tile) * -0.18); z-index: -1; pointer-events: none;
+  background:
+    radial-gradient(circle, rgb(255 240 170 / 0.42), rgb(255 240 170 / 0) 62%),
+    url('../assets/board/forest-hidden-link-v1.webp') calc(var(--tile) * -0.62) calc(var(--tile) * -0.7) / calc(var(--tile) * 2.6);
+  -webkit-mask-image: radial-gradient(closest-side, #000 72%, transparent);
+  mask-image: radial-gradient(closest-side, #000 72%, transparent);
+}
+/* Where Alisha and Fiona stand beside the rooms: a clearing of the rooms' grass (lined up with their floors, without their
+   light wash, so it reads as the woods' edge rather than the playing area), running on into the room's ground and the
+   other's clearing on its joined sides (join-*) and rounded off into the forest elsewhere. */
+.clearing {
+  --cut: calc(var(--gap) / 2); --round: calc(var(--tile) * 0.32);
+  --ct: var(--cut); --cr: var(--cut); --cb: var(--cut); --cl: var(--cut);
+  --ktl: var(--round); --ktr: var(--round); --kbr: var(--round); --kbl: var(--round);
+  position: absolute; inset: calc(var(--gap) / -2); z-index: -1; pointer-events: none;
+  background:
+    linear-gradient(rgb(92 70 30 / 0.12), rgb(92 70 30 / 0.12)),
+    url('../assets/board/woodland-floor-v1.webp') calc(var(--c) * var(--pitch) * -1) calc(var(--r) * var(--pitch) * -1) / calc(var(--pitch) * 4);
+  -webkit-clip-path: inset(var(--ct) var(--cr) var(--cb) var(--cl) round var(--ktl) var(--ktr) var(--kbr) var(--kbl));
+  clip-path: inset(var(--ct) var(--cr) var(--cb) var(--cl) round var(--ktl) var(--ktr) var(--kbr) var(--kbl));
+}
+.clearing.join-t { --ct: 0px; --ktl: 0px; --ktr: 0px; }
+.clearing.join-r { --cr: 0px; --ktr: 0px; --kbr: 0px; }
+.clearing.join-b { --cb: 0px; --kbr: 0px; --kbl: 0px; }
+.clearing.join-l { --cl: 0px; --kbl: 0px; --ktl: 0px; }
+/* The palace wall above the forecourt: its blocks joined across the gaps between them, so no forest shows through it. */
+.board.is-entrance .terrain.is-palace { box-shadow: inset 0 0 0 2px #7b5ea7, 0 0 0 calc(var(--gap) / 2) #8f78c0; }
+.board.is-entrance .terrain.is-door.is-open {
+  box-shadow: inset 0 0 0 2px #7b5ea7, 0 0 0 calc(var(--gap) / 2) #8f78c0, 0 0 18px 6px rgb(242 193 78 / 0.7);
 }
 .board.is-entrance :is(.terrain:not(.is-palace), .path) { background: transparent; box-shadow: none; }
-.board.is-entrance .passage:not(.is-partition) { background: transparent; }
+.board:is(.is-entrance, .is-palace) .passage:not(.is-partition) { background: transparent; }
 /* The spread reaches 2px past the gap's middle, so the rounded corners leave no specks where four tiles meet; while
    outlined, it stops at the middle, so no tile's spread covers its neighbour's outline. */
 .board:is(.is-entrance, .is-palace) .cell { border-color: transparent; border-radius: 2px; background: transparent; box-shadow: none; }
@@ -1065,16 +1092,22 @@ body {
 .board:is(.is-entrance, .is-palace) .cell.is-drop-target { border: 3px dashed var(--forest-1); background-color: #cfe3b5; }
 .board:is(.is-entrance, .is-palace) .cell.is-drop-target.is-merge-preview { background: radial-gradient(circle, #ffe9a0 0%, var(--gold) 80%); }
 .board:is(.is-entrance, .is-palace) .cell.is-drop-blocked { border: 3px dashed var(--berry); }
-/* Chapter 1 inside the palace (the rescue, Beyond the gate): the same joined floors in pale marble, between crystal walls. */
+/* Chapter 1 inside the palace (the rescue, Beyond the gate): the same joined floors in pale marble, and around the rooms
+   the palace's halls (.halls, Board): deeper lilac marble with faint veins and a few crystal inlays like the floor's
+   (artwork/board/backgrounds/palace-halls-v1.svg, which repeats seamlessly), one backdrop across the board, gaps included,
+   with no tile edges or grid. Light falls across it as in the palace, and the bright rooms stand out from it. The terrain,
+   paths and passages above are see-through (paths, gates, characters and the dog drawn as before). */
 .board.is-palace { --earth: #ebe5f0; }
-.board.is-palace .terrain, .board.is-palace .path {
+.halls {
   background:
-    linear-gradient(135deg, transparent 0 46%, rgb(201 238 242 / 0.35) 47% 53%, transparent 54%),
-    linear-gradient(45deg, transparent 0 46%, rgb(185 166 220 / 0.3) 47% 53%, transparent 54%),
-    #3b3156;
+    radial-gradient(ellipse 60% 45% at 25% 20%, rgb(240 232 252 / 0.16), transparent),
+    radial-gradient(ellipse 55% 40% at 75% 65%, rgb(210 240 244 / 0.1), transparent),
+    linear-gradient(165deg, rgb(255 255 255 / 0.08), rgb(255 255 255 / 0) 45%, rgb(24 14 44 / 0.16)),
+    url('../assets/board/palace-halls-v1.webp') 0 0 / calc(var(--pitch) * 7);
 }
+.board.is-palace :is(.terrain, .path) { background: transparent; box-shadow: none; }
 /* The rescue's crystal partition, shut across the passage to Alisha's plate room while she is trapped. */
-.passage.is-partition { background: #3b3156; box-shadow: inset 0 0 0 2px #9fd6e0, 0 0 12px 3px rgb(159 214 224 / 0.6); }
+.passage.is-partition { background: transparent; box-shadow: inset 0 0 0 2px #9fd6e0, 0 0 12px 3px rgb(159 214 224 / 0.6); }
 .passage.is-partition::before { content: none; }
 .passage.is-partition svg { position: relative; display: block; width: 100%; height: 100%; }
 /* Once Fiona has asked about the release, the partition lifts away as Alisha steps out beside her (both after a moment, so

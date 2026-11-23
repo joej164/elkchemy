@@ -3,7 +3,7 @@ import type { ReactElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { BookPageArt, ItemArt, itemLabel, PictureBookCoverArt, PrizeArt, ShoeboxArt, KeepsakeBoxArt, DustSheetArt } from '../src/ui/ItemArt';
 import { AtticWindowArt, AtticLampArt, StackedBoxesArt, ShelfArt } from '../src/ui/AtticArt';
-import { AlishaArt, FionaArt } from '../src/ui/StoryArt';
+import { AlishaArt, DogArt, FionaArt } from '../src/ui/StoryArt';
 import type { Family, Item, Tier } from '../src/board';
 
 const families: Family[] = ['grove', 'song', 'crystal', 'elk'];
@@ -149,14 +149,17 @@ describe('attic items', () => {
 });
 
 describe('board sprites', () => {
-  it('draws Alisha and Fiona as their chibi board art, Fiona the leafless version, decorative (callers name them)', () => {
+  it('draws Alisha, Fiona (leaves on her antlers) and the dog as their chibi board art, decorative (callers name them)', () => {
     const alisha = renderToStaticMarkup(<AlishaArt />);
     const fiona = renderToStaticMarkup(<FionaArt />);
+    const dog = renderToStaticMarkup(<DogArt />);
     for (const m of [alisha, fiona]) expect(m).toMatch(/^<svg viewBox="0 0 100 100" overflow="visible" aria-hidden="true" focusable="false">/);
-    expect([picture(alisha), picture(fiona)]).toEqual(['alisha-chibi-v1', 'fiona-chibi-leafless-v1']);
+    // The dog stays inside its box, as it is also the goal's picture beside the objective.
+    expect(dog).toMatch(/^<svg viewBox="0 0 100 100" aria-hidden="true" focusable="false">/);
+    expect([picture(alisha), picture(fiona), picture(dog)]).toEqual(['alisha-chibi-v1', 'fiona-leafy-chibi-v1', 'dog-chibi-v1']);
+    expect(renderToStaticMarkup(<PrizeArt prize="dog" open={false} />)).toBe(dog);
     // Standing on the bottom edge of their box.
-    expect(alisha).toContain('preserveAspectRatio="xMidYMax meet"');
-    expect(fiona).toContain('preserveAspectRatio="xMidYMax meet"');
+    for (const m of [alisha, fiona, dog]) expect(m).toContain('preserveAspectRatio="xMidYMax meet"');
   });
 });
 

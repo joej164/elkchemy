@@ -137,3 +137,5 @@ Added November 22, 2026: the two owner-approved beats' pictures, copied byte for
 ## Board art (`src/assets/board/`)
 
 The 33 board pictures (merge items by family and tier, Alisha, and Fiona without leaves), copied byte for byte from `artwork/board/webp/` (method, tier mapping and checks: `artwork/board/README.md`; masters in `artwork/board/drafts/`). The leafy Fiona draft is not used. `src/ui/BoardArt.tsx` maps them to items and sprites and crops each family to the union of its pictures' opaque pixels, so tiers keep their relative sizes.
+
+C1-20 follow-up: `chapter-one-20-gate-closing-v5.webp` is a 960 × 720 WebP (Chromium canvas, quality 0.9) derived from `artwork/story/chapter-one/20-gate-closing-draft-v5.png`, generated with the built-in image tool from v4 to remove the disc from Alisha’s hand.

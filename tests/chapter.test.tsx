@@ -693,22 +693,43 @@ describe('Chapter 1 story scenes: the storyboard\'s pictures and words', () => {
     expect(needed).toEqual([]);
   });
 
-  it('reveals C1-12A\'s three moments one per tap, top to bottom, under its one caption, before the dog sighting', () => {
+  it('reveals C1-12A\'s three moments one per tap, top to bottom, each with Alisha\'s waiting line, before the dog sighting', () => {
     const at = BEYOND_OPENING.findIndex((pn) => pn.id === 'C1-12A');
     const waiting = BEYOND_OPENING[at];
     expect(BEYOND_OPENING[at + 1].id).toBe('C1-13');
     expect(waiting.moments!.map((m) => m.end)).toEqual([229.5 / 720, 467.5 / 720, 1]);   // the picture's panel gutters
+    expect(waiting.lines).toEqual(['Fiona shouldn’t be much longer…', 'Any minute now.', 'Okay, maybe more than a minute.']
+      .map((text) => ({ speaker: 'Alisha', text })));
     const beats = comicBeats(BEYOND_OPENING).filter((b) => b.panel === at);
-    expect(beats).toEqual([0, 1, 2].map((moment) => ({ panel: at, line: 0, moment })));
-    // Each tap announces the moment it reveals; the picture is described with every moment revealed so far.
+    expect(beats).toEqual([0, 1, 2].map((moment) => ({ panel: at, line: moment, moment })));
+    // Each tap announces the moment it reveals and its line; the picture is described with every moment revealed so far.
     expect(beatAnnouncement(BEYOND_OPENING, beats[1], true, '')).toBe(
-      `Picture 2 of 4, part 2 of 3. ${waiting.moments![1].description} Growing restless`);
+      `Picture 2 of 4, part 2 of 3. ${waiting.moments![1].description} Alisha: Any minute now.`);
     expect(artDescription(waiting, 2)).toBe(`${waiting.description} ${waiting.moments!.map((m) => m.description).join(' ')}`);
-    // On the page: the first moment showing, the cover over the other two.
+    // On the page: the first moment showing, the cover over the other two, and its line as Alisha's.
     const page = renderToStaticMarkup(<Comic title="t" label="l" panels={[waiting]} finish={{ prompt: 'p', name: 'n' }} onFinish={() => {}}
       onHome={() => {}} musicControl={null} />);
     expect(page).toContain(`<span class="comic-cover" data-moment="0" style="top:${(229.5 / 720) * 100}%" aria-hidden="true"></span>`);
     expect(page).toContain(`aria-label="${artDescription(waiting, 0)}"`);
+    expect(page).toMatch(/<figcaption[^>]*><p><strong>Alisha(<!-- -->)?:<\/strong> (<!-- -->)?Fiona shouldn’t be much longer…<\/p>/);
+    expect(page).not.toMatch(/Narrator/i);
+  });
+
+  it('ends with the disc still rolling: from the stumble to the course ahead, every tap a line, none a title, no disc in hand', () => {
+    const from = BEYOND_CLOSING.findIndex((pn) => pn.id === 'C1-19A');
+    const to = BEYOND_CLOSING.findIndex((pn) => pn.id === 'C1-21');
+    const beats = comicBeats(BEYOND_CLOSING).filter((b) => b.panel >= from && b.panel <= to)
+      .map((b) => { const l = BEYOND_CLOSING[b.panel].lines[b.line]; return `${BEYOND_CLOSING[b.panel].id} ${l.speaker ?? '-'}: ${l.text}`; });
+    expect(beats).toEqual([
+      'C1-19A -: Alisha pitches forward, arms windmilling as she struggles to regain her balance.',
+      'C1-19 Alisha: Please stop rolling before you get us into more trouble!',
+      'C1-20 -: Fiona glances back and notices the gate slowly closing behind them.',
+      'C1-20 Fiona: Oh no… the gate’s almost closed. We’re stuck on this side now!',
+      'C1-21 -: The gate closed behind them, leaving the palace on the other side.',
+      'C1-21 -: Ahead, the unfamiliar path stretched through the trees. Somewhere along it, Alisha’s disc was still rolling.',
+      'C1-21 Alisha: Well, looks like this is the way to hole one!',
+      'C1-21 Fiona: Let’s find your disc before it finds any more trouble.',
+    ]);
   });
 
   for (const [name, panels] of PANELS) {

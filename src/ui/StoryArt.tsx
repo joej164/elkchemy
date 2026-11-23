@@ -1,38 +1,18 @@
-import type { ReactNode } from 'react';
 import approachArt from '../assets/art/chapter-one-08-palace-approach-v2.webp';
 import junctionArt from '../assets/art/chapter-one-08a-terrace-junction-v2.webp';
 import forecourtArt from '../assets/art/chapter-one-08b-forecourt-revealed-v1.webp';
 import entryArt from '../assets/art/chapter-one-09-palace-entry-v1.webp';
 import interiorArt from '../assets/art/chapter-one-10-palace-interior-v1.webp';
-import { characterPicture } from './BoardArt';
+import { characterPicture, dogPicture } from './BoardArt';
 import type { ComicPanel, ComicScene } from './Comic';
 
-// Board sprites, kept apart from merge items: Alisha and Fiona use their chibi board art (src/ui/BoardArt.tsx; Fiona without
-// leaves on her antlers, at the owner's request); the dog, the palace entrance and the plate remain temporary code-native
-// drawings. Their names are HTML labels.
+// Board sprites, kept apart from merge items: Alisha, Fiona (leaves on her antlers) and Beyond the gate's dog use their
+// chibi board art (src/ui/BoardArt.tsx); the palace entrance and the plate remain temporary code-native drawings. Their
+// names are HTML labels.
 
-const DARK = '#233a2b';
-const S = { stroke: DARK, strokeWidth: 2, strokeLinejoin: 'round' as const, strokeLinecap: 'round' as const };
-
-/** Beyond the gate's dog, a placeholder: a scruffy brown dog side-on, facing left, on 100 × 100. */
-function dog(): ReactNode {
-  return (
-    <g data-sprite="dog">
-      {[34, 42, 66, 74].map((x) => <rect key={x} x={x} y="64" width="7" height="24" rx="3" fill="#7a4e2c" {...S} strokeWidth={1.5} />)}
-      <ellipse cx="56" cy="62" rx="26" ry="14" fill="#a0693d" {...S} />
-      <path d="M80 56 Q94 44 90 36" fill="none" stroke="#7a4e2c" strokeWidth={6} strokeLinecap="round" />
-      <ellipse cx="30" cy="48" rx="15" ry="12" fill="#a0693d" {...S} />
-      <ellipse cx="18" cy="54" rx="8" ry="6" fill="#d9b48a" {...S} strokeWidth={1.5} />
-      <ellipse cx="13" cy="51" rx="3.2" ry="2.6" fill={DARK} />
-      <path d="M34 38 Q44 36 42 56 Q36 54 34 38 Z" fill="#5a3420" {...S} strokeWidth={1.5} />
-      <circle cx="26" cy="44" r="2.2" fill={DARK} />
-    </g>
-  );
-}
-
-/** Beyond the gate's dog as a board sprite. Decorative (callers name it). */
+/** Beyond the gate's dog as a board sprite (and its goal's picture): its chibi board art, facing left. Decorative (callers name it). */
 export function DogArt() {
-  return <svg viewBox="0 0 100 100" aria-hidden="true" focusable="false">{dog()}</svg>;
+  return <svg viewBox="0 0 100 100" aria-hidden="true" focusable="false">{dogPicture()}</svg>;
 }
 
 /** Young Alisha as a board sprite: her chibi board art, standing on the bottom edge. Decorative (callers name her). */
@@ -40,7 +20,7 @@ export function AlishaArt() {
   return <svg viewBox="0 0 100 100" overflow="visible" aria-hidden="true" focusable="false">{characterPicture('alisha')}</svg>;
 }
 
-/** Fiona as a board sprite: her chibi board art, without leaves on her antlers. Decorative (callers name her). */
+/** Fiona as a board sprite: her chibi board art, leaves on her antlers. Decorative (callers name her). */
 export function FionaArt() {
   return <svg viewBox="0 0 100 100" overflow="visible" aria-hidden="true" focusable="false">{characterPicture('fiona')}</svg>;
 }

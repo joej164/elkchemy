@@ -195,6 +195,8 @@ C1-11 now ends with “Much better.” / “Let’s avoid any more pressure plat
 
 Fiona crosses first. Following her, Alisha catches the exposed orange disc rim while walking past and stumbles, freeing it from the floor socket; it rolls through ahead of her. She crosses, retrieves it, and both face the shrinking portal. The small opening shows the palace grove they just left. Once it closes: “Well… at least I’ve got my favorite disc.” Removing the disc closes this gate; the wider network has already awakened, preserving C1-22. C1-19A is the new nudge insert; C1-19 and C1-20 are redrawn.
 
+November 22, 2026: the owner's approved lines for C1-12A, C1-14, C1-16, C1-19A, C1-20 and C1-21 are in the storyboard and the game. C1-21 now says the disc is still rolling down the path ahead, which this revision (she retrieves it) and the C1-19/C1-20 pictures contradict; the owner then had Alisha's "favorite disc" line removed from C1-20 and her rolling-disc line moved to C1-19 in place of its title; the C1-19 and C1-20 pictures, which still show her with the disc, are flagged for Codex to redraw. The dog stays on the palace side.
+
 ## Palace/course visual continuity
 
 C1-21 is preserved as the destination anchor. C1-17 widens to show the gate beginning to open onto its hilltop, basket, lake and sunset; C1-18 reveals more. Palace-side flooring remains polished marble with gold inlays and crystal details through C1-19A, and through the return view in C1-19/20. Course-side ground remains natural. Updated renders are pending visual review.
@@ -202,3 +204,5 @@ C1-21 is preserved as the destination anchor. C1-17 widens to show the gate begi
 ## Ridgeview decision and mechanism trip
 
 The course is named **Ridgeview**. Under C1-18 the storyboard now shows their complete reason for crossing: Alisha recognizes a course she has wanted to play for years, Fiona knows it is a few hours from her village, and her message is delivered so she has time for a round. C1-17 starts with a small oval opening inside the rounded arch, without an apex jewel. At C1-19A Alisha trips on the raised mechanism itself; the jolt ejects the orange disc toward the gate. Spare discs are already packed. Story dialogue and action are reviewed in the image captions; puzzle maps are gameplay proposals.
+
+November 22, 2026, follow-up: C1-19 shows the disc upright on the ground, so its description was corrected. C1-20 was edited to remove the disc from Alisha’s hand; the disc continues ahead.
