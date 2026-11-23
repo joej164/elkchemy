@@ -1,3 +1,9 @@
+## Unreleased: palace art and story follow-up (November 22, 2026)
+
+- The palace backdrop, locked-room veil, pressure plate, doors, rune gates and crystal partition use a palace-inspired palette and artwork; the woodland signpost and first two elk tiers have new pictures.
+- Beyond the gate now explains how Alisha knocks the disc loose and refers to the first basket.
+- The new artwork needs physical iPad and Safari review, including open and closed states.
+
 # Elkchemy — release notes and history
 
 Each entry records what changed, how it was verified, and known limitations. **Unreleased** entries are implemented in the repository but not published to https://elkchemy.web.app/; published entries name their build id. Open work lives in [TODO.md](../TODO.md); the longer-term direction is in [game-vision.md](game-vision.md). Player-facing release history is available from the home screen.

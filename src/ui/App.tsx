@@ -23,6 +23,7 @@ import { ReleaseNotes } from './ReleaseNotes';
 import { Scores } from './Scores';
 import { SceneArt } from './SceneArt';
 import gameLandscapeArt from '../assets/art/woodland-cheering-landscape-v1.webp';
+import palaceBackgroundArt from '../assets/board/crystal-palace-interior-v1.webp';
 import gamePortraitArt from '../assets/art/woodland-cheering-portrait-v1.webp';
 import { ChestArt, DustSheetArt, ItemArt, itemLabel, itemName, PrizeArt } from './ItemArt';
 import { UpdateControl } from './UpdateControl';
@@ -627,7 +628,7 @@ export function Game({
   return (
     <>
       {/* Decorative: web copies of artwork/gameplay/woodland-cheering-*-v1.png, behind the unchanged board layout. */}
-      {scene !== 'attic' && <SceneArt className="is-game" landscape={gameLandscapeArt} portrait={gamePortraitArt} alt="" />}
+      {scene !== 'attic' && <SceneArt className="is-game" landscape={scene === 'palace' ? palaceBackgroundArt : gameLandscapeArt} portrait={scene === 'palace' ? palaceBackgroundArt : gamePortraitArt} alt="" />}
       <header className={`info${regions ? ' has-regions' : ''}${containers ? ' has-containers' : ''}`}>
         <div className="title-row">
           <h1>Elkchemy</h1>

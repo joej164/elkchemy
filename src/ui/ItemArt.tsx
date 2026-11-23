@@ -3,6 +3,7 @@ import { MAX_TIER, type Item, type Family } from '../board';
 import type { Prize } from '../session';
 import { DogArt, PalaceDoorArt } from './StoryArt';
 import { itemPicture, pictureBookCover } from './BoardArt';
+import woodlandSignArt from '../assets/board/woodland-signpost-v1.webp';
 
 export const FAMILY_NAMES: Record<Family, string> = {
   grove: 'Grove', song: 'Song', crystal: 'Crystal', elk: 'Elk', photo: 'Photos', book: 'Book', wood: 'Wood', tool: 'Tools',
@@ -373,11 +374,7 @@ export function TrailSignArt({ open }: { open: boolean }) {
   return (
     <svg viewBox="0 0 100 100" width="100%" height="100%" aria-hidden="true" focusable="false" data-trail={open ? 'followed' : 'waiting'}>
       {open && <path d="M50 96 Q38 70 52 50 Q66 30 50 6" fill="none" stroke="#f2c14e" strokeWidth={10} strokeLinecap="round" opacity={0.6} />}
-      <ellipse cx="50" cy="93" rx="20" ry="5" fill="#5f8f3a" {...S} strokeWidth={1.5} />
-      <rect x="46" y="18" width="8" height="76" rx="2" fill="#8a5a32" {...S} />
-      <path d="M20 22 H70 L81 32 L70 42 H20 Z" fill="#c8955a" {...S} />
-      <path d="M80 50 H30 L19 60 L30 70 H80 Z" fill="#b07d48" {...S} />
-      <path d="M32 32 H64 M36 60 H68" stroke={DARK} strokeWidth={2.5} strokeLinecap="round" />
+      <image href={woodlandSignArt} x="0" y="0" width="100" height="100" preserveAspectRatio="xMidYMax meet" />
     </svg>
   );
 }

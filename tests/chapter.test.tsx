@@ -721,13 +721,13 @@ describe('Chapter 1 story scenes: the storyboard\'s pictures and words', () => {
     const beats = comicBeats(BEYOND_CLOSING).filter((b) => b.panel >= from && b.panel <= to)
       .map((b) => { const l = BEYOND_CLOSING[b.panel].lines[b.line]; return `${BEYOND_CLOSING[b.panel].id} ${l.speaker ?? '-'}: ${l.text}`; });
     expect(beats).toEqual([
-      'C1-19A -: Alisha pitches forward, arms windmilling as she struggles to regain her balance.',
+      'C1-19A -: Alisha catches her foot on the disc, knocking it loose as she stumbles.',
       'C1-19 Alisha: Please stop rolling before you get us into more trouble!',
       'C1-20 -: Fiona glances back and notices the gate slowly closing behind them.',
       'C1-20 Fiona: Oh no… the gate’s almost closed. We’re stuck on this side now!',
       'C1-21 -: The gate closed behind them, leaving the palace on the other side.',
       'C1-21 -: Ahead, the unfamiliar path stretched through the trees. Somewhere along it, Alisha’s disc was still rolling.',
-      'C1-21 Alisha: Well, looks like this is the way to hole one!',
+      'C1-21 Alisha: Well, looks like this is the way to the first basket!',
       'C1-21 Fiona: Let’s find your disc before it finds any more trouble.',
     ]);
   });

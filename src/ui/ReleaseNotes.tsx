@@ -7,6 +7,16 @@ export interface ReleaseNote { readonly title: string; readonly date: string; re
 
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    title: 'A brighter Crystal Palace',
+    date: 'November 22, 2026',
+    preview: true,
+    notes: [
+      'The Crystal Palace has a new palace backdrop, with crystal-colored veils for unopened rooms.',
+      'Pressure plates, palace doors, rune gates, the crystal partition and the woodland signpost have new artwork. Young elk look more distinct as they grow, and the attic has new scenery.',
+      'Beyond the gate explains Alisha’s stumble and points the way to the first basket.',
+    ],
+  },
+  {
     title: 'Chapter 1: new scenery, new looks and a new ending',
     date: 'November 22, 2026',
     preview: true,

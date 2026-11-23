@@ -11,7 +11,7 @@ For each family, the game uses zero-based tiers 0–4. Map the numbered files as
 | Grove | `grove-sprout-v1` | `grove-tree-v1` | `grove-full-tree-v1` | `grove-flowering-tree-v1` |
 | Song | `song-tier-1-v1` | `song-tier-2-v1` | `song-tier-3-v1` | `song-tier-4-v1` |
 | Crystal | `crystal-tier-1-v1` | `crystal-tier-2-v1` | `crystal-tier-3-v1` | `crystal-tier-4-v1` |
-| Elk | `elk-tier-1-v1` | `elk-tier-2-v1` | `elk-tier-3-v1` | `elk-tier-4-v1` |
+| Elk | `elk-calf-v1` | `elk-young-v1` | `elk-tier-3-v1` | `elk-tier-4-v1` |
 | Wood | `wood-tier-1-v1` | `wood-tier-2-v1` | `wood-tier-3-v1` | `wood-tier-4-v1` |
 | Book | `book-tier-1-v1` | `book-tier-2-v1` | `book-tier-3-v1` | `book-tier-4-v1` |
 | Tool | `tool-tier-1-v1` | `tool-tier-2-v1` | `tool-tier-3-v1` | `tool-tier-4-v1` |
@@ -45,3 +45,9 @@ Neither has been checked on a physical iPad.
 ## Fiona with leaves, and the dog (November 22, 2026)
 
 Codex's `characters/fiona-leafy-chibi-v1.png` (1084 × 1451) and `characters/dog-chibi-v1.png` (1312 × 1199), RGBA with soft glows, are the masters (unchanged). Their delivery copies `webp/fiona-leafy-chibi-v1.webp` (383 × 512, 71 KB) and `webp/dog-chibi-v1.webp` (512 × 468, 35 KB) were made by Claude as the others: Chromium canvas, longest side 512 px, high-quality smoothing, WebP quality 0.90 with transparency, no crop; both decode with transparent corners, and were copied byte for byte to `src/assets/board/`. The game crops them to their opaque pixels plus 6 px (`src/ui/BoardArt.tsx`). The PNGs' fully transparent pixels hold stray colour, which shows as red and yellow specks only where a viewer draws transparency as black; composited on transparent, white, dark, forest and palace backgrounds no fringe showed. At 64 CSS px tiles and 2× density (Chromium emulation) Fiona's antler leaves and the dog's ears, tail and legs read; physical iPad not checked. `webp/fiona-chibi-leafless-v1.webp` stays here; its copy left the game.
+
+## Palace art refresh (November 22, 2026)
+
+`backgrounds/crystal-palace-interior-v1.png` and `characters/` palace pressure plate, door, rune gate, partition, signpost, and young elk PNGs were generated with the built-in image tool. Their WebP delivery copies are in `src/assets/board/`, rendered with Chromium canvas at quality 0.9; the palace backdrop is 1536 px on its longest side and the sprites 512 px. Door and gate have matching open and closed states; the plate has a glowing pressed ring. The first two elk tiers use the calf and young elk art. Physical iPad/Safari remains to be checked.
+
+The attic window, lamp, boxes and shelf PNG masters are in `characters/attic-*-v1.png`; their WebP copies in `src/assets/board/` use Chromium canvas at quality 0.9, 512 px on the longest side.

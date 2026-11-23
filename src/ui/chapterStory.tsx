@@ -153,7 +153,7 @@ export const BEYOND_CLOSING: readonly ComicPanel[] = [
   ]),
   panel('C1-19A', '19a-mechanism-trip-v6',
     'Following Fiona through, Alisha trips against the mechanism, and the orange disc rolls toward the gate; Fiona is already beyond.', [
-      narration('Alisha pitches forward, arms windmilling as she struggles to regain her balance.'),
+      narration('Alisha catches her foot on the disc, knocking it loose as she stumbles.'),
     ]),
   panel('C1-19', '19-crossing-v4',
     'Alisha steps through after Fiona as the orange disc rolls across the grass, the palace grove still visible through the gate.',
@@ -166,7 +166,7 @@ export const BEYOND_CLOSING: readonly ComicPanel[] = [
   panel('C1-21', '21-course-reveal-v3', 'Seen from behind, Alisha and Fiona look out over the disc golf course.', [
     narration('The gate closed behind them, leaving the palace on the other side.'),
     narration('Ahead, the unfamiliar path stretched through the trees. Somewhere along it, Alisha’s disc was still rolling.'),
-    A('Well, looks like this is the way to hole one!'), F('Let’s find your disc before it finds any more trouble.'),
+    A('Well, looks like this is the way to the first basket!'), F('Let’s find your disc before it finds any more trouble.'),
   ]),
   panel('C1-22', '21-linked-gates-v1', 'Distant rune gates glow across the realm.', [title('Elsewhere throughout the realm…')]),
 ];

@@ -1,5 +1,7 @@
 import type { ReactNode } from 'react';
 import type { Family } from '../board';
+import elkCalfArt from '../assets/board/elk-calf-v1.webp';
+import elkYoungArt from '../assets/board/elk-young-v1.webp';
 
 // The board's painted art (artwork/board/README.md): delivery copies of the drafts in artwork/board/drafts/, in
 // src/assets/board/, drawn inside the board's own 100 × 100 SVG art, so an item keeps its tier pips and top-tier radiance
@@ -40,7 +42,7 @@ export const ITEM_FILES: Readonly<Record<Family, readonly string[]>> = {
   grove: ['grove-sprout-v1', 'grove-tree-v1', 'grove-full-tree-v1', 'grove-flowering-tree-v1'],
   song: [1, 2, 3, 4].map((n) => `song-tier-${n}-v1`),
   crystal: [1, 2, 3, 4].map((n) => `crystal-tier-${n}-v1`),
-  elk: [1, 2, 3, 4].map((n) => `elk-tier-${n}-v1`),
+  elk: ['elk-calf-v1', 'elk-young-v1', 'elk-tier-3-v1', 'elk-tier-4-v1'],
   wood: [1, 2, 3, 4].map((n) => `wood-tier-${n}-v1`),
   tool: [1, 2, 3, 4].map((n) => `tool-tier-${n}-v1`),
   book: [1, 2, 3, 4].map((n) => `book-tier-${n}-v1`),
@@ -80,6 +82,15 @@ const ONE_PICTURE_SCALE = [0.7, 0.85, 1, 1, 1];
 
 /** An item's picture at `tier` (0 to 4), for ItemArt. */
 export function itemPicture(family: Family, tier: number): ReactNode {
+  if (family === 'elk' && tier < 2) {
+    const calf = tier === 0;
+    const name = calf ? 'elk-calf-v1' : 'elk-young-v1';
+    const crop = calf ? [79, 71, 313, 371] : [40, 16, 296, 480];
+    const size = calf ? [512, 512] : [383, 512];
+    return <svg x="-6" y="-5" width="112" height="95" viewBox={crop.join(' ')} preserveAspectRatio="xMidYMax meet" overflow="visible" data-art={name}>
+      <image href={calf ? elkCalfArt : elkYoungArt} width={size[0]} height={size[1]} />
+    </svg>;
+  }
   const files = ITEM_FILES[family];
   const s = files.length === 1 ? ONE_PICTURE_SCALE[tier] : 1;
   const [x, y, w, h] = ITEM_BOX;

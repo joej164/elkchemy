@@ -1098,12 +1098,15 @@ body {
    with no tile edges or grid. Light falls across it as in the palace, and the bright rooms stand out from it. The terrain,
    paths and passages above are see-through (paths, gates, characters and the dog drawn as before). */
 .board.is-palace { --earth: #ebe5f0; }
+.board.is-palace .region.is-room.is-locked { background: rgb(82 51 112 / 0.48); border-color: rgb(244 218 167 / 0.9); }
+.board.is-palace .cell.is-plate::before { border-radius: 50%; border: 4px double #946128; background: radial-gradient(circle, rgb(255 248 229 / 0.4), rgb(126 78 157 / 0.45)); box-shadow: inset 0 0 0 2px #f2c76e; }
+.board.is-palace .cell.is-plate-met::before { border-color: #e9bd54; box-shadow: 0 0 8px #f8d47e, inset 0 0 0 2px #fff0bc; }
 .halls {
   background:
     radial-gradient(ellipse 60% 45% at 25% 20%, rgb(240 232 252 / 0.16), transparent),
     radial-gradient(ellipse 55% 40% at 75% 65%, rgb(210 240 244 / 0.1), transparent),
     linear-gradient(165deg, rgb(255 255 255 / 0.08), rgb(255 255 255 / 0) 45%, rgb(24 14 44 / 0.16)),
-    url('../assets/board/palace-halls-v1.webp') 0 0 / calc(var(--pitch) * 7);
+    url('../assets/board/crystal-palace-interior-v1.webp') center / 100% 100% no-repeat;
 }
 .board.is-palace :is(.terrain, .path) { background: transparent; box-shadow: none; }
 /* The rescue's crystal partition, shut across the passage to Alisha's plate room while she is trapped. */
@@ -1166,6 +1169,8 @@ button.character {
 .terrain.is-door .door-leaf.is-left { transform-origin: left center; }
 .terrain.is-door .door-leaf.is-right { transform-origin: right center; }
 .terrain.is-door svg.is-opening .door-leaf { animation: door-swing 750ms 400ms ease-in-out backwards; }
+.door-opening-overlay { animation: door-reveal 750ms 400ms ease-in-out forwards; }
+@keyframes door-reveal { to { opacity: 0; } }
 @keyframes door-swing { from { transform: scaleX(4.33); } to { transform: none; } }
 
 /* Alisha's speech bubble, beside her (its tail at her), over the board: it alone takes input until tapped. */
@@ -1189,6 +1194,7 @@ button.character {
   .character.is-ready, .board .cell.is-character-plate.is-alisha-target { animation: none; }
   .cell.is-character-plate.is-pressed .plate-art, .cell.is-character-plate .plate-alisha, .speech-bubble { animation: none; }
   .terrain.is-door svg.is-opening .door-leaf { animation: none; }
+  .door-opening-overlay { display: none; }
   .passage.is-partition.is-opening svg { animation: none; opacity: 0; }
   .character.is-stepping { animation: none; }
 }
@@ -1206,6 +1212,15 @@ button.character {
     radial-gradient(ellipse 50% 45% at 78% 72%, rgb(246 249 250 / 0.85), transparent 70%),
     radial-gradient(ellipse 45% 35% at 62% 18%, rgb(252 253 253 / 0.75), transparent 70%),
     linear-gradient(rgb(214 222 225 / 0.97), rgb(190 201 205 / 0.97));
+}
+
+/* In the palace, unexplored rooms are veiled in crystal light instead of gray mist. */
+.board.is-palace .region.is-fog {
+  border-color: rgb(242 205 122 / 0.8);
+  background:
+    radial-gradient(ellipse 55% 45% at 22% 28%, rgb(255 244 217 / 0.9), transparent 70%),
+    radial-gradient(ellipse 50% 45% at 78% 72%, rgb(229 212 255 / 0.9), transparent 70%),
+    linear-gradient(rgb(214 195 239 / 0.97), rgb(174 151 207 / 0.97));
 }
 .region.is-fog::before {
   content: ""; position: absolute; inset: -25%;

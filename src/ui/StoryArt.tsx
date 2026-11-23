@@ -4,6 +4,9 @@ import forecourtArt from '../assets/art/chapter-one-08b-forecourt-revealed-v1.we
 import entryArt from '../assets/art/chapter-one-09-palace-entry-v1.webp';
 import interiorArt from '../assets/art/chapter-one-10-palace-interior-v1.webp';
 import { characterPicture, dogPicture } from './BoardArt';
+import pressurePlateArt from '../assets/board/palace-pressure-plate-v2.webp';
+import doorClosedArt from '../assets/board/palace-door-v1.webp';
+import doorOpenArt from '../assets/board/palace-door-open-v1.webp';
 import type { ComicPanel, ComicScene } from './Comic';
 
 // Board sprites, kept apart from merge items: Alisha, Fiona (leaves on her antlers) and Beyond the gate's dog use their
@@ -33,19 +36,8 @@ export function PalaceDoorArt({ open, opening = false }: { open: boolean; openin
   return (
     <svg viewBox="0 0 100 100" aria-hidden="true" focusable="false" data-door={open ? 'open' : 'closed'}
       className={opening ? 'is-opening' : undefined}>
-      <rect width="100" height="100" fill="#b9a6dc" />
-      <path d="M0 34 H14 M86 34 H100 M0 67 H14 M86 67 H100" stroke="#8f78c0" strokeWidth="3" />
-      <path d="M16 100 V42 Q16 10 50 8 Q84 10 84 42 V100 Z" fill="#e4dbf5" stroke="#7b5ea7" strokeWidth="4" />
-      <path d="M24 100 V44 Q24 18 50 16 Q76 18 76 44 V100 Z" fill={open ? '#fff3c4' : '#5c4a86'} stroke="#7b5ea7" strokeWidth="2" />
-      {open && <path d="M50 30 L60 52 L50 92 L40 52 Z" fill="#f2c14e" opacity="0.55" />}
-      <g className="door-leaf is-left">
-        <path d={open ? 'M24 100 V44 Q24 26 30 22 V100 Z' : 'M24 100 V44 Q24 18 50 16 V100 Z'} fill="#9fd6e0" stroke="#3d6f7a" strokeWidth="2" />
-      </g>
-      <g className="door-leaf is-right">
-        <path d={open ? 'M76 100 V44 Q76 26 70 22 V100 Z' : 'M76 100 V44 Q76 18 50 16 V100 Z'} fill="#9fd6e0" stroke="#3d6f7a" strokeWidth="2" />
-      </g>
-      {!open && <circle cx="45" cy="64" r="2.5" fill="#3d6f7a" />}
-      {!open && <circle cx="55" cy="64" r="2.5" fill="#3d6f7a" />}
+      <image href={open ? doorOpenArt : doorClosedArt} width="100" height="100" preserveAspectRatio="xMidYMax meet" />
+      {open && opening && <image href={doorClosedArt} width="100" height="100" preserveAspectRatio="xMidYMax meet" className="door-opening-overlay" />}
     </svg>
   );
 }
@@ -57,12 +49,8 @@ export function PalaceDoorArt({ open, opening = false }: { open: boolean; openin
 export function CharacterPlateArt({ pressed = false }: { pressed?: boolean }) {
   return (
     <svg viewBox="0 0 100 100" aria-hidden="true" focusable="false" data-character-plate={pressed ? 'pressed' : 'up'}>
-      <ellipse cx="50" cy="56" rx="42" ry="34" fill={pressed ? '#7d7466' : '#a59a86'} stroke={pressed ? '#f2c14e' : '#5c5446'} strokeWidth={pressed ? 6 : 4} />
-      <ellipse cx="50" cy={pressed ? 58 : 52} rx="32" ry="25" fill={pressed ? '#8f8573' : '#c6bca6'} stroke="#6d6454" strokeWidth="2" />
-      <g opacity={pressed ? 0.35 : 0.75} fill="#4a3220">
-        <circle cx="50" cy="36" r="6" />
-        <path d="M40 66 Q40 46 50 45 Q60 46 60 66 Z" />
-      </g>
+      <image href={pressurePlateArt} x="-25" y="0" width="150" height="100" preserveAspectRatio="xMidYMid meet" />
+      {pressed && <ellipse cx="50" cy="53" rx="43" ry="43" fill="none" stroke="#ffe18a" strokeWidth="4" opacity="0.9" />}
     </svg>
   );
 }

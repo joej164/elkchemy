@@ -23,7 +23,7 @@ const picture = (m: string) => {
 const numbered = (family: Family, ns: readonly number[]) => ns.map((n) => `${family}-tier-${n}-v1`);
 const PICTURES: Record<Family, readonly string[]> = {
   grove: ['grove-sprout-v1', 'grove-tree-v1', 'grove-full-tree-v1', 'grove-flowering-tree-v1', 'grove-flowering-tree-v1'],
-  song: numbered('song', [1, 2, 3, 4, 4]), crystal: numbered('crystal', [1, 2, 3, 4, 4]), elk: numbered('elk', [1, 2, 3, 4, 4]),
+  song: numbered('song', [1, 2, 3, 4, 4]), crystal: numbered('crystal', [1, 2, 3, 4, 4]), elk: ['elk-calf-v1', 'elk-young-v1', ...numbered('elk', [3, 4, 4])],
   wood: numbered('wood', [1, 2, 3, 4, 4]), book: numbered('book', [1, 2, 3, 4, 4]), tool: numbered('tool', [1, 2, 3, 4, 4]),
   photo: numbered('photo', [1, 2, 3, 3, 3]),
   planks: Array(5).fill('chest-planks-v1'), hardware: Array(5).fill('chest-hardware-v1'),
@@ -185,10 +185,6 @@ describe('container and attic prop art', () => {
     ['ShoeboxArt', <ShoeboxArt />, 'data-container="shoebox"'],
     ['KeepsakeBoxArt', <KeepsakeBoxArt />, 'data-container="keepsake-box"'],
     ['DustSheetArt', <DustSheetArt />, 'data-container="dust-sheet"'],
-    ['AtticWindowArt', <AtticWindowArt />, null],
-    ['AtticLampArt', <AtticLampArt />, null],
-    ['StackedBoxesArt', <StackedBoxesArt />, null],
-    ['ShelfArt', <ShelfArt />, null],
   ];
   it.each(cases)('%s renders one safe decorative svg', (_name, el, attr) => {
     const m = renderToStaticMarkup(el);
@@ -197,6 +193,15 @@ describe('container and attic prop art', () => {
     expect(m).toContain('focusable="false"');
     if (attr) expect(m).toContain(attr);
     for (const b of ['<image', '<text', 'http', 'href=', 'url(']) expect(m).not.toContain(b);
+  });
+
+  it.each([
+    [<AtticWindowArt />, 'attic-window-v1'], [<AtticLampArt />, 'attic-lamp-v1'],
+    [<StackedBoxesArt />, 'attic-boxes-v1'], [<ShelfArt />, 'attic-shelf-v1'],
+  ])('renders the painted attic scenery', (element, name) => {
+    const markup = renderToStaticMarkup(element);
+    expect(markup).toContain(`/${name}.webp`);
+    expect(markup).toContain('aria-hidden="true"');
   });
 
   it('passes className through on attic props', () => {

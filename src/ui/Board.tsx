@@ -13,6 +13,9 @@ import {
 import { ChestArt, DustSheetArt, ItemArt, itemLabel, KeepsakeBoxArt, PrizeArt, ShoeboxArt } from './ItemArt';
 import { AtticLampArt, AtticWindowArt, ShelfArt, StackedBoxesArt } from './AtticArt';
 import { AlishaArt, CharacterPlateArt, DogArt, FionaArt, PalaceDoorArt } from './StoryArt';
+import partitionArt from '../assets/board/crystal-partition-v1.webp';
+import runeGateClosedArt from '../assets/board/rune-gate-v1.webp';
+import runeGateOpenArt from '../assets/board/rune-gate-open-v1.webp';
 import { direct, palaceShots, viewCue, type Camera, type Frames, type Phase, type Shot, type View } from './camera';
 import { batchGroups, batchText, prizeText, unlockNeed } from './messages';
 import { centerScroll, centreSpan, exceedsThreshold, moveFocus, panScroll, revealSpan, type Point } from './navigation';
@@ -70,19 +73,10 @@ export function LockIcon({ open = false }: { open?: boolean }) {
  * drawing its bars, for CSS to fade them out. Decorative.
  */
 export function RuneGate({ open = false, opening = false }: { open?: boolean; opening?: boolean }) {
-  const rune = open ? '#f2c14e' : '#8fe3ff';
   return (
     <svg viewBox="0 0 100 100" aria-hidden="true" focusable="false">
-      <rect x="4" y="26" width="20" height="48" rx="6" fill="#8d8f86" stroke="#2a2e28" strokeWidth="3" />
-      <rect x="76" y="26" width="20" height="48" rx="6" fill="#8d8f86" stroke="#2a2e28" strokeWidth="3" />
-      <path d="M14 36 V64 M8 44 L14 50 L8 56" fill="none" stroke={rune} strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M86 36 V64 M80 50 L86 44 L92 50" fill="none" stroke={rune} strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />
-      {(!open || opening) && (
-        <g stroke="#1b3a4a" strokeWidth="2" className={open ? 'gate-bars' : undefined}>
-          {[36, 48, 60].map((y) => <rect key={y} x="24" y={y} width="52" height="6" rx="3" fill="#8fe3ff" />)}
-          <path d="M50 40 L57 51 L50 62 L43 51 Z" fill="#d9f6ff" />
-        </g>
-      )}
+      <image href={open ? runeGateOpenArt : runeGateClosedArt} width="100" height="100" preserveAspectRatio="xMidYMid meet" />
+      {open && opening && <image href={runeGateClosedArt} width="100" height="100" preserveAspectRatio="xMidYMid meet" className="gate-bars" />}
     </svg>
   );
 }
@@ -159,9 +153,7 @@ export function SymbolIcon({ symbol, lit }: { symbol: GateSymbol; lit: boolean }
 function PartitionArt() {
   return (
     <svg viewBox="0 0 100 100" aria-hidden="true" focusable="false">
-      <path d="M8 96 L14 10 L34 4 L36 96 Z M38 96 L42 2 L60 2 L62 96 Z M64 96 L66 4 L86 10 L92 96 Z" fill="#c9eef2" stroke="#3d6f7a"
-        strokeWidth="3" strokeLinejoin="round" opacity="0.92" />
-      <path d="M22 20 L24 80 M50 12 L50 86 M76 20 L74 80" stroke="#ffffff" strokeWidth="3" opacity="0.7" strokeLinecap="round" />
+      <image href={partitionArt} x="0" y="0" width="100" height="100" preserveAspectRatio="none" />
     </svg>
   );
 }
