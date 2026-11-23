@@ -613,6 +613,15 @@ body {
   position: relative; min-height: 0; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch;
   padding: 8px; border: 2px solid rgb(244 236 216 / 0.25); border-radius: 14px; background: rgb(10 24 16 / 0.35);
 }
+/* The list's window: at each edge where more of the list is out of sight, a shade and a note saying so (taps pass through). */
+.level-window { position: relative; min-height: 0; display: grid; grid-template-rows: minmax(0, 1fr); }
+.level-more { position: absolute; left: 2px; right: 2px; z-index: 1; display: flex; justify-content: center; pointer-events: none; }
+.level-more.is-above { top: 2px; padding: 8px 0 26px; border-radius: 12px 12px 0 0; background: linear-gradient(rgb(10 24 16 / 0.95), transparent); }
+.level-more.is-below { bottom: 2px; padding: 26px 0 8px; border-radius: 0 0 12px 12px; background: linear-gradient(transparent, rgb(10 24 16 / 0.95)); }
+.level-more > span {
+  padding: 4px 14px; border: 2px solid var(--gold); border-radius: 999px; background: var(--forest-1); color: var(--gold);
+  font-size: 0.95rem; font-weight: 700; box-shadow: 0 2px 6px rgb(0 0 0 / 0.5);
+}
 .level-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
 /* Level 9 (a level with a checklist): tighter gaps between the page's areas, so its controls stay on an iPad's screen. */
 .app.is-game.has-checklist { row-gap: 8px; }
@@ -758,6 +767,8 @@ body {
 .home h1 { font-size: 2.8rem; text-shadow: 0 2px 4px rgb(0 0 0 / 0.85), 0 0 18px rgb(0 0 0 / 0.6); }
 .home-nav { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 100%; }
 .home-nav .btn-quiet { grid-column: 1 / -1; background: rgb(10 24 16 / 0.8); }
+/* Story (development preview) leads, across the row; Puzzles and Levels share the next. */
+.home-nav [data-action="story"] { grid-column: 1 / -1; }
 .home-note { margin: 0; color: var(--earth); text-shadow: 0 1px 3px rgb(0 0 0 / 0.9); }
 
 .page .menu-card h1 { font-size: 1.5rem; color: var(--bark-dark); }
@@ -933,11 +944,10 @@ body {
   animation: openable-glow 1.4s ease-in-out infinite alternate;
 }
 @keyframes openable-glow { from { opacity: 0.55; } to { opacity: 1; } }
-/* Opening it (BookOpening, the attic's last action): over the board, the cover lifts and three pages turn, then all
-   fades into the ending, within BOOK_OPENING_MS (2200ms), which moves on whether or not these run. Each layer sits at
-   its own depth (--z) in the closed book, and turned over, in reverse, the last page on top. Each page has two faces,
-   photographs on both, the back turned to read correctly once over. The final fade is a layer faded in above the book
-   (::after): opacity on the book itself would flatten its 3D. */
+/* Opening it (BookOpening, the attic's last action): over the board, the cover lifts and three pages turn, and the book
+   stays open there, within BOOK_OPENING_MS (2200ms), after which Continue is enabled whether or not these run. Each layer
+   sits at its own depth (--z) in the closed book, and turned over, in reverse, the last page on top. Each page has two
+   faces, photographs on both, the back turned to read correctly once over. Under reduced motion it is simply open. */
 .book-opening {
   --book: calc(var(--board-size) * 0.38);
   grid-area: board; align-self: start; justify-self: center; position: relative; z-index: 4;
@@ -947,8 +957,7 @@ body {
 }
 @keyframes book-dim {
   0% { background: rgb(26 16 9 / 0); }
-  20%, 75% { background: rgb(26 16 9 / 0.8); }
-  100% { background: rgb(26 16 9); }
+  20%, 100% { background: rgb(26 16 9 / 0.8); }
 }
 .book-opening::before {
   content: ""; position: absolute; inset: 0; opacity: 0;
@@ -956,11 +965,6 @@ body {
   animation: book-glow 2200ms ease forwards;
 }
 @keyframes book-glow { 30%, 70% { opacity: 1; } 100% { opacity: 0; } }
-.book-opening::after {
-  content: ""; position: absolute; inset: 0; opacity: 0; background: rgb(26 16 9);
-  animation: book-out 450ms ease-in 1700ms forwards;
-}
-@keyframes book-out { to { opacity: 1; } }
 .book-opening-book {
   position: relative; width: var(--book); aspect-ratio: 1; transform-style: preserve-3d;
   animation: book-centre 750ms ease-in-out forwards;
@@ -996,7 +1000,8 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .board.is-attic .cell.is-openable::after { animation: none; }
   .book-opening::before, .book-opening-book, .book-opening-leaf, .book-opening-cover { animation: none; }
-  .book-opening::after { animation-duration: 600ms; animation-delay: 1500ms; }
+  .book-opening-book { transform: translateX(50%); }
+  .book-opening-leaf, .book-opening-cover { transform: rotateY(-180deg) translateZ(var(--z)); }
 }
 .next-area.is-containers .check-symbol { width: 30px; height: 30px; }
 .next-area.is-containers .checklist li { grid-template-columns: 30px auto minmax(0, 1fr); min-height: 32px; }
@@ -1025,6 +1030,29 @@ body {
 .board.is-palace .floor {
   background-image: linear-gradient(rgb(255 255 255 / 0.3), rgb(255 255 255 / 0.3)), url('../assets/board/palace-floor-v1.webp');
 }
+/* Chapter 1's woodland: the forest around the rooms is illustrated canopy (artwork/board/backgrounds/), lined up on the
+   board's grid like the floors (.forest, Board), but kept to each tile, so the gaps between tiles still show. The
+   texture's opposite edges don't match, so it repeats every --forest tiles with their gaps (FOREST_REPEAT in Board): each
+   repeat starts on a tile's edge, and its edges meet inside a gap, never across a tile. Blocks of that size alternate
+   between the canopy and its variation (lifted to the canopy's brightness), whose edges also fall in gaps, so the pattern
+   doesn't repeat every few tiles. The terrain, paths and gates above are see-through (paths, gates and characters drawn
+   as before); the palace wall and entrance keep their own look. */
+.forest {
+  position: absolute; inset: 0; z-index: -1; pointer-events: none; border-radius: 10px;
+  background: url('../assets/board/forest-canopy-tile-v1.webp')
+    calc(var(--c) * var(--pitch) * -1) calc(var(--r) * var(--pitch) * -1) / calc(var(--pitch) * var(--forest));
+  box-shadow: inset 0 0 0 2px rgb(0 0 0 / 0.25);
+}
+.forest.is-alt { background-image: url('../assets/board/forest-canopy-variation-v1.webp'); filter: brightness(1.18); }
+/* A hidden link's clue (the palace entrance's East terrace): a glimpse of a sunlit glade through the canopy, the hidden-link
+   artwork's lighter, thinner patch fitted to the tile (its trees drawn smaller than the forest's), under a faint warm light. */
+.forest.is-clue {
+  background:
+    radial-gradient(circle, rgb(255 240 170 / 0.28), rgb(255 240 170 / 0) 60%),
+    url('../assets/board/forest-hidden-link-v1.webp') calc(var(--tile) * -0.8) calc(var(--tile) * -0.88) / calc(var(--tile) * 2.6);
+}
+.board.is-entrance :is(.terrain:not(.is-palace), .path) { background: transparent; box-shadow: none; }
+.board.is-entrance .passage:not(.is-partition) { background: transparent; }
 /* The spread reaches 2px past the gap's middle, so the rounded corners leave no specks where four tiles meet; while
    outlined, it stops at the middle, so no tile's spread covers its neighbour's outline. */
 .board:is(.is-entrance, .is-palace) .cell { border-color: transparent; border-radius: 2px; background: transparent; box-shadow: none; }
@@ -1132,9 +1160,10 @@ button.character {
   .character.is-stepping { animation: none; }
 }
 
-/* Chapter 1: a region a story scene holds back (newly found, or newly opened) is under fog until the scene has been
-   read: its shape shows, misted over, with blank ground and nothing on it beneath. Then the fog lifts (drifting up and
-   thinning as the view comes to it); under reduced motion it neither drifts nor lifts, it is simply gone. */
+/* Chapter 1: a region a story scene holds back (newly found, or newly opened) looks as it did before the move during the
+   pause, then is under fog while the scene shows over the board: its shape, misted over, with blank ground and nothing on
+   it beneath. Once the scene has been read the fog lifts (drifting up and thinning as the view comes to it); under reduced
+   motion it neither drifts nor lifts, it is simply gone. */
 .fogged { border-radius: 6px; background: #b8c3c6; }
 .region.is-fog {
   z-index: 3; overflow: hidden;

@@ -150,8 +150,9 @@ export function partitionShown(state: UiState): 'shut' | 'opening' | null {
 
 /**
  * Party levels: the regions the story scene still to come holds back (see storyPending): those its task opened. Until it
- * has been read they are under fog (their shape, nothing in them) and not named or announced, so the scene shows them
- * first; the session has them open throughout.
+ * has been read they are not named or announced, so the scene shows them first; on the board they look as they did before
+ * that move until the scene is showing, and are under fog (their shape, nothing in them) while it shows, so the fog lifts
+ * off them once it has been read (see Board). The session has them open throughout.
  */
 export function storyHeld(state: UiState): readonly number[] {
   const s = pendingStory(state);

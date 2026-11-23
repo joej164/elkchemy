@@ -76,7 +76,7 @@ describe('HelpButton', () => {
     expect(app).not.toContain('data-action="start-puzzle"');
   });
 
-  it('the Play screen offers both modes and a way home', () => {
+  it('the Puzzles screen offers both modes and a way home', () => {
     const play = renderToStaticMarkup(<PlaySetup config={{ mode: 'goals', tier: 3, goals: 1 }} onConfig={() => {}}
       onStart={() => {}} onHome={() => {}} musicControl={null} />);
     expect(play).toContain('Merge to goals');
@@ -87,7 +87,7 @@ describe('HelpButton', () => {
     expect(play).toContain('data-action="home"');
     expect(play).toMatch(/srcSet="[^"]*alisha-elk-play-portrait-v1\.webp"/);
     expect(play).toMatch(/<img src="[^"]*alisha-elk-play-landscape-v4\.webp"/);
-    expect(play).toContain('<h1>Play</h1>');
+    expect(play).toContain('<h1>Puzzles</h1>');
     const one = renderToStaticMarkup(<PlaySetup config={{ mode: 'one', tier: 3, goals: 1 }} onConfig={() => {}}
       onStart={() => {}} onHome={() => {}} musicControl={null} error="Couldn't make a puzzle." />);
     expect(one).not.toContain('>Goals</legend>');

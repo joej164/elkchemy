@@ -443,7 +443,7 @@ describe('The Attic: opening the Picture Book', () => {
     expect(html(opened)).toContain('aria-label="Row 5, column 3: Picture Book, tier 4 of 5" aria-pressed="false" aria-disabled="true"');
   });
 
-  it('moves on once its opening has played, on a timer, once; Retry or leaving cancels it first', () => {
+  it('enables Continue once its opening has played, on a timer, once; Retry or leaving cancels it first', () => {
     vi.useFakeTimers();
     const done = vi.fn();
     const cancel = afterOpening(opened, done)!;
@@ -668,7 +668,7 @@ describe('The Attic: presentation, text and sound', () => {
     expect(later).toContain(': holds 1 × Book stack, tier 2 of 5');
   });
 
-  it('is offered from Levels, not Home, and explains both chains, the craft and the boxes in Help', () => {
+  it('is offered from Levels (and the development preview\'s Story), not as its own Home button, and explains both chains, the craft and the boxes in Help', () => {
     const home = renderToStaticMarkup(<Home onPlay={() => {}} onLevels={() => {}} onScores={() => {}}
       onReleaseNotes={() => {}} musicControl={null} />);
     expect(home).not.toMatch(/data-action="attic"|The Attic/);

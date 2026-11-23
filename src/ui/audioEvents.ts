@@ -5,13 +5,13 @@ import type { EffectCue } from '../effects';
 
 /**
  * One sound per successful action; presentation and selection never create gameplay events. A move that leads into a
- * story scene (one still to come for it, see storyPending, or, with `sceneOnWin`, the win that leads straight into the
- * ending: Beyond the gate) plays the short discovery cue instead of its own, whatever it did, so the scene is heralded the same way each time.
+ * story scene (one still to come for it, see storyPending) plays the short discovery cue instead of its own, whatever it
+ * did, so the scene is heralded the same way each time.
  */
-export function actionEffect(state: UiState, sceneOnWin = false): EffectCue | null {
+export function actionEffect(state: UiState): EffectCue | null {
   const action = state.lastAction;
   if (!action || action.kind === 'undo' || action.kind === 'retry') return null;
-  if (storyPending(state) !== null || (sceneOnWin && state.status === 'won')) return 'discovery';
+  if (storyPending(state) !== null) return 'discovery';
   // Room levels' treasure and the attic's Picture Book: opening the prize is the win.
   // The palace entrance prototype: Alisha opening the entrance is the win too.
   if (action.kind === 'collect' || action.kind === 'openGoal' || (action.kind === 'stand' && !action.progress)) return 'case-victory';

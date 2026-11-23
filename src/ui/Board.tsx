@@ -35,6 +35,11 @@ interface Drag { origin: Pos; x: number; y: number; size: number; hover: Pos | n
 
 const SPARKS = [0, 1, 2, 3, 4, 5];
 const BURST = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+/**
+ * Chapter 1's woodland forest (see .forest): its canopy repeats every this many tiles (with their gaps), each way, so every
+ * repeat's edges fall in the gaps between tiles; blocks of that size alternate between the canopy and its variation.
+ */
+const FOREST_REPEAT = 4;
 
 const same = (a: Pos | null, b: Pos | null) => !!a && !!b && a.row === b.row && a.col === b.col;
 
@@ -241,12 +246,14 @@ function Character({ who, movable = false, selected = false, ready = false, lift
  * Party levels: Alisha and Fiona stand on their spots, their speech bubbles show (pausing the board) as their talk comes
  * due, Alisha's plates glow once she can stand on them, and the palace entrance opens when she stands on its plate; the
  * palace rescue's partition closes behind her while she is trapped.
+ * `sceneShowing`: the story scene due is being shown over the board (see storyHeld for what that changes).
  */
-export function Board({ state, dispatch, onOverflowChange, onPalaceOpening, onPresentationCancel, scene }: {
+export function Board({ state, dispatch, onOverflowChange, onPalaceOpening, onPresentationCancel, scene, sceneShowing = false }: {
   state: UiState; dispatch: Dispatch<UiAction>; onOverflowChange?: (overflowing: boolean) => void;
   onPalaceOpening?: (seq: number) => void;
   onPresentationCancel?: () => void;
   scene?: 'attic' | 'entrance' | 'palace';
+  sceneShowing?: boolean;
 }) {
   const palaceOpeningRef = useRef(onPalaceOpening);
   palaceOpeningRef.current = onPalaceOpening;
@@ -261,10 +268,12 @@ export function Board({ state, dispatch, onOverflowChange, onPalaceOpening, onPr
   // Party levels: where Alisha and Fiona stand, her plates (a goal plate, or a task's: shown once their room is open,
   // pressed once she has stood there), her destination now, and the palace entrance beside the last room.
   const { party, goal } = state.session.level;
-  // A story scene due holds back the regions its move opened (see storyHeld): under fog, their shape showing but nothing in
-  // them, until it has been read; then the fog lifts off them (`lifted`). Held with the palace entrance's forecourt: its
-  // wall, entrance and plate, and Alisha and Fiona's move up beside it.
+  // A story scene due holds back the regions its move opened (see storyHeld). During the pause before it they look as they
+  // did before that move (still closed, or still hidden); once it is showing over the board (`sceneShowing`) they go under
+  // fog, their shape showing but nothing in them, so that once it has been read the fog lifts off them (`lifted`). Held
+  // with the palace entrance's forecourt: its wall, entrance and plate, and Alisha and Fiona's move up beside it.
   const heldBack = storyHeld(state);
+  const fogged = sceneShowing ? heldBack : [];
   const lifted = storyLifted(state);
   const plateHeld = plateGoal(state.session.level) && goal.kind === 'treasure' && heldBack.includes(regionAt(regions!, goal.at));
   // The palace rescue's partition as shown (see partitionShown): shut while she is trapped and while Fiona asks whether it is
@@ -306,7 +315,7 @@ export function Board({ state, dispatch, onOverflowChange, onPalaceOpening, onPr
   const isCell = (p: Pos) => {
     if (!regions) return true;
     const i = regionAt(regions, p);
-    return i !== -1 && !(regions[i].hidden && !shownOpen(i)) && !heldBack.includes(i);
+    return i !== -1 && !(regions[i].hidden && !shownOpen(i)) && !fogged.includes(i);
   };
   // Room levels start on the first open cell, so a locked room (the palace in a corner) never takes the first tab stop.
   const firstCell = (): Pos => {
@@ -792,7 +801,7 @@ export function Board({ state, dispatch, onOverflowChange, onPalaceOpening, onPr
         role="group"
         aria-label={`Board, ${cols} columns by ${rows} rows`}
         data-board
-        style={{ '--rows': rows, '--cols': cols } as CSSProperties}
+        style={{ '--rows': rows, '--cols': cols, '--forest': FOREST_REPEAT } as CSSProperties}
       >
         {board.map((rowCells, r) =>
           rowCells.map((item, c) => {
@@ -803,8 +812,8 @@ export function Board({ state, dispatch, onOverflowChange, onPalaceOpening, onPr
             // A hidden region's cells, its link included, are plain forest until it opens: no tile, item, label or focus.
             // The link's foliage differs faintly, the only clue.
             if (region && !isCell(pos)) {
-              // A region under fog (see heldBack): blank ground under the fog, nothing on it.
-              if (heldBack.includes(ri)) return <div key={`${r}-${c}`} className="fogged" aria-hidden="true" />;
+              // A region under fog (see fogged): blank ground under the fog, nothing on it.
+              if (fogged.includes(ri)) return <div key={`${r}-${c}`} className="fogged" aria-hidden="true" />;
               // A hidden building is sealed instead: blank floor under its locked shade, with nothing on it.
               if (region.building) return <div key={`${r}-${c}`} className="sealed" aria-hidden="true" />;
               const clue = !!region.link && same(region.link, pos);
@@ -1034,6 +1043,21 @@ export function Board({ state, dispatch, onOverflowChange, onPalaceOpening, onPr
             <div key={`floor-${r}-${c}`} className="floor" aria-hidden="true"
               style={{ gridRow: `${r + 1} / span 1`, gridColumn: `${c + 1} / span 1`, '--r': r, '--c': c } as CSSProperties} />
           ) : null)))}
+        {/* Chapter 1's woodland: the forest between the rooms (under its terrain, paths, gates and Alisha and Fiona's spots,
+            and a hidden region's cells until it opens), lined up across the board in blocks of FOREST_REPEAT tiles that
+            alternate between the canopy and its variation (see .forest). A hidden link's cell shows a glade through the
+            canopy instead, its clue. None under the palace wall and entrance, nor under fog. */}
+        {scene === 'entrance' && regions && board.flatMap((rowCells, r) => rowCells.map((_, c) => {
+          const pos = { row: r, col: c };
+          const ri = regionAt(regions, pos);
+          if ((ri !== -1 && (isCell(pos) || fogged.includes(ri))) || palace.has(`${r},${c}`)) return null;
+          const clue = ri !== -1 && !!regions[ri].link && same(regions[ri].link!, pos);
+          const alt = (Math.floor(r / FOREST_REPEAT) + Math.floor(c / FOREST_REPEAT)) % 2 === 1;
+          return (
+            <div key={`forest-${r}-${c}`} className={`forest${clue ? ' is-clue' : alt ? ' is-alt' : ''}`} aria-hidden="true"
+              style={{ gridRow: `${r + 1} / span 1`, gridColumn: `${c + 1} / span 1`, '--r': r, '--c': c } as CSSProperties} />
+          );
+        }))}
         {/* Region outlines over the gaps (never taking input). A locked region is shaded, with a wooden gate carrying
             its sign: tapping or pressing the gate asks the session to unlock that region, which it does only when it
             is next and its item is made. A drag across a gate pans like locked ground and never unlocks. */}
@@ -1045,7 +1069,7 @@ export function Board({ state, dispatch, onOverflowChange, onPalaceOpening, onPr
         ))}
         {regions?.map((r, i) => {
           // A region under fog: its shape, misted over, with nothing to read or tap.
-          if (heldBack.includes(i)) {
+          if (fogged.includes(i)) {
             return (
               <div key={r.name} className="region is-fog" data-fog={i} aria-hidden="true"
                 style={{ gridRow: `${r.row + 1} / span ${r.rows}`, gridColumn: `${r.col + 1} / span ${r.cols}` }} />

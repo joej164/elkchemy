@@ -2,12 +2,12 @@ import type { CSSProperties } from 'react';
 import { BookPageArt, PictureBookCoverArt } from './ItemArt';
 import type { UiState } from './controller';
 
-/** How long the Picture Book's opening plays before the story moves on. Its CSS (app.css) fits within this. */
+/** How long the Picture Book's opening plays before Continue is enabled. Its CSS (app.css) fits within this. */
 export const BOOK_OPENING_MS = 2200;
 
 /**
  * Once the last action opened the goal item (`openGoal`, the attic's Picture Book), calls `done` after its opening
- * has played. A timer, so it never waits on animation events. Returns the cancel, for the next action (Retry) or
+ * has played (enabling Continue). A timer, so it never waits on animation events. Returns the cancel, for the next action (Retry) or
  * leaving, after which it never calls `done`; undefined for any other action.
  */
 export function afterOpening(state: UiState, done: () => void, ms = BOOK_OPENING_MS): (() => void) | undefined {
@@ -18,8 +18,8 @@ export function afterOpening(state: UiState, done: () => void, ms = BOOK_OPENING
 
 /**
  * The Picture Book opening, over the board: its cover (the item's own cover art) lifts and three pages turn, each with
- * small photographs on both sides, then everything fades into the ending. Under reduced motion the closed book only
- * fades. Decorative.
+ * small photographs on both sides, and it stays open until Continue. Under reduced motion it is shown open at once.
+ * Decorative.
  */
 export function BookOpening() {
   return (

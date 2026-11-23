@@ -68,8 +68,8 @@ function Choice<T extends string | number>({ name, legend, options, value, onCha
 }
 
 /**
- * Play screen: choose a generated puzzle's mode and settings, or load a puzzle code (`onLoad`, given the text as typed;
- * `loadError` says why the last one couldn't be loaded).
+ * Puzzles screen (Home's Puzzles): choose a generated puzzle's mode and settings, or load a puzzle code (`onLoad`, given
+ * the text as typed; `loadError` says why the last one couldn't be loaded).
  */
 export function PlaySetup({ config, onConfig, onStart, onLoad, onHome, error, loadError, musicControl }: {
   config: PuzzleConfig;
@@ -97,7 +97,7 @@ export function PlaySetup({ config, onConfig, onStart, onLoad, onHome, error, lo
         <div className="title-controls">{musicControl}</div>
       </div>
       <section className="panel menu-card scene-main" aria-label="Puzzle settings">
-        <h1>Play</h1>
+        <h1>Puzzles</h1>
         <Choice name="mode" legend="Mode" options={MODES} value={config.mode}
           onChange={(mode) => onConfig(switchMode(config, mode))} />
         <p className="menu-note">{MODE_TEXT[config.mode]}</p>

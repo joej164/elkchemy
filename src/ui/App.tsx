@@ -12,7 +12,7 @@ import { Comic, ComicOverlay, type ComicScene } from './Comic';
 import { CLOSING_PANELS, memoryMusicOn, OPENING_PANELS } from './atticStory';
 import { afterOpening, BookOpening } from './BookOpening';
 import { atticGuide } from './atticGuide';
-import { afterEntranceOpening, afterRecipeIdle, afterStoryDue, afterWinScene, ENTRANCE_OPENING_MS } from './entranceGuide';
+import { afterEntranceOpening, afterRecipeIdle, afterStoryDue, ENTRANCE_OPENING_MS } from './entranceGuide';
 import { CHAPTER_ONE } from './chapterOne';
 import { HelpButton } from './HelpButton';
 import { Home } from './Home';
@@ -222,6 +222,7 @@ export function App({ levels = LEVELS }: { levels?: readonly Level[] }) {
       screen.kind === 'pick' ? ' is-levels' : ''}${active?.tasks ? ' has-checklist' : ''}${screen.kind === 'attic' ? ' is-attic' : ''}`}>
       {screen.kind === 'home' && (
         <Home musicControl={musicControl} onPlay={() => show({ kind: 'play' })}
+          onStory={STORY_PREVIEW ? () => { show({ kind: 'attic', phase: 'opening' }); window.scrollTo(0, 0); } : undefined}
           onLevels={() => show({ kind: 'pick' })} onScores={() => show({ kind: 'scores' })}
           onReleaseNotes={() => show({ kind: 'notes' })}
           levelsNote={index > 0 ? `Levels continue at level ${index + 1} of ${levels.length}, ${levels[index].name}.` : undefined} />
@@ -263,16 +264,17 @@ export function App({ levels = LEVELS }: { levels?: readonly Level[] }) {
           finish={{ prompt: 'Tap to start tidying.', name: 'Start tidying' }}
           onFinish={() => show({ kind: 'attic', phase: 'play' })} onHome={toHome} musicControl={musicControl} />
       )}
+      {/* With Chapter 1, the Attic is its prologue and leads into its first level, as each level leads into the next. */}
       {screen.kind === 'attic' && screen.phase === 'closing' && (
         <Comic key={run} title="The Attic" label="Ending" panels={CLOSING_PANELS}
-          finish={{ prompt: 'Tap to return to Levels.', name: 'Back to Levels' }}
-          onFinish={() => show({ kind: 'pick' })} onPanel={(i) => setMemoryMusic((on) => memoryMusicOn(on, i))}
+          finish={STORY_PREVIEW ? { prompt: 'Tap to continue.', name: 'Continue' } : { prompt: 'Tap to return to Levels.', name: 'Back to Levels' }}
+          onFinish={() => (STORY_PREVIEW ? openChapter(0) : show({ kind: 'pick' }))} onPanel={(i) => setMemoryMusic((on) => memoryMusicOn(on, i))}
           onHome={toHome} musicControl={musicControl} />
       )}
       {screen.kind === 'attic' && screen.phase === 'play' && (
         <Game key={run} onMusicAreaChange={setMusicArea} playEffect={effects.play} stopEffects={effects.stop} definition={ATTIC_LEVEL}
           musicControl={musicControl} onHome={toHome} label="Story prototype · The Attic" scene="attic" guide={atticGuide}
-          onWin={() => show({ kind: 'attic', phase: 'closing' })} />
+          winLabel="Continue" onWin={() => show({ kind: 'attic', phase: 'closing' })} />
       )}
       {chapter && screen.kind === 'chapter' && screen.phase === 'opening' && (
         <Comic key={run} title={chapter.name} label="Opening" panels={chapter.opening} finish={{ prompt: 'Tap to start.', name: 'Start' }}
@@ -282,7 +284,7 @@ export function App({ levels = LEVELS }: { levels?: readonly Level[] }) {
         <Game key={run} onMusicAreaChange={setMusicArea} playEffect={effects.play} stopEffects={effects.stop} definition={chapter.definition}
           musicControl={musicControl} onHome={toHome} label={`Chapter 1 · ${screen.level + 1} of ${CHAPTER_ONE.length} · ${chapter.name}`}
           scene={chapter.scene} guide={chapter.guide} story={chapter.story && { title: chapter.name, scenes: chapter.story }}
-          winLabel={chapter.winLabel} sceneOnWin={chapter.sceneOnWin}
+          winLabel={chapter.winLabel}
           onWin={() => {
             setChapterNext(screen.level + 1 < CHAPTER_ONE.length ? screen.level + 1 : 0);
             if (chapter.closing) show({ ...screen, phase: 'closing' }); else afterChapter(screen.level);
@@ -427,8 +429,8 @@ interface GameProps {
   musicControl: ReactNode;
   onHome: () => void;
   /**
-   * Handcrafted levels: the button offered after winning. With an `open` item goal (the attic) there is none: opening
-   * the goal item wins, and `onWin` follows by itself once its opening has played (see BookOpening).
+   * Handcrafted levels: the button offered after winning (the level's final action on the board). With an `open` item
+   * goal (the attic), opening the goal item wins, and the button is enabled once its opening has played (see BookOpening).
    */
   winLabel?: string;
   onWin?: () => void;
@@ -447,11 +449,6 @@ interface GameProps {
    * the paused game once due (after STORY_DELAY_MS), one line at a time; reading it to the end returns to the board.
    */
   story?: { readonly title: string; readonly scenes: Readonly<Record<string, ComicScene>> };
-  /**
-   * Party levels whose win leads straight into the ending (Beyond the gate): once won, `onWin` follows by itself after the
-   * same pause as before a story scene (STORY_DELAY_MS), with the discovery cue, and no button is offered.
-   */
-  sceneOnWin?: boolean;
 }
 
 /**
@@ -530,26 +527,22 @@ export function CraftSign({ craft, state }: { craft: ItemRecipe; state: UiState 
 
 export function Game({
   definition, label, musicControl, onHome, winLabel, onWin, puzzleId, onNewPuzzle, onMusicAreaChange, playEffect, stopEffects, scene, guide,
-  story, sceneOnWin = false,
+  story,
 }: GameProps) {
   const [state, dispatch] = useReducer(reduceUi, definition, initUi);
   const handled = useRef(0);
   const palacePlayed = useRef(0);
-  const winRef = useRef(onWin);
-  winRef.current = onWin;
-  // Cancelled by the next action (Retry) and by leaving (Home), so it never moves on afterwards.
-  useEffect(() => afterOpening(state, () => winRef.current?.()), [state.actionSeq]);
-  // A win that leads straight into the ending (Beyond the gate) moves on by itself once the board has shown it; cancelled
-  // the same way.
-  useEffect(() => (sceneOnWin ? afterWinScene(state, () => winRef.current?.()) : undefined), [state.actionSeq]);
-  // Party levels: Enter the palace is offered once the entrance has opened on the board (at once under reduced motion);
-  // the wait is cancelled the same way.
-  const [entered, setEntered] = useState(-1);
+  // A winning action with its own presentation on the board enables the next-level button once that has played: the
+  // palace entrance opening (at once under reduced motion) and the attic's Picture Book opening. Until then the button
+  // stays in place, disabled. The wait is cancelled by the next action (Retry) and by leaving (Home).
+  const [presented, setPresented] = useState(-1);
   useEffect(() => {
     const seq = state.actionSeq;
     const still = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
-    return afterEntranceOpening(state, () => setEntered(seq), still ? 0 : ENTRANCE_OPENING_MS);
+    return afterEntranceOpening(state, () => setPresented(seq), still ? 0 : ENTRANCE_OPENING_MS)
+      ?? afterOpening(state, () => setPresented(seq));
   }, [state.actionSeq]);
+  const presenting = (!!state.session.level.party?.door && state.lastAction?.kind === 'stand') || state.lastAction?.kind === 'openGoal';
   // Party levels: a story scene due is shown once the board has shown the move that made it due; the wait is cancelled
   // the same way. Reading it changes neither the session nor actionSeq.
   const due = storyDue(state);
@@ -577,7 +570,7 @@ export function Game({
     handled.current = state.actionSeq;
     if (state.lastAction?.kind === 'undo' || state.lastAction?.kind === 'retry') stopEffects?.();
     if (!palaceOpeningPending(state)) {
-      const cue = actionEffect(state, sceneOnWin);
+      const cue = actionEffect(state);
       if (cue) playEffect?.(cue);
     }
   }, [state.actionSeq, playEffect, stopEffects]);
@@ -597,7 +590,10 @@ export function Game({
   // Room levels: gates open by themselves, so there is no Unlock button; the goal is the treasure.
   const rooms = goal.kind === 'treasure';
   const single = goal.kind === 'items' || goal.kind === 'treasure' ? undefined : goal.item;
-  const opensGoal = goal.kind === 'item' && !!goal.open;
+  // Once won, the next-level button sits beside Home in the first row of the controls: in levels with tasks (level 9 and
+  // the chapter's room levels), so Undo, Retry and Home stay on an iPad's screen, and in every story level (the attic and
+  // Chapter 1, which have a scene), so Continue is always in the same place after the level's final action.
+  const nextBesideHome = !!tasks || scene !== undefined;
   const next = nextSupplyItem(state);
   const left = supplyRemaining(state);
   const canSupply = canPlaceSupply(state);
@@ -710,7 +706,7 @@ export function Game({
       </header>
 
       <Board state={state} dispatch={dispatch} onOverflowChange={setPannable} onPalaceOpening={palaceOpening} onPresentationCancel={stopEffects}
-        scene={scene} />
+        scene={scene} sceneShowing={storyScene !== undefined} />
       {state.lastAction?.kind === 'openGoal' && <BookOpening />}
 
       <div className={`banner is-${state.status}${recipeHint ? ' is-hint' : ''}`} data-status={state.status}>
@@ -736,18 +732,13 @@ export function Game({
           <button type="button" className="btn btn-next" data-action="new-puzzle" onClick={() => leave(onNewPuzzle)}>
             New puzzle
           </button>
-        ) : state.status === 'won' && !opensGoal ? (
-          // Level 9 (a level with tasks): once won, Home sits beside the next-level button, so no row is added and
-          // Undo, Retry and Home stay on an iPad's screen.
-          tasks ? (
+        ) : state.status === 'won' ? (
+          nextBesideHome ? (
             <div className="row">
-              {/* The palace entrance: offered once its doors have opened on the board; it stays in place, disabled, until then.
-                  None where the win leads straight into the ending. */}
-              {!sceneOnWin && (
-                <button type="button" className="btn btn-next" data-action="next-level"
-                  disabled={!!party?.door && state.lastAction?.kind === 'stand' && entered !== state.actionSeq}
-                  onClick={onWin}>{winLabel}</button>
-              )}
+              {/* Enabled once the win's own presentation has played (the palace entrance or the Picture Book opening); it
+                  stays in place, disabled, until then. */}
+              <button type="button" className="btn btn-next" data-action="next-level"
+                disabled={presenting && presented !== state.actionSeq} onClick={onWin}>{winLabel}</button>
               {homeButton}
             </div>
           ) : (
@@ -783,7 +774,7 @@ export function Game({
             onClick={() => dispatch({ type: 'retry' })}>Retry</button>
           {workshop !== undefined && state.status === 'playing' && homeButton}
         </div>
-        {!(tasks && state.status === 'won') && !(workshop !== undefined && state.status === 'playing') && homeButton}
+        {!(nextBesideHome && state.status === 'won') && !(workshop !== undefined && state.status === 'playing') && homeButton}
         {puzzle && <PuzzleId id={puzzleId} />}
       </section>
     </>

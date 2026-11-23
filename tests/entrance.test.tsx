@@ -90,7 +90,7 @@ const withLoose = (ui: UiState): UiState => {
   b[2][6] = it_('grove', 0);
   return { ...ui, session: { ...ui.session, board: b } };
 };
-const board = (s: UiState) => renderToStaticMarkup(<Board state={s} dispatch={() => {}} scene="entrance" />);
+const board = (s: UiState, sceneShowing = false) => renderToStaticMarkup(<Board state={s} dispatch={() => {}} scene="entrance" sceneShowing={sceneShowing} />);
 const game = () => renderToStaticMarkup(
   <Game definition={ENTRANCE_LEVEL} label="Story prototype · Palace entrance" musicControl={null} onHome={() => {}} scene="entrance"
     guide={entranceGuide} winLabel="Enter the palace" onWin={() => {}} />,
@@ -255,6 +255,41 @@ describe('Palace entrance prototype: concealment', () => {
   });
 });
 
+describe('Palace entrance: the illustrated forest around the rooms', () => {
+  // Every board position is drawn as one of these (the board is 20 × 11).
+  const tiles = (html: string) => ({
+    forest: html.match(/class="forest[ "]/g)?.length ?? 0, cells: html.match(/data-cell="true"/g)?.length ?? 0,
+    fogged: html.match(/class="fogged"/g)?.length ?? 0, palace: html.match(/class="terrain is-palace/g)?.length ?? 0,
+  });
+  const link = regions.find((r) => r.link)!.link!;
+  const clueAt = (html: string) => [...html.matchAll(/class="forest is-clue"[^>]*grid-row:(\d+) \/ span 1;grid-column:(\d+) \/ span 1/g)]
+    .map((m) => p(+m[1] - 1, +m[2] - 1));
+
+  it('lies under everything that is not a tile, with the hidden link\'s clue until it opens, never under fog or the palace front', () => {
+    const total = ENTRANCE_LEVEL.board.length * ENTRANCE_LEVEL.board[0].length;
+    // At the start: forest wherever there is no tile, the hidden link's cell its clue.
+    const start = board(initUi(ENTRANCE_LEVEL));
+    expect(tiles(start)).toEqual({ forest: total - tiles(start).cells, cells: tiles(start).cells, fogged: 0, palace: 0 });
+    expect(clueAt(start)).toEqual([link]);
+    expect(start).toMatch(/class="forest is-alt"/);
+    // The East terrace's concealed part found: its cells and the link are tiles now, and the clue is gone.
+    const pocket = through(initUi(ENTRANCE_LEVEL), ...drops([...OPEN_FORK, ...OPEN_TERRACES, ...FINISH_WEST, ...REVEAL_POCKET]));
+    const found = board(pocket);
+    expect(found).toMatch(new RegExp(`data-row="${link.row}" data-col="${link.col}"`));
+    expect([clueAt(found), tiles(found).forest + tiles(found).cells]).toEqual([[], total]);
+    // C1-08B showing: the forecourt under fog has no forest beneath; once read, none under the palace wall and entrance.
+    const due = through(initUi(ENTRANCE_LEVEL), ...drops(ALL_MOVES));
+    const fog = tiles(board(due, true));
+    expect([fog.fogged > 0, fog.forest + fog.cells + fog.fogged]).toEqual([true, total]);
+    const open = tiles(board(revealedUi()));
+    expect([open.palace > 0, open.forest + open.cells + open.palace]).toEqual([true, total]);
+    // Only Chapter 1's woodland has it: not the palace's halls, nor boards without a scene.
+    for (const scene of ['palace', undefined] as const) {
+      expect(renderToStaticMarkup(<Board state={initUi(ENTRANCE_LEVEL)} dispatch={() => {}} scene={scene} />)).not.toContain('class="forest');
+    }
+  });
+});
+
 describe('Palace entrance prototype: the reveal and Alisha\'s speech bubble', () => {
   it('reveals the forecourt, the entrance and the plate together on one move, announced, with Alisha beside them', () => {
     const before = through(initUi(ENTRANCE_LEVEL), ...drops(ALL_MOVES.slice(0, -1)));
@@ -266,12 +301,16 @@ describe('Palace entrance prototype: the reveal and Alisha\'s speech bubble', ()
     expect(describeAction(s.lastAction, 'Level', ENTRANCE_LEVEL.goal, regions, tasks)).toBe(
       'Merged 3 into 1 item: Grove, tier 3 of 5. The way north is clear: Palace forecourt, with the palace entrance and a pressure plate.');
     expect(viewCue(s)).toEqual({ kind: 'region', region: FORECOURT });
-    // Until the forecourt's scene (C1-08B) has been read, it is under fog: its shape, but no cells, wall, entrance, plate
-    // or bubble, and Alisha and Fiona where they were; the move is announced without it. Only the move's own result shows
-    // (Grove 3 fixed on its tile).
+    // Until the forecourt's scene (C1-08B) has been read, there are no cells, wall, entrance, plate or bubble, and Alisha
+    // and Fiona are where they were; the move is announced without it. Only the move's own result shows (Grove 3 fixed on
+    // its tile). Through the pause it looks as it did before the move (forest, no fog); once the scene is showing over the
+    // board it is under fog, its shape only.
     const html = board(s);
+    const forest = (h: string) => h.match(/class="terrain"/g)?.length;
     expect(html).not.toMatch(SPOILER);
-    expect(html).toContain(`<div class="region is-fog" data-fog="${FORECOURT}" aria-hidden="true"`);
+    expect([html.includes('data-fog='), forest(html)]).toEqual([false, forest(board(before))]);
+    expect(board(s, true)).not.toMatch(SPOILER);
+    expect(board(s, true)).toContain(`<div class="region is-fog" data-fog="${FORECOURT}" aria-hidden="true"`);
     expect(announcement(s, 'Level')).toBe('Merged 3 into 1 item: Grove, tier 3 of 5.');
     expect(html).toContain('class="board is-entrance is-paused"');
     expect(html).toContain('aria-label="Row 5, column 6, Upper approach, pressure plate for Grove, tier 3 of 5, fixed: Grove, tier 3 of 5"');
@@ -482,12 +521,18 @@ describe('Palace entrance prototype: story scenes', () => {
     expect([isOpen(s.session, WEST), isOpen(s.session, EAST), isOpen(s.session, UPPER), plateRevealed(s)]).toEqual([true, true, false, false]);
     expect(board(s)).not.toMatch(SPOILER);
     expect(board(s)).toContain('class="board is-entrance is-paused"');
-    // Until it has been read, both terraces are under fog: their shape, no cells or items, gates drawn and labelled shut,
-    // nothing glowing, and the move announced without them. The move's own result shows, with the discovery cue.
-    const fog = (u: UiState, i: number) => board(u).includes(`<div class="region is-fog" data-fog="${i}" aria-hidden="true"`);
+    // Until it has been read, both terraces' gates are drawn and labelled shut, nothing glows, and the move is announced
+    // without them. The move's own result shows, with the discovery cue. Through the pause the terraces look as they did
+    // before the move (locked, their items showing, no fog); once the scene is showing over the board they are under fog:
+    // their shape, no cells or items.
+    const fog = (u: UiState, i: number, showing = false) => board(u, showing).includes(`<div class="region is-fog" data-fog="${i}" aria-hidden="true"`);
     const lifting = (u: UiState, i: number) => board(u).includes(`<div class="region is-fog is-lifting" data-fog-lifting="${i}" aria-hidden="true"`);
-    const terraceCells = (u: UiState) => board(u).match(/aria-label="Row \d+, column \d+, (West|East) terrace/g)?.length ?? 0;
-    expect([fog(s, WEST), fog(s, EAST), terraceCells(s), board(s).includes('data-fx="unlock"')]).toEqual([true, true, 0, false]);
+    const terraceCells = (u: UiState, showing = false, locked = '') =>
+      board(u, showing).match(new RegExp(`aria-label="Row \\d+, column \\d+, (West|East) terrace${locked}`, 'g'))?.length ?? 0;
+    expect([terraceCells(before), terraceCells(before, false, ', locked')]).toEqual([24, 24]);
+    expect([fog(s, WEST), fog(s, EAST), terraceCells(s), terraceCells(s, false, ', locked'), board(s).includes('data-fx="unlock"')])
+      .toEqual([false, false, 24, 24, false]);
+    expect([fog(s, WEST, true), fog(s, EAST, true), terraceCells(s, true)]).toEqual([true, true, 0]);
     const gate = (u: UiState, i: number) => board(u).match(new RegExp(`<div class="(passage[^"]*)" data-passage="${i}"[^>]*aria-label="([^"]*)"`))!;
     for (const [i, name] of [[WEST, 'West'], [EAST, 'East']] as const) {
       expect([gate(s, i)[1].includes('is-open'), gate(s, i)[2]], name).toEqual([false, `Rune gate to ${name} terrace, closed`]);

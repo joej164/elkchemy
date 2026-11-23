@@ -14,7 +14,7 @@ import {
   type LevelDefinition, type SessionState,
 } from '../src/session';
 import { evaluateStatus, strandedRoom } from '../src/status';
-import { announcement, describeAction, Game, TaskPanel } from '../src/ui/App';
+import { announcement, App, describeAction, Game, TaskPanel } from '../src/ui/App';
 import { Board } from '../src/ui/Board';
 import { actionEffect } from '../src/ui/audioEvents';
 import { viewCue } from '../src/ui/camera';
@@ -28,7 +28,7 @@ import { artDescription, beatAnnouncement, Comic, comicBeats, type ComicPanel } 
 import {
   bubbleOpen, canMoveAlisha, canPickUp, canUndo, initUi, reduceUi, storyDue, storyHeld, storyPending, talkDue, talkShown, workshopProgress, type UiAction, type UiState,
 } from '../src/ui/controller';
-import { afterRecipeIdle, afterWinScene, RECIPE_HINT_MS, STORY_DELAY_MS } from '../src/ui/entranceGuide';
+import { afterRecipeIdle, RECIPE_HINT_MS } from '../src/ui/entranceGuide';
 import { LevelPicker } from '../src/ui/LevelPicker';
 import { statusMessage, workshopHint } from '../src/ui/messages';
 import { APPROACH_PANELS, ENTRANCE_STORY, ENTRY_PANELS, INSIDE_PANELS } from '../src/ui/StoryArt';
@@ -512,28 +512,34 @@ describe('The Crystal Palace: on-board talk, the trap and the rescue', () => {
     const freed = states[states.length - 1];
     expect([trapped(freed), isOpen(freed, RESCUE_ANTE), partySpots(freed)]).toEqual([false, true, party.trap!.free]);
     const ui = through(RESCUE_LEVEL, [...R.entry, ...R.gallery, ...R.trap, ...R.workshop, ...R.archive, ...R.chamber]);
-    const board = (u: UiState) => renderToStaticMarkup(<Board state={u} dispatch={() => {}} scene="palace" />);
+    const board = (u: UiState, sceneShowing = false) => renderToStaticMarkup(<Board state={u} dispatch={() => {}} scene="palace" sceneShowing={sceneShowing} />);
     const guide = CHAPTER_ONE[3].guide;
-    const fogged = (u: UiState) => board(u).includes(`<div class="region is-fog" data-fog="${RESCUE_ANTE}" aria-hidden="true"`);
+    const fogged = (u: UiState, sceneShowing = false) => board(u, sceneShowing).includes(`<div class="region is-fog" data-fog="${RESCUE_ANTE}" aria-hidden="true"`);
+    // The antechamber's cells as drawn: [all of them, those shown locked].
+    const ante = (u: UiState, sceneShowing = false) => [/Message antechamber/, /Message antechamber, locked/]
+      .map((re) => (board(u, sceneShowing).match(/aria-label="Row \d+, column \d+, [^"]*"/g) ?? []).filter((l) => re.test(l)).length);
+    const lockedBefore = ante(through(RESCUE_LEVEL, [...R.entry, ...R.gallery, ...R.trap, ...R.workshop, ...R.archive, ...R.chamber.slice(0, -1)]));
+    expect(lockedBefore).toEqual([12, 12]);
     // 1. The releasing move: Fiona asks whether it is opening while the board still shows Alisha shut in on her plate. The
-    // antechamber it opened is under fog, its gate labelled shut; the move is announced without either, with the
-    // discovery cue. C1-11 is still to come, after her question.
+    // antechamber it opened looks as it did before the move (locked, its gate labelled shut); the move is announced
+    // without either, with the discovery cue. C1-11 is still to come, after her question.
     expect([storyDue(ui), storyPending(ui), talkShown(ui), actionEffect(ui)]).toEqual(
       [null, 'C1-11', { who: 'fiona', text: 'I think I found the door release. Is it opening?' }, 'discovery']);
     expect(board(ui)).toContain('data-partition="shut" role="img" aria-label="A crystal partition, closed, with Alisha behind it"');
     expect(board(ui)).toContain('Plate room: Alisha&#x27;s pressure plate: Alisha is standing on it, behind a crystal partition"');
     expect(board(ui)).not.toContain('data-spot="alisha"');
-    expect([fogged(ui), board(ui).includes('aria-label="Rune gate to Message antechamber, closed"')]).toEqual([true, true]);
+    expect([fogged(ui), ante(ui), board(ui).includes('aria-label="Rune gate to Message antechamber, closed"')]).toEqual([false, lockedBefore, true]);
     expect([guide(ui), announcement(ui, 'Level')]).toEqual([
       'Fiona has something to say. Tap her speech bubble to continue.', 'Merged 3 into 1 item: Song, tier 3 of 5.']);
     // 2. Her question heard: the partition opens and Alisha steps out beside Fiona, said as the board shows it; then, after
-    // the pause, C1-11 ("I’m free!"). The antechamber stays under fog.
+    // the pause, C1-11 ("I’m free!"). Through the pause the antechamber still looks as before; once C1-11 is showing over
+    // the board it is under fog, nothing in it.
     const out = reduceUi(ui, { type: 'dismissBubble' });
     expect([storyDue(out), bubbleOpen(out), canPickUp(out, p(1, 5))]).toEqual(['C1-11', false, false]);
     expect(board(out)).toContain('data-partition="opening" role="img" aria-label="A crystal partition, open: Alisha has stepped out"');
     expect(board(out)).toContain('data-spot="alisha"><span class="character is-alisha is-stepping"');
     expect(board(out)).toContain('Plate room: Alisha&#x27;s pressure plate, pressed down"');
-    expect(fogged(out)).toBe(true);
+    expect([fogged(out), ante(out), fogged(out, true), ante(out, true)]).toEqual([false, lockedBefore, true, [0, 0]]);
     expect([guide(out), announcement(out, 'Level')]).toEqual(['The crystal partition opened: Alisha is free.', 'The crystal partition opened: Alisha is free.']);
     // 3. C1-11 read: the partition gone, the pair beside the antechamber, whose fog lifts, announced then.
     const read = reduceUi(out, { type: 'finishStory' });
@@ -590,21 +596,27 @@ describe('Woodland cleanup and Beyond the gate: scenes, the dog and Alisha\'s sp
     expect(html(through(CLEANUP_LEVEL, WINS[1][2]))).toContain('data-trail="followed"');
   });
 
-  it('shows C1-06B on the move that reveals the depot, which stays under fog until the scene has been read', () => {
+  it('shows C1-06B on the move that reveals the depot, which looks as before through the pause and is under fog while it shows', () => {
     const before = through(CLEANUP_LEVEL, [...C.south, ...C.reveal.slice(0, -1)]);
     expect(storyDue(before)).toBeNull();
     const ui = reduceUi(before, { type: 'drop', from: p(6, 5), to: p(4, 5) });
     expect([storyDue(ui), ui.session.done.includes(REVEAL_DEPOT_TASK), isOpen(ui.session, CLEANUP_DEPOT)]).toEqual(['C1-06B', true, true]);
-    // While the scene is due: the move's result shows (its bundle fixed on the tile); the depot is under fog (its shape,
-    // with nothing in it), unnamed in the checklist, board and announcement, its gate concealed, nothing glowing; the
-    // move's cue is the short discovery cue heralding the scene.
-    const html = (u: UiState) => renderToStaticMarkup(
-      <><TaskPanel session={u.session} held={storyHeld(u)} /><Board state={u} dispatch={() => {}} scene="entrance" /></>);
+    // While the scene is due: the move's result shows (its bundle fixed on the tile); the depot is unnamed in the checklist,
+    // board and announcement, its gate concealed, nothing glowing; the move's cue is the short discovery cue heralding the
+    // scene. During the pause before it, the depot looks as it did before the move: plain forest, no fog.
+    const html = (u: UiState, sceneShowing = false) => renderToStaticMarkup(
+      <><TaskPanel session={u.session} held={storyHeld(u)} /><Board state={u} dispatch={() => {}} scene="entrance" sceneShowing={sceneShowing} /></>);
+    const forest = (h: string) => h.match(/class="terrain"/g)?.length;
     expect(storyHeld(ui)).toEqual([CLEANUP_DEPOT]);
     expect(html(ui)).toContain('Fallen wood, pressure plate for Gathered bundle, tier 2 of 5, fixed');
-    expect(html(ui)).toContain(`<div class="region is-fog" data-fog="${CLEANUP_DEPOT}" aria-hidden="true"`);
-    expect(html(ui).match(/class="fogged"/g)).toHaveLength(16);
+    expect(forest(html(ui))).toBe(forest(html(before)));
+    expect([html(ui).includes('data-fog='), html(ui).includes('class="fogged"')]).toEqual([false, false]);
     expect(html(ui)).not.toContain('Hidden depot');
+    // Once the scene is showing over the board, the depot is under fog (its shape, with nothing in it), still unnamed, so
+    // that the fog lifts off it once the scene has been read.
+    expect(html(ui, true)).toContain(`<div class="region is-fog" data-fog="${CLEANUP_DEPOT}" aria-hidden="true"`);
+    expect(html(ui, true).match(/class="fogged"/g)).toHaveLength(16);
+    expect(html(ui, true)).not.toContain('Hidden depot');
     expect(html(ui)).toContain('<span class="check-name">Not found yet</span>');
     expect(html(ui)).not.toContain('data-fx="unlock"');
     expect(announcement(ui, 'Level')).toBe('Moved an item.');
@@ -638,26 +650,11 @@ describe('Woodland cleanup and Beyond the gate: scenes, the dog and Alisha\'s sp
     expect([won.status, viewCue(won)]).toEqual(['won', { kind: 'entrance', plate: p(0, 5), door: null }]);
   });
 
-  it('leads straight from Alisha catching up with the dog into the ending, after the pause, with the discovery cue', () => {
-    vi.useFakeTimers();
-    expect(CHAPTER_ONE.map((c) => !!c.sceneOnWin)).toEqual([false, false, false, false, true]);
+  it('ends like every Chapter 1 level, with Continue: Alisha catching up wins with the victory cue, leading into no scene', () => {
+    expect(CHAPTER_ONE.map((c) => c.winLabel)).toEqual(['Continue', 'Continue', 'Continue', 'Continue', 'Continue']);
     const grove = through(BEYOND_LEVEL, LINES.beyond.slice(0, -1));
     const won = reduceUi(grove, { type: 'placeAlisha', to: p(0, 5) });
-    expect([actionEffect(won, true), actionEffect(won)]).toEqual(['discovery', 'case-victory']);
-    const done = vi.fn();
-    const cancel = afterWinScene(won, done)!;
-    vi.advanceTimersByTime(STORY_DELAY_MS - 1);
-    expect(done).not.toHaveBeenCalled();
-    vi.advanceTimersByTime(1);
-    vi.advanceTimersByTime(STORY_DELAY_MS * 3);
-    expect(done).toHaveBeenCalledTimes(1);
-    cancel();
-    // Retry or leaving cancels the wait; nothing waits before the win, or after Retry.
-    const later = vi.fn();
-    afterWinScene(won, later)!();
-    vi.advanceTimersByTime(STORY_DELAY_MS * 3);
-    expect(later).not.toHaveBeenCalled();
-    for (const s of [grove, reduceUi(won, { type: 'retry' })]) expect(afterWinScene(s, later)).toBeUndefined();
+    expect([won.status, storyDue(won), storyPending(won), actionEffect(won)]).toEqual(['won', null, null, 'case-victory']);
   });
 });
 
@@ -739,6 +736,12 @@ describe('Chapter 1 story scenes: the storyboard\'s pictures and words', () => {
 
 describe('Levels: Chapter 1 in the development preview, the original nine kept apart', () => {
   const names = CHAPTER_ONE.map((c) => c.name);
+  it('offers Story (the prologue first), Puzzles (generated puzzles) and Levels from Home', () => {
+    const nav = [...renderToStaticMarkup(<App />).matchAll(/<button type="button" class="btn[^"]*" data-action="([^"]+)">([^<]+)<\/button>/g)]
+      .map((m) => [m[1], m[2]]);
+    expect(nav).toEqual([['story', 'Story'], ['play', 'Puzzles'], ['play-levels', 'Levels'], ['scores', 'Music / Scores']]);
+  });
+
   it('lists the Attic as prologue, the five levels with their own progress, then Previous levels, folded', () => {
     const page = renderToStaticMarkup(<LevelPicker levels={LEVELS} current={4} onPick={() => {}} onAttic={() => {}} onHome={() => {}}
       musicControl={null} chapter={{ names, next: 1, onPick: () => {} }} />);

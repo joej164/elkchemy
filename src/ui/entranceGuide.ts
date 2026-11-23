@@ -46,21 +46,11 @@ export function afterEntranceOpening(state: UiState, ready: () => void, ms = ENT
 /**
  * How long a story scene waits after the move that makes it due, the board paused, so the board first shows what that
  * move did (the item on its marked tile, now fixed; Alisha on her plate) while the discovery cue plays (see actionEffect).
- * The regions it opened stay as they were until the scene has been read (see storyHeld); then they open on the board. The
+ * The regions it opened look as they did before it until the scene is shown, and open on the board once it has been read
+ * (see storyHeld). The
  * same under reduced motion: the pause is for seeing the move, not for animation.
  */
 export const STORY_DELAY_MS = 1500;
-
-/**
- * A level whose win leads straight into its ending (Beyond the gate: Alisha stepping onto her plate beside the dog): once
- * the last action won, calls `done` after `ms`, the same pause as before a story scene. A timer, as above. Returns the
- * cancel, for the next action (Retry) or leaving, after which it never calls `done`; undefined unless just won.
- */
-export function afterWinScene(state: UiState, done: () => void, ms = STORY_DELAY_MS): (() => void) | undefined {
-  if (state.status !== 'won') return undefined;
-  const timer = setTimeout(done, ms);
-  return () => clearTimeout(timer);
-}
 
 /**
  * While a story scene is due (storyDue), calls `ready` after `ms`, for the scene to be shown then. A timer, as for the

@@ -3,8 +3,12 @@ import landscapeArt from '../assets/art/woodland-home-landscape-v1.webp';
 import portraitArt from '../assets/art/woodland-home-portrait-v1.webp';
 import { SceneArt } from './SceneArt';
 
-/** Home screen: the woodland scene with the elk, and the ways in. */
-export function Home({ onPlay, onLevels, onScores, onReleaseNotes, levelsNote, musicControl }: {
+/**
+ * Home screen: the woodland scene with the elk, and the ways in: Story (with `onStory`, the development preview: starts
+ * the prologue), Puzzles (generated puzzles), Levels and Music / Scores.
+ */
+export function Home({ onStory, onPlay, onLevels, onScores, onReleaseNotes, levelsNote, musicControl }: {
+  onStory?: () => void;
   onPlay: () => void;
   onLevels: () => void;
   onScores: () => void;
@@ -27,7 +31,8 @@ export function Home({ onPlay, onLevels, onScores, onReleaseNotes, levelsNote, m
       <div className="scene-main">
         <h1>Elkchemy</h1>
         <nav className="home-nav" aria-label="Main">
-          <button type="button" className="btn" data-action="play" onClick={onPlay}>Play</button>
+          {onStory && <button type="button" className="btn" data-action="story" onClick={onStory}>Story</button>}
+          <button type="button" className="btn" data-action="play" onClick={onPlay}>Puzzles</button>
           <button type="button" className="btn" data-action="play-levels" onClick={onLevels}>Levels</button>
           <button type="button" className="btn btn-quiet" data-action="scores" onClick={onScores}>Music / Scores</button>
         </nav>
